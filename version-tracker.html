@@ -849,15 +849,18 @@
                 reader.onload = function(e) {
                     setTimeout(() => {
                         const newName = generateFileName(file.name);
+                        const fileType = detectScreenshotType(file.name);
                         const processedFile = {
                             originalName: file.name,
                             newName: newName,
-                            type: detectScreenshotType(file.name),
+                            type: fileType,
                             base64Data: e.target.result, // Store as base64
                             timestamp: new Date().toISOString(),
                             version: currentVersion,
                             size: file.size
                         };
+                        
+                        console.log('Created processed file:', processedFile);
                         
                         uploadedFiles.push(processedFile);
                         processed++;
@@ -1027,6 +1030,9 @@
                     <button onclick="saveVersionTracker()" style="background: #28a745; color: white; border: none; padding: 0.75rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
                         💾 Save Version Tracker with Images
                     </button>
+                    <button onclick="testUpdateImages()" style="background: #ffc107; color: black; border: none; padding: 0.75rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        🔧 Test Update Images
+                    </button>
                 </div>
                 
                 <div class="command" style="margin-top: 1rem;">
@@ -1054,37 +1060,69 @@
         
         // Embed image in the version tracker
         function embedInVersionTracker(file) {
+            console.log('Embedding file in version tracker:', file);
             // Update the screenshot grid to show actual images
-            updateVersionHistoryImages();
+            setTimeout(() => {
+                updateVersionHistoryImages();
+            }, 100); // Small delay to ensure DOM is ready
         }
         
         // Update version history with embedded images
         function updateVersionHistoryImages() {
+            console.log('Updating version history images...', uploadedFiles);
             const versionCard = document.querySelector('.version-card .screenshot-grid');
-            if (!versionCard) return;
+            if (!versionCard) {
+                console.log('Version card not found');
+                return;
+            }
             
-            // Group files by type
+            // Group files by type for current version
             const imagesByType = {};
             uploadedFiles.forEach(file => {
+                console.log('Processing file:', file.type, 'for version:', file.version);
                 if (file.version === currentVersion) {
                     imagesByType[file.type] = file;
                 }
             });
             
+            console.log('Images by type:', imagesByType);
+            
+            // Define mapping between placeholder labels and file types
+            const placeholderMapping = {
+                'full-page': ['Full Page View', 'ui-v1.4-1001_full-page.png'],
+                'patient-panel': ['Patient Panel', 'ui-v1.4-1001_patient-panel.png'],
+                'crm-panel': ['CRM Panel', 'ui-v1.4-1001_crm-panel.png'],
+                'mobile-view': ['Mobile View', 'ui-v1.4-1001_mobile-view.png']
+            };
+            
             // Update placeholders with actual images
             const placeholders = versionCard.querySelectorAll('.screenshot-item');
             placeholders.forEach(item => {
-                const label = item.querySelector('.screenshot-label').textContent;
-                const type = label.split('_')[1]?.split('.')[0]; // Extract type from filename
+                const placeholder = item.querySelector('.screenshot-placeholder');
+                const labelElement = item.querySelector('.screenshot-label');
                 
-                if (imagesByType[type]) {
-                    const placeholder = item.querySelector('.screenshot-placeholder');
-                    const file = imagesByType[type];
+                if (!placeholder || !labelElement) return;
+                
+                const labelText = labelElement.textContent.trim();
+                console.log('Processing placeholder with label:', labelText);
+                
+                // Find matching file type for this placeholder
+                let matchingFile = null;
+                for (const [fileType, [displayName, fileName]] of Object.entries(placeholderMapping)) {
+                    if (labelText.includes(displayName) || labelText.includes(fileName)) {
+                        matchingFile = imagesByType[fileType];
+                        console.log('Found matching file for', displayName, ':', matchingFile);
+                        break;
+                    }
+                }
+                
+                if (matchingFile) {
+                    const file = matchingFile;
                     
                     placeholder.innerHTML = `
                         <img src="${file.base64Data}" 
                              style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px;" 
-                             onclick="openImageModal('${file.base64Data}', '${file.newName}', '${file.originalName}', '${new Date(file.timestamp).toLocaleString()}', ${Math.round(file.size / 1024)})"
+                             onclick="openImageModal('${file.base64Data.replace(/'/g, "\\'")}', '${file.newName}', '${file.originalName}', '${new Date(file.timestamp).toLocaleString()}', ${Math.round(file.size / 1024)})"
                              alt="${file.newName}">
                         <div class="image-overlay">🔍 Click to enlarge</div>
                         <div class="upload-status">✅</div>
@@ -1092,6 +1130,10 @@
                     placeholder.style.border = '1px solid #28a745';
                     placeholder.style.background = '#d4edda';
                     placeholder.style.position = 'relative';
+                    
+                    console.log('Updated placeholder for:', file.type);
+                } else {
+                    console.log('No matching file found for placeholder:', labelText);
                 }
             });
         }
@@ -1135,15 +1177,51 @@
         // Clear saved files
         function clearSavedFiles() {
             if (confirm('Clear all uploaded files? This cannot be undone.')) {
+                console.log('Clearing all files...');
+                
+                // Clear the array and localStorage
                 uploadedFiles = [];
                 localStorage.removeItem('uploadedFiles');
-                document.getElementById('uploaded-files').style.display = 'none';
+                
+                // Hide uploaded files section
+                const uploadedSection = document.getElementById('uploaded-files');
+                if (uploadedSection) {
+                    uploadedSection.style.display = 'none';
+                }
+                
                 // Reset checklist
                 const checkboxes = document.querySelectorAll('#checklist input[type="checkbox"]');
                 checkboxes.forEach(cb => cb.checked = false);
-                // Reset version history images
-                location.reload();
+                
+                // Reset version history placeholders to original state
+                resetVersionHistoryPlaceholders();
+                
+                console.log('Files cleared successfully');
             }
+        }
+        
+        // Reset version history placeholders to original empty state
+        function resetVersionHistoryPlaceholders() {
+            const versionCard = document.querySelector('.version-card .screenshot-grid');
+            if (!versionCard) return;
+            
+            const placeholders = versionCard.querySelectorAll('.screenshot-item');
+            const originalContent = {
+                0: 'Full Page View',
+                1: 'Patient Panel', 
+                2: 'CRM Panel',
+                3: 'Mobile View'
+            };
+            
+            placeholders.forEach((item, index) => {
+                const placeholder = item.querySelector('.screenshot-placeholder');
+                if (placeholder && originalContent[index]) {
+                    placeholder.innerHTML = originalContent[index];
+                    placeholder.style.border = '2px dashed #dee2e6';
+                    placeholder.style.background = '#f8f9fa';
+                    placeholder.style.position = 'static';
+                }
+            });
         }
         
         // Image modal functions
@@ -1206,6 +1284,29 @@
                 
                 return `screenshot-${uploadedFiles.length + 1}`;
             }
+        }
+        
+        // Test function to debug image updates
+        function testUpdateImages() {
+            console.log('=== DEBUG INFO ===');
+            console.log('Current version:', currentVersion);
+            console.log('Uploaded files:', uploadedFiles);
+            console.log('Files for current version:', uploadedFiles.filter(f => f.version === currentVersion));
+            
+            const versionCard = document.querySelector('.version-card .screenshot-grid');
+            console.log('Version card found:', !!versionCard);
+            
+            if (versionCard) {
+                const placeholders = versionCard.querySelectorAll('.screenshot-item');
+                console.log('Placeholders found:', placeholders.length);
+                placeholders.forEach((item, index) => {
+                    const label = item.querySelector('.screenshot-label');
+                    console.log(`Placeholder ${index}:`, label ? label.textContent : 'No label');
+                });
+            }
+            
+            // Force update
+            updateVersionHistoryImages();
         }
         
         // Add keyboard support for modal
