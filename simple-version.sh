@@ -47,6 +47,14 @@ case "$1" in
         .drag-drop:hover { border-color: #0056b3; background: #bbdefb; }
         #screenshot-display { max-width: 100%; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); cursor: pointer; }
         .meta-info { background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0; }
+        .save-section { text-align: center; margin: 20px 0; }
+        .save-btn { background: linear-gradient(135deg, #28a745, #20c997); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3); }
+        .save-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(40, 167, 69, 0.4); background: linear-gradient(135deg, #218838, #1ea07a); }
+        .save-btn:disabled { background: #6c757d; cursor: not-allowed; transform: none; box-shadow: none; }
+        .save-status { margin-top: 15px; padding: 10px; border-radius: 6px; font-weight: 500; }
+        .save-status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .save-status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .save-status.info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
     </style>
 </head>
 <body>
@@ -68,6 +76,13 @@ case "$1" in
             </div>
             <input type="file" id="screenshot-input" accept="image/*" style="display: none;">
             <img id="screenshot-display" style="display: none;">
+        </div>
+        
+        <div class="save-section">
+            <button id="save-btn" class="save-btn" onclick="saveScreenshot()">
+                <i class="fas fa-save"></i> Save Screenshot to Version
+            </button>
+            <div id="save-status" class="save-status"></div>
         </div>
         
         <div class="code-section">
@@ -179,6 +194,53 @@ case "$1" in
         display.addEventListener('click', function() {
             window.open(this.src, '_blank');
         });
+        
+        // Save screenshot functionality
+        function saveScreenshot() {
+            const savedImage = localStorage.getItem('screenshot-v-$TIMESTAMP');
+            const saveBtn = document.getElementById('save-btn');
+            const saveStatus = document.getElementById('save-status');
+            
+            if (!savedImage) {
+                saveStatus.className = 'save-status error';
+                saveStatus.textContent = '❌ No screenshot to save. Please upload a screenshot first.';
+                return;
+            }
+            
+            // Disable button and show saving state
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            saveStatus.className = 'save-status info';
+            saveStatus.textContent = '💾 Saving screenshot to version...';
+            
+            // Simulate save process (since this is a static HTML file, we use localStorage persistence)
+            setTimeout(() => {
+                // Re-save to ensure persistence
+                localStorage.setItem('screenshot-v-$TIMESTAMP', savedImage);
+                
+                // Update the HTML file itself with the screenshot data
+                const htmlContent = document.documentElement.outerHTML;
+                const blob = new Blob([htmlContent], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                
+                // Create download link for user to save the updated file
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'version-summary.html';
+                
+                // Reset button
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Screenshot to Version';
+                
+                // Show success message
+                saveStatus.className = 'save-status success';
+                saveStatus.innerHTML = '✅ Screenshot saved! <br><small>📁 Download updated file: <a href="' + url + '" download="version-summary.html" style="color: #155724; text-decoration: underline;">version-summary.html</a></small>';
+                
+                // Auto-cleanup URL after 5 seconds
+                setTimeout(() => URL.revokeObjectURL(url), 5000);
+                
+            }, 1500);
+        }
     </script>
 </body>
 </html>
