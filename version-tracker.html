@@ -350,6 +350,119 @@
             border: 1px solid #dee2e6;
             margin: 0.5rem 0;
         }
+        
+        /* Image enlargement modal */
+        .image-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .image-modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 35px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+        
+        .modal-close:hover {
+            color: #ff6b6b;
+        }
+        
+        .modal-info {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Enhanced screenshot placeholders */
+        .screenshot-placeholder {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .screenshot-placeholder:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .screenshot-placeholder img {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .screenshot-placeholder img:hover {
+            opacity: 0.9;
+        }
+        
+        .image-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .screenshot-placeholder:hover .image-overlay {
+            opacity: 1;
+        }
+        
+        .upload-status {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #28a745;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -396,6 +509,9 @@
                 <strong>Baseline version ready for feedback-driven improvements</strong><br>
                 Complete screenpop system with patient info, CRM flags, and appointment status panels.
                 Includes simulation controls and modal interactions.
+                <div style="margin-top: 1rem; padding: 0.75rem; background: #e3f2fd; border-radius: 6px; border-left: 4px solid #2196f3;">
+                    💡 <strong>Upload screenshots:</strong> Go to "Visual Gallery" tab → drag & drop images → they'll appear here automatically with click-to-enlarge functionality!
+                </div>
             </div>
             <div class="screenshot-grid">
                 <div class="screenshot-item">
@@ -464,3 +580,648 @@
             </div>
             
             <div class="uploaded-files" id="uploaded-files" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h4 style="margin: 0;">✅ Successfully Added Screenshots</h4>
+                    <button onclick="clearSavedFiles()" style="background: #dc3545; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                        🗑️ Clear All
+                    </button>
+                </div>
+                <div id="file-list"></div>
+            </div>
+            
+            <div class="command-card">
+                <h4>📋 Screenshot Checklist for Current Version (ui-v1.4-1001):</h4>
+                <div id="checklist">
+                    <label><input type="checkbox" id="check-full"> Full page view</label><br>
+                    <label><input type="checkbox" id="check-patient"> Patient information panel</label><br>
+                    <label><input type="checkbox" id="check-crm"> CRM flags and notes panel</label><br>
+                    <label><input type="checkbox" id="check-appointment"> Appointment status panel</label><br>
+                    <label><input type="checkbox" id="check-mobile"> Mobile responsive view</label><br>
+                    <label><input type="checkbox" id="check-controls"> Simulation controls</label><br>
+                    <label><input type="checkbox" id="check-modal"> Modal states (if applicable)</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="commands" class="tab-content">
+        <div class="comparison-section">
+            <h2>⚙️ Version Control Commands</h2>
+            
+            <h3>🎨 UI Iteration Commands</h3>
+            <div class="command-card">
+                <h4>Start new iteration:</h4>
+                <div class="command">./ui-iteration.sh start "Description of what you're working on"</div>
+            </div>
+            
+            <div class="command-card">
+                <h4>Save current changes:</h4>
+                <div class="command">./ui-iteration.sh save "Description of changes made"</div>
+            </div>
+            
+            <div class="command-card">
+                <h4>Take screenshots:</h4>
+                <div class="command">./capture-screenshots.sh</div>
+            </div>
+            
+            <div class="command-card">
+                <h4>View iteration history:</h4>
+                <div class="command">./ui-iteration.sh history</div>
+            </div>
+
+            <h3>📸 Visual Tracking Commands</h3>
+            <div class="command-card">
+                <h4>Get screenshot naming guide:</h4>
+                <div class="command">./ui-iteration.sh visual</div>
+            </div>
+            
+            <div class="command-card">
+                <h4>View captured screenshots:</h4>
+                <div class="command">./ui-iteration.sh gallery</div>
+            </div>
+
+            <h3>🔍 Comparison Commands</h3>
+            <div class="command-card">
+                <h4>Compare two versions:</h4>
+                <div class="command">./compare-visuals.sh ui-v1.3-1001 ui-v1.4-1001</div>
+            </div>
+            
+            <div class="command-card">
+                <h4>List available versions:</h4>
+                <div class="command">./compare-visuals.sh list</div>
+            </div>
+
+            <h3>🔄 Git Commands</h3>
+            <div class="command-card">
+                <h4>View version history:</h4>
+                <div class="command">git log --oneline</div>
+            </div>
+            
+            <div class="command-card">
+                <h4>Switch to previous version:</h4>
+                <div class="command">git checkout [version-tag]</div>
+            </div>
+            
+            <div class="command-card">
+                <h4>Return to current work:</h4>
+                <div class="command">git checkout ui-iterations</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="compare" class="tab-content">
+        <div class="comparison-section">
+            <h2>🔍 Version Comparison</h2>
+            <p>Use this section to compare different UI iterations and identify successful features.</p>
+            
+            <div class="command-card">
+                <h4>Available Versions for Comparison:</h4>
+                <div id="version-list">
+                    <div>🏷️ ui-v1.4-1001 (Current baseline)</div>
+                    <div style="color: #6c757d; font-style: italic;">More versions will appear as you create iterations</div>
+                </div>
+            </div>
+            
+            <div class="command-card">
+                <h4>Building Your Final Comprehensive Version:</h4>
+                <div>1. Review screenshots from each iteration</div>
+                <div>2. Document successful visual elements</div>
+                <div>3. Note design patterns that work well</div>
+                <div>4. Cherry-pick best features for final version</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image enlargement modal -->
+    <div class="image-modal" id="imageModal">
+        <span class="modal-close" onclick="closeImageModal()">&times;</span>
+        <img class="modal-content" id="modalImage">
+        <div class="modal-info" id="modalInfo">
+            <div id="modal-filename"></div>
+            <div id="modal-details"></div>
+        </div>
+    </div>
+
+    <button class="refresh-btn" onclick="if(confirm('Refresh page? (Uploaded files will be preserved)')) location.reload()" title="Manual refresh - uploaded files will be preserved">
+        🔄
+    </button>
+
+    <script>
+        // Current version tracking
+        let currentVersion = 'ui-v1.4-1001';
+        let uploadedFiles = [];
+        
+        // Load saved files from localStorage
+        function loadSavedFiles() {
+            const saved = localStorage.getItem('uploadedFiles');
+            if (saved) {
+                try {
+                    uploadedFiles = JSON.parse(saved);
+                    if (uploadedFiles.length > 0) {
+                        showUploadedFiles();
+                        updateChecklist();
+                        updateVersionHistoryImages();
+                        generateEmbeddedInstructions();
+                    }
+                } catch (e) {
+                    console.log('No saved files to load');
+                    uploadedFiles = [];
+                }
+            }
+        }
+        
+        // Save files to localStorage
+        function saveFiles() {
+            try {
+                localStorage.setItem('uploadedFiles', JSON.stringify(uploadedFiles));
+            } catch (e) {
+                console.log('Could not save files to localStorage');
+            }
+        }
+        
+        // Handle version selection
+        function setupVersionSelector() {
+            const versionSelect = document.getElementById('version-select');
+            
+            versionSelect.addEventListener('change', (e) => {
+                if (e.target.value === 'custom') {
+                    const customVersion = prompt('Enter custom version tag (e.g., ui-v1.5-1002):');
+                    if (customVersion) {
+                        currentVersion = customVersion;
+                        // Add to dropdown
+                        const option = document.createElement('option');
+                        option.value = customVersion;
+                        option.textContent = customVersion + ' (Custom)';
+                        option.selected = true;
+                        versionSelect.insertBefore(option, versionSelect.lastElementChild);
+                    } else {
+                        versionSelect.value = currentVersion;
+                    }
+                } else {
+                    currentVersion = e.target.value;
+                }
+                updateNamingPreview();
+            });
+        }
+        
+        // Update naming preview
+        function updateNamingPreview() {
+            const preview = document.getElementById('naming-preview');
+            preview.innerHTML = `
+                your-screenshot.png → ${currentVersion}_full-page.png<br>
+                mobile-view.png → ${currentVersion}_mobile-view.png<br>
+                panel.png → ${currentVersion}_patient-panel.png
+            `;
+        }
+        
+        function showTab(tabName) {
+            // Hide all tab contents
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(content => content.classList.remove('active'));
+            
+            // Remove active class from all tabs
+            const tabs = document.querySelectorAll('.nav-tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+        
+        // Drag and drop functionality
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('screenshot-dropzone');
+            const fileInput = document.getElementById('file-input');
+            
+            // Click to select files
+            dropZone.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            // File input change
+            fileInput.addEventListener('change', (e) => {
+                handleFiles(e.target.files);
+            });
+            
+            // Drag events
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+            
+            dropZone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                handleFiles(e.dataTransfer.files);
+            });
+        }
+        
+        // Handle dropped/selected files
+        function handleFiles(files) {
+            const fileArray = Array.from(files);
+            const imageFiles = fileArray.filter(file => file.type.startsWith('image/'));
+            
+            if (imageFiles.length === 0) {
+                alert('Please select image files only.');
+                return;
+            }
+            
+            showUploadProgress();
+            processFiles(imageFiles);
+        }
+        
+        // Process and rename files
+        function processFiles(files) {
+            const progressFill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('progress-text');
+            let processed = 0;
+            
+            files.forEach((file, index) => {
+                // Convert file to base64 for permanent storage
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    setTimeout(() => {
+                        const newName = generateFileName(file.name);
+                        const processedFile = {
+                            originalName: file.name,
+                            newName: newName,
+                            type: detectScreenshotType(file.name),
+                            base64Data: e.target.result, // Store as base64
+                            timestamp: new Date().toISOString(),
+                            version: currentVersion,
+                            size: file.size
+                        };
+                        
+                        uploadedFiles.push(processedFile);
+                        processed++;
+                        
+                        // Save to localStorage and embed in page
+                        saveFiles();
+                        embedInVersionTracker(processedFile);
+                        
+                        // Update progress
+                        const progress = (processed / files.length) * 100;
+                        progressFill.style.width = progress + '%';
+                        progressText.textContent = Math.round(progress) + '% complete';
+                        
+                        // If all files processed
+                        if (processed === files.length) {
+                            setTimeout(() => {
+                                hideUploadProgress();
+                                showUploadedFiles();
+                                updateChecklist();
+                                generateEmbeddedInstructions();
+                            }, 500);
+                        }
+                    }, index * 200); // Stagger processing for visual effect
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // Generate appropriate filename
+        function generateFileName(originalName) {
+            const baseName = originalName.toLowerCase().replace(/\.[^/.]+$/, "");
+            let type = detectScreenshotType(baseName);
+            return `${currentVersion}_${type}.png`;
+        }
+        
+        // Detect screenshot type from filename
+        function detectScreenshotType(filename) {
+            const name = filename.toLowerCase();
+            
+            if (name.includes('full') || name.includes('page') || name.includes('complete')) {
+                return 'full-page';
+            } else if (name.includes('patient') || name.includes('info')) {
+                return 'patient-panel';
+            } else if (name.includes('crm') || name.includes('flag')) {
+                return 'crm-panel';
+            } else if (name.includes('appointment') || name.includes('status')) {
+                return 'appointment-panel';
+            } else if (name.includes('mobile') || name.includes('responsive')) {
+                return 'mobile-view';
+            } else if (name.includes('control') || name.includes('simulation')) {
+                return 'simulation-controls';
+            } else if (name.includes('modal') || name.includes('popup')) {
+                return 'modal-state';
+            } else {
+                // Default naming based on order
+                const count = uploadedFiles.length + 1;
+                const types = ['full-page', 'patient-panel', 'crm-panel', 'appointment-panel', 'mobile-view'];
+                return types[count - 1] || `screenshot-${count}`;
+            }
+        }
+        
+        // Show upload progress
+        function showUploadProgress() {
+            document.getElementById('upload-progress').style.display = 'block';
+            document.getElementById('progress-fill').style.width = '0%';
+            document.getElementById('progress-text').textContent = '0% complete';
+        }
+        
+        // Hide upload progress
+        function hideUploadProgress() {
+            document.getElementById('upload-progress').style.display = 'none';
+        }
+        
+        // Show uploaded files
+        function showUploadedFiles() {
+            const uploadedSection = document.getElementById('uploaded-files');
+            const fileList = document.getElementById('file-list');
+            
+            uploadedSection.style.display = 'block';
+            fileList.innerHTML = '';
+            
+            uploadedFiles.forEach((file, index) => {
+                const fileDiv = document.createElement('div');
+                fileDiv.className = 'uploaded-file';
+                const fileSizeKB = Math.round(file.size / 1024);
+                fileDiv.innerHTML = `
+                    <div class="file-info">
+                        <img src="${file.base64Data}" alt="Preview" class="file-preview">
+                        <div>
+                            <div style="font-weight: 600;">${file.newName}</div>
+                            <div style="font-size: 0.8rem; color: #6c757d;">
+                                Original: ${file.originalName} (${fileSizeKB}KB)
+                            </div>
+                            <div style="font-size: 0.8rem; color: #6c757d;">
+                                Added: ${new Date(file.timestamp).toLocaleString()}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <div class="file-status status-success">📱 Embedded</div>
+                        <button onclick="downloadImage(${index})" style="background: #28a745; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                            💾 Download
+                        </button>
+                    </div>
+                `;
+                fileList.appendChild(fileDiv);
+            });
+        }
+        
+        // Update checklist based on uploaded files
+        function updateChecklist() {
+            const typeMap = {
+                'full-page': 'check-full',
+                'patient-panel': 'check-patient',
+                'crm-panel': 'check-crm',
+                'appointment-panel': 'check-appointment',
+                'mobile-view': 'check-mobile',
+                'simulation-controls': 'check-controls',
+                'modal-state': 'check-modal'
+            };
+            
+            uploadedFiles.forEach(file => {
+                const checkboxId = typeMap[file.type];
+                if (checkboxId) {
+                    const checkbox = document.getElementById(checkboxId);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+                }
+            });
+        }
+        
+        // Generate embedded storage instructions
+        function generateEmbeddedInstructions() {
+            // Only add instructions if they don't already exist
+            if (document.getElementById('embedded-instructions')) {
+                return;
+            }
+            
+            const instructionsDiv = document.createElement('div');
+            instructionsDiv.id = 'embedded-instructions';
+            instructionsDiv.className = 'command-card';
+            instructionsDiv.innerHTML = `
+                <h4>🎉 Screenshots Embedded in Version Tracker!</h4>
+                <p><strong>Your images are now permanently stored inside this HTML file!</strong></p>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin: 1rem 0;">
+                    <div style="background: #d4edda; padding: 1rem; border-radius: 6px; border-left: 4px solid #28a745;">
+                        <strong>✅ Automatically Saved:</strong><br>
+                        • Images embedded as base64 data<br>
+                        • Visible in Version History tab<br>
+                        • Preserved in Git commits<br>
+                        • No separate files needed
+                    </div>
+                    <div style="background: #fff3cd; padding: 1rem; border-radius: 6px; border-left: 4px solid #ffc107;">
+                        <strong>📁 Optional Actions:</strong><br>
+                        • Click "💾 Download" to save individual images<br>
+                        • Use buttons below for batch operations<br>
+                        • Commit this HTML file to Git
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin: 1rem 0; flex-wrap: wrap;">
+                    <button onclick="downloadAllImages()" style="background: #007bff; color: white; border: none; padding: 0.75rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        📦 Download All Images
+                    </button>
+                    <button onclick="saveVersionTracker()" style="background: #28a745; color: white; border: none; padding: 0.75rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        💾 Save Version Tracker with Images
+                    </button>
+                </div>
+                
+                <div class="command" style="margin-top: 1rem;">
+                    cd "/Users/samanthadurrant/Desktop/Phones tracking"<br>
+                    git add version-tracker.html<br>
+                    git commit -m "Embed visual documentation for ${currentVersion}"
+                </div>
+                
+                <p style="margin-top: 1rem; font-size: 0.9rem; color: #6c757d;">
+                    💡 <strong>Advantage:</strong> Your screenshots are now part of your version control history and will never be lost!
+                </p>
+            `;
+            
+            document.getElementById('uploaded-files').appendChild(instructionsDiv);
+        }
+        
+        // Auto-refresh removed to prevent losing uploaded files
+        // Files now persist until manually refreshed
+        
+        // Check for screenshots and update status
+        function updateScreenshotStatus() {
+            // This would be enhanced with actual file checking in a real environment
+            console.log('Checking for screenshots...');
+        }
+        
+        // Embed image in the version tracker
+        function embedInVersionTracker(file) {
+            // Update the screenshot grid to show actual images
+            updateVersionHistoryImages();
+        }
+        
+        // Update version history with embedded images
+        function updateVersionHistoryImages() {
+            const versionCard = document.querySelector('.version-card .screenshot-grid');
+            if (!versionCard) return;
+            
+            // Group files by type
+            const imagesByType = {};
+            uploadedFiles.forEach(file => {
+                if (file.version === currentVersion) {
+                    imagesByType[file.type] = file;
+                }
+            });
+            
+            // Update placeholders with actual images
+            const placeholders = versionCard.querySelectorAll('.screenshot-item');
+            placeholders.forEach(item => {
+                const label = item.querySelector('.screenshot-label').textContent;
+                const type = label.split('_')[1]?.split('.')[0]; // Extract type from filename
+                
+                if (imagesByType[type]) {
+                    const placeholder = item.querySelector('.screenshot-placeholder');
+                    const file = imagesByType[type];
+                    
+                    placeholder.innerHTML = `
+                        <img src="${file.base64Data}" 
+                             style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px;" 
+                             onclick="openImageModal('${file.base64Data}', '${file.newName}', '${file.originalName}', '${new Date(file.timestamp).toLocaleString()}', ${Math.round(file.size / 1024)})"
+                             alt="${file.newName}">
+                        <div class="image-overlay">🔍 Click to enlarge</div>
+                        <div class="upload-status">✅</div>
+                    `;
+                    placeholder.style.border = '1px solid #28a745';
+                    placeholder.style.background = '#d4edda';
+                    placeholder.style.position = 'relative';
+                }
+            });
+        }
+        
+        // Download individual image
+        function downloadImage(index) {
+            const file = uploadedFiles[index];
+            if (!file) return;
+            
+            // Create download link
+            const link = document.createElement('a');
+            link.href = file.base64Data;
+            link.download = file.newName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // Download all images as zip (simplified version)
+        function downloadAllImages() {
+            uploadedFiles.forEach((file, index) => {
+                setTimeout(() => {
+                    downloadImage(index);
+                }, index * 500); // Stagger downloads
+            });
+        }
+        
+        // Save version tracker with embedded images
+        function saveVersionTracker() {
+            const htmlContent = document.documentElement.outerHTML;
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `version-tracker-${currentVersion}-${new Date().getTime()}.html`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+        }
+        
+        // Clear saved files
+        function clearSavedFiles() {
+            if (confirm('Clear all uploaded files? This cannot be undone.')) {
+                uploadedFiles = [];
+                localStorage.removeItem('uploadedFiles');
+                document.getElementById('uploaded-files').style.display = 'none';
+                // Reset checklist
+                const checkboxes = document.querySelectorAll('#checklist input[type="checkbox"]');
+                checkboxes.forEach(cb => cb.checked = false);
+                // Reset version history images
+                location.reload();
+            }
+        }
+        
+        // Image modal functions
+        function openImageModal(imageSrc, filename, originalName, timestamp, sizeKB) {
+            const modal = document.getElementById('imageModal');
+            const modalImg = document.getElementById('modalImage');
+            const modalFilename = document.getElementById('modal-filename');
+            const modalDetails = document.getElementById('modal-details');
+            
+            modal.classList.add('active');
+            modalImg.src = imageSrc;
+            modalFilename.textContent = filename;
+            modalDetails.innerHTML = `
+                Original: ${originalName}<br>
+                Added: ${timestamp}<br>
+                Size: ${sizeKB}KB
+            `;
+            
+            // Close on background click
+            modal.onclick = function(e) {
+                if (e.target === modal) {
+                    closeImageModal();
+                }
+            }
+        }
+        
+        function closeImageModal() {
+            const modal = document.getElementById('imageModal');
+            modal.classList.remove('active');
+        }
+        
+        // Improved type detection for better mapping to placeholders
+        function detectScreenshotType(filename) {
+            const name = filename.toLowerCase();
+            
+            if (name.includes('full') || name.includes('page') || name.includes('complete') || name.includes('screenshot')) {
+                return 'full-page';
+            } else if (name.includes('patient') || name.includes('info')) {
+                return 'patient-panel';
+            } else if (name.includes('crm') || name.includes('flag')) {
+                return 'crm-panel';
+            } else if (name.includes('appointment') || name.includes('status')) {
+                return 'appointment-panel';
+            } else if (name.includes('mobile') || name.includes('responsive') || name.includes('phone')) {
+                return 'mobile-view';
+            } else if (name.includes('control') || name.includes('simulation')) {
+                return 'simulation-controls';
+            } else if (name.includes('modal') || name.includes('popup')) {
+                return 'modal-state';
+            } else {
+                // Smart default assignment based on upload order and available slots
+                const currentTypes = uploadedFiles.map(f => f.type);
+                const availableTypes = ['full-page', 'patient-panel', 'crm-panel', 'appointment-panel', 'mobile-view'];
+                
+                for (let type of availableTypes) {
+                    if (!currentTypes.includes(type)) {
+                        return type;
+                    }
+                }
+                
+                return `screenshot-${uploadedFiles.length + 1}`;
+            }
+        }
+        
+        // Add keyboard support for modal
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeImageModal();
+            }
+        });
+        
+        // Initialize everything
+        document.addEventListener('DOMContentLoaded', () => {
+            setupDragAndDrop();
+            setupVersionSelector();
+            loadSavedFiles(); // Load any previously uploaded files
+            updateScreenshotStatus();
+        });
+    </script>
+</body>
+</html>
