@@ -964,3 +964,223 @@ function skipAppointmentReason() {
     addNewActivity('Appointment reason entry skipped', 'fas fa-forward', 'text-gray');
     showNotification('Reason entry skipped', 'info');
 }
+
+// Version Control Functions
+function saveVersion() {
+    const description = prompt('Enter a description for this UI version:');
+    if (!description) {
+        return; // User cancelled
+    }
+    
+    // Show loading state
+    const btn = document.querySelector('.save-version-btn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    btn.disabled = true;
+    
+    // Create a simple API call simulation (this would normally call a backend)
+    // For now, we'll show instructions to the user
+    setTimeout(() => {
+        // Reset button
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        
+        // Show success message with instructions
+        showVersionSaveDialog(description);
+    }, 1000);
+}
+
+function showVersionSaveDialog(description) {
+    const modal = document.createElement('div');
+    modal.className = 'version-save-modal';
+    modal.innerHTML = `
+        <div class="version-save-content">
+            <div class="version-save-header">
+                <h3><i class="fas fa-camera"></i> Save UI Version</h3>
+                <button onclick="closeVersionModal()" class="modal-close">×</button>
+            </div>
+            <div class="version-save-body">
+                <p><strong>Description:</strong> ${description}</p>
+                <p>To save this UI version with screenshot:</p>
+                <ol>
+                    <li>Open Terminal</li>
+                    <li>Run: <code>./simple-version.sh save "${description}"</code></li>
+                    <li>Take a full-page screenshot of this UI</li>
+                    <li>Add screenshot to the version page that opens</li>
+                </ol>
+                <div class="version-save-actions">
+                    <button onclick="copyCommand('${description}')" class="copy-cmd-btn">
+                        <i class="fas fa-copy"></i> Copy Command
+                    </button>
+                    <button onclick="closeVersionModal()" class="close-modal-btn">
+                        Got it!
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Add styles for the modal
+    addVersionModalStyles();
+}
+
+function copyCommand(description) {
+    const command = `./simple-version.sh save "${description}"`;
+    navigator.clipboard.writeText(command).then(() => {
+        showNotification('Command copied to clipboard!', 'success');
+    }).catch(() => {
+        // Fallback for browsers that don't support clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = command;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showNotification('Command copied!', 'success');
+    });
+}
+
+function closeVersionModal() {
+    const modal = document.querySelector('.version-save-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function addVersionModalStyles() {
+    if (document.getElementById('version-modal-styles')) return;
+    
+    const styles = document.createElement('style');
+    styles.id = 'version-modal-styles';
+    styles.textContent = `
+        .version-save-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .version-save-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .version-save-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .version-save-header h3 {
+            margin: 0;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            opacity: 0.8;
+        }
+        
+        .modal-close:hover {
+            opacity: 1;
+        }
+        
+        .version-save-body {
+            padding: 25px;
+        }
+        
+        .version-save-body p {
+            margin: 0 0 15px 0;
+            color: #333;
+        }
+        
+        .version-save-body ol {
+            margin: 15px 0;
+            padding-left: 20px;
+        }
+        
+        .version-save-body li {
+            margin: 8px 0;
+            color: #555;
+        }
+        
+        .version-save-body code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #c7254e;
+        }
+        
+        .version-save-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .copy-cmd-btn, .close-modal-btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .copy-cmd-btn {
+            background: #28a745;
+            color: white;
+            flex: 1;
+        }
+        
+        .copy-cmd-btn:hover {
+            background: #218838;
+        }
+        
+        .close-modal-btn {
+            background: #6c757d;
+            color: white;
+            min-width: 100px;
+        }
+        
+        .close-modal-btn:hover {
+            background: #5a6268;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    `;
+    
+    document.head.appendChild(styles);
+}
