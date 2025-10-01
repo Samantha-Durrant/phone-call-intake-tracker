@@ -21,8 +21,10 @@ TIMESTAMP=$(date "+%Y%m%d_%H%M%S")
 
 # Function to get the next semantic version
 get_next_version() {
+    local DESCRIPTION="$1"
+    
     # Get the latest semantic version tag (ignore timestamp-based tags)
-    LATEST_VERSION=$(git tag -l "v[0-9]*.[0-9]*.[0-9]*" | sort -V | tail -1)
+    local LATEST_VERSION=$(git tag -l "v[0-9]*.[0-9]*.[0-9]*" | sort -V | tail -1)
     
     if [ -z "$LATEST_VERSION" ]; then
         # No semantic versions exist yet, start with v1.0.0
@@ -31,13 +33,13 @@ get_next_version() {
     fi
     
     # Extract version numbers
-    VERSION_NO_V=${LATEST_VERSION#v}  # Remove 'v' prefix
-    MAJOR=$(echo $VERSION_NO_V | cut -d. -f1)
-    MINOR=$(echo $VERSION_NO_V | cut -d. -f2)
-    PATCH=$(echo $VERSION_NO_V | cut -d. -f3)
+    local VERSION_NO_V=${LATEST_VERSION#v}  # Remove 'v' prefix
+    local MAJOR=$(echo $VERSION_NO_V | cut -d. -f1)
+    local MINOR=$(echo $VERSION_NO_V | cut -d. -f2)
+    local PATCH=$(echo $VERSION_NO_V | cut -d. -f3)
     
     # Determine increment type based on description keywords
-    DESCRIPTION_LOWER=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+    local DESCRIPTION_LOWER=$(echo "$DESCRIPTION" | tr '[:upper:]' '[:lower:]')
     
     if echo "$DESCRIPTION_LOWER" | grep -q -E "(breaking|major|incompatible)"; then
         # Major version increment

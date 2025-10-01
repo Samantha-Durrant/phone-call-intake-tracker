@@ -86,4 +86,11 @@ This creates:
 ## Pro Tips
 
 1. **Take good screenshots**: Full page, actual browser size
-2. **Descriptive names**: "Added
+2. **Descriptive names**: "Added search bar" vs "updates"
+3. **Save often**: Before major changes, save current state
+4. **Browse regularly**: Use `web` command to review versions
+5. **Screenshot first**: Take it right after `save` command
+
+---
+
+*This system gives you visual + code version control with minimal effort.*
