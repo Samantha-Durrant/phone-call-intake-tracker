@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Tracking Screenpop - UI Concept</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous">
+</head>
+<body>
+    <div class="screenpop-container">
+        <!-- Header -->
+        <header class="screenpop-header">
+            <div class="header-left">
+                <i class="fas fa-mobile-alt"></i>
+                <h1>Phone Tracking System</h1>
+                <span id="callIndicator" class="call-indicator hidden">
+                    <i class="fas fa-phone"></i> Active Call
+                </span>
+            </div>
+            <div class="header-right">
+                <div class="connection-status">
+                    <span class="status-indicator active"></span>
+                    <span>Systems Connected</span>
+                </div>
+                <button class="close-btn" onclick="closeScreenpop()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="screenpop-main">
+            <!-- Patient Information Panel -->
+            <section class="patient-info-panel">
+                <h2><i class="fas fa-user"></i> Patient Information</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Phone Number:</label>
+                        <span id="phoneNumber">+1 (555) 123-4567</span>
+                    </div>
+                    <div class="info-item">
+                        <label>First Name:</label>
+                        <span id="firstName">John</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Last Name:</label>
+                        <span id="lastName">Smith</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Date of Birth:</label>
+                        <span id="dateOfBirth">03/15/1985</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Patient Type:</label>
+                        <span id="patientType" class="status-existing">Existing Patient</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Last Updated:</label>
+                        <span id="lastUpdated">2 minutes ago</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CRM Flags Panel -->
+            <section class="crm-flags-panel">
+                <h2><i class="fas fa-flag"></i> CRM Flags & Notes</h2>
+                <div class="flags-content">
+                    <div class="flags-list" id="crmFlags">
+                        <div class="flag-item priority">
+                            <i class="fas fa-exclamation-circle"></i>
+                            <span>High Priority</span>
+                        </div>
+                        <div class="flag-item verified">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Insurance Verified</span>
+                        </div>
+                        <div class="flag-item recurring">
+                            <i class="fas fa-sync"></i>
+                            <span>Recurring Patient</span>
+                        </div>
+                    </div>
+                    <div class="no-flags" id="noFlags" style="display: none;">
+                        <i class="fas fa-info-circle"></i>
+                        <p>No CRM flags for this patient</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Appointment Booking Panel -->
+            <section class="booking-panel">
+                <h2><i class="fas fa-calendar-check"></i> Appointment Status</h2>
+                <div class="booking-content">
+                    <div class="booking-status">
+                        <div class="status-display" id="appointmentStatus">
+                            <div class="status-indicator">
+                                <i class="fas fa-sync fa-spin" id="statusIcon"></i>
+                                <span id="statusText">Checking CRM...</span>
+                            </div>
+                            <div class="status-details" id="statusDetails" style="display: none;">
+                                <small id="appointmentDetails">Last checked: Just now</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="reason-entry" id="reasonEntry" style="display: none;">
+                        <div class="reason-header">
+                            <i class="fas fa-question-circle"></i>
+                            <span>Why did the patient cancel/reschedule?</span>
+                        </div>
+                        <div class="reason-selector">
+                            <label for="appointmentReason">Reason for change:</label>
+                            <select id="appointmentReason" onchange="handleAppointmentReasonChange()">
+                                <option value="">Select reason...</option>
+                                <option value="no-longer-needed">No longer needed</option>
+                                <option value="illness-family">Illness/family</option>
+                                <option value="work-school">Work/school</option>
+                                <option value="insurance">Insurance</option>
+                                <option value="referral">Referral</option>
+                                <option value="poor-relationship">POOR r/s</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="reason-notes" id="reasonNotes" style="display: none;">
+                            <label for="appointmentReasonNotes">Additional details:</label>
+                            <textarea id="appointmentReasonNotes" placeholder="Please provide additional details..." rows="2"></textarea>
+                        </div>
+                        <div class="reason-actions">
+                            <button onclick="saveAppointmentReason()" class="btn-save" id="reasonSaveBtn" disabled>
+                                <i class="fas fa-save"></i>
+                                Save Reason
+                            </button>
+                            <button onclick="skipAppointmentReason()" class="btn-secondary">
+                                <i class="fas fa-arrow-right"></i>
+                                Skip for Now
+                            </button>
+                        </div>
+                    </div>
+                    <div class="manual-override" id="manualOverride" style="display: none;">
+                        <div class="override-header">
+                            <i class="fas fa-edit"></i>
+                            <span>Manual Override Required</span>
+                        </div>
+                        <div class="override-reason">
+                            <label for="overrideReason">Reason for manual entry:</label>
+                            <select id="overrideReason" onchange="handleReasonChange()">
+                                <option value="">Select reason...</option>
+                                <option value="cancellation">Appointment Cancelled</option>
+                                <option value="no-show">Patient No-Show</option>
+                                <option value="reschedule">Needs Rescheduling</option>
+                                <option value="api-error">CRM Connection Issue</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="override-notes" id="overrideNotes" style="display: none;">
+                            <label for="cancellationNotes">Additional Notes:</label>
+                            <textarea id="cancellationNotes" placeholder="Please provide details..." rows="3"></textarea>
+                        </div>
+                        <div class="override-actions">
+                            <button onclick="saveManualEntry()" class="btn-save" id="saveBtn" disabled>
+                                <i class="fas fa-save"></i>
+                                Save Changes
+                            </button>
+                            <button onclick="cancelManualEntry()" class="btn-cancel">
+                                <i class="fas fa-times"></i>
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                    <div class="booking-actions">
+                        <button onclick="refreshAppointmentStatus()" class="btn-refresh">
+                            <i class="fas fa-sync-alt"></i>
+                            Refresh from CRM
+                        </button>
+                        <button onclick="enableManualOverride()" class="btn-manual" id="manualBtn">
+                            <i class="fas fa-edit"></i>
+                            Manual Entry
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Call Simulation Controls (for demo purposes) -->
+            <div id="simulationControls" class="simulation-controls">
+                <div class="simulation-header">
+                    <h3><i class="fas fa-play-circle"></i> Call Simulation Demo</h3>
+                    <button onclick="toggleSimulationControls()" class="toggle-sim-btn">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                <div class="scenario-selector">
+                    <label for="scenarioSelect">Choose Test Scenario:</label>
+                    <select id="scenarioSelect" onchange="updateScenarioInfo()">
+                        <option value="random">Random Test Case</option>
+                        <option value="existing-with-appointment">Existing Patient + Has Appointment</option>
+                        <option value="existing-no-appointment">Existing Patient + No Appointment</option>
+                        <option value="existing-clean-with-appointment">Existing Patient (Clean) + Has Appointment</option>
+                        <option value="existing-cancelled-appointment">Existing Patient + Cancelled Appointment</option>
+                        <option value="existing-rescheduled-appointment">Existing Patient + Rescheduled Appointment</option>
+                        <option value="new-patient-1">New Patient #1 (Unknown)</option>
+                        <option value="new-patient-2">New Patient #2 (Unknown)</option>
+                    </select>
+                    <div class="scenario-info">
+                        <small id="scenarioDescription">Random selection from test cases</small>
+                    </div>
+                </div>
+                <div class="simulation-buttons">
+                    <button onclick="simulateIncomingCall()" class="sim-btn incoming">
+                        <i class="fas fa-phone-alt"></i>
+                        Simulate Incoming Call
+                    </button>
+                    <button onclick="simulateCallAnswered()" class="sim-btn answered" disabled>
+                        <i class="fas fa-phone"></i>
+                        Answer Call
+                    </button>
+                    <button onclick="simulateCallEnded()" class="sim-btn ended" disabled>
+                        <i class="fas fa-phone-slash"></i>
+                        End Call
+                    </button>
+                    <button onclick="resetSimulation()" class="sim-btn reset">
+                        <i class="fas fa-redo"></i>
+                        Reset Demo
+                    </button>
+                </div>
+                <div class="simulation-status">
+                    <span id="callStatus">Ready for simulation</span>
+                </div>
+            </div>
+
+            <!-- Call Notification Overlay -->
+            <div id="callNotification" class="call-notification hidden">
+                <div class="call-notification-content">
+                    <div class="caller-info">
+                        <div class="avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="caller-details">
+                            <h3 id="incomingCallerName">Unknown Caller</h3>
+                            <p id="incomingCallerNumber">+1 (555) 123-4567</p>
+                        </div>
+                    </div>
+                    <div class="call-actions">
+                        <button onclick="answerCall()" class="answer-btn">
+                            <i class="fas fa-phone"></i>
+                            Answer
+                        </button>
+                        <button onclick="declineCall()" class="decline-btn">
+                            <i class="fas fa-phone-slash"></i>
+                            Decline
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Match Not Found Popup -->
+            <div id="matchNotFoundPopup" class="match-not-found-popup hidden">
+                <div class="popup-content">
+                    <div class="popup-header">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Patient Match Not Found</h3>
+                    </div>
+                    <div class="popup-body">
+                        <p>No existing patient record found for:</p>
+                        <div class="caller-info">
+                            <strong id="unmatchedPhone">+1 (555) 999-8888</strong>
+                        </div>
+                        <p>Would you like to start new patient intake?</p>
+                    </div>
+                    <div class="popup-actions">
+                        <button onclick="startNewPatientIntake()" class="btn-primary">
+                            <i class="fas fa-user-plus"></i>
+                            Start New Patient Intake
+                        </button>
+                        <button onclick="closeMatchNotFoundPopup()" class="btn-secondary">
+                            <i class="fas fa-times"></i>
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Action Bar -->
+        <footer class="action-bar">
+            <button class="action-btn primary" onclick="refreshData()">
+                <i class="fas fa-sync-alt"></i>
+                Refresh Data
+            </button>
+            <button class="action-btn secondary" onclick="exportData()">
+                <i class="fas fa-download"></i>
+                Export Report
+            </button>
+            <button class="action-btn secondary" onclick="viewHistory()">
+                <i class="fas fa-history"></i>
+                View History
+            </button>
+            <button class="action-btn danger" onclick="emergencyStop()">
+                <i class="fas fa-stop-circle"></i>
+                Emergency Stop
+            </button>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="loading-content">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Syncing with systems...</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
