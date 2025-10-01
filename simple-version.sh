@@ -1,10 +1,60 @@
 #!/bin/bash
 
-# Simple Version Manager for Phone Tracking Project
+# Simple Version Manager for Phon    "save")
+        echo "📦 Saving UI Version..."
+        DESCRIPTION="$2"
+        if [ -z "$DESCRIPTION" ]; then
+            echo "📝 Enter description for this UI version:"
+            read DESCRIPTION
+        fi
+        
+        # Get the next semantic version
+        SEMANTIC_VERSION=$(get_next_version "$DESCRIPTION")
+        
+        # Create version directory (using semantic version + timestamp for uniqueness)
+        VERSION_DIR="versions/${SEMANTIC_VERSION}_${TIMESTAMP}"
+        mkdir -p "$VERSION_DIR"Project
 # Usage: ./simple-version.sh [command]
 
 PROJECT_NAME="Phone Call Intake Tracker"
 TIMESTAMP=$(date "+%Y%m%d_%H%M%S")
+
+# Function to get the next semantic version
+get_next_version() {
+    # Get the latest semantic version tag (ignore timestamp-based tags)
+    LATEST_VERSION=$(git tag -l "v[0-9]*.[0-9]*.[0-9]*" | sort -V | tail -1)
+    
+    if [ -z "$LATEST_VERSION" ]; then
+        # No semantic versions exist yet, start with v1.0.0
+        echo "v1.0.0"
+        return
+    fi
+    
+    # Extract version numbers
+    VERSION_NO_V=${LATEST_VERSION#v}  # Remove 'v' prefix
+    MAJOR=$(echo $VERSION_NO_V | cut -d. -f1)
+    MINOR=$(echo $VERSION_NO_V | cut -d. -f2)
+    PATCH=$(echo $VERSION_NO_V | cut -d. -f3)
+    
+    # Determine increment type based on description keywords
+    DESCRIPTION_LOWER=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+    
+    if echo "$DESCRIPTION_LOWER" | grep -q -E "(breaking|major|incompatible)"; then
+        # Major version increment
+        MAJOR=$((MAJOR + 1))
+        MINOR=0
+        PATCH=0
+    elif echo "$DESCRIPTION_LOWER" | grep -q -E "(feature|add|new|enhance)"; then
+        # Minor version increment  
+        MINOR=$((MINOR + 1))
+        PATCH=0
+    else
+        # Patch version increment (bug fixes, updates, etc.)
+        PATCH=$((PATCH + 1))
+    fi
+    
+    echo "v${MAJOR}.${MINOR}.${PATCH}"
+}
 
 case "$1" in
     "save")
@@ -32,7 +82,7 @@ case "$1" in
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UI Version: $TIMESTAMP</title>
+    <title>UI Version: $SEMANTIC_VERSION</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 40px; background: #f5f5f5; }
         .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
@@ -61,10 +111,11 @@ case "$1" in
     <div class="container">
         <div class="header">
             <h1>📱 Phone Call Intake UI</h1>
-            <h2>Version: $TIMESTAMP</h2>
+            <h2>Version: $SEMANTIC_VERSION</h2>
             <div class="meta-info">
                 <strong>Description:</strong> $DESCRIPTION<br>
                 <strong>Created:</strong> $(date)<br>
+                <strong>Build ID:</strong> $TIMESTAMP<br>
                 <strong>Files:</strong> index.html, styles.css, script.js
             </div>
         </div>
@@ -124,7 +175,7 @@ case "$1" in
                     dropArea.classList.remove('drag-drop');
                     
                     // Save to localStorage
-                    localStorage.setItem('screenshot-v-$TIMESTAMP', e.target.result);
+                    localStorage.setItem('screenshot-$SEMANTIC_VERSION', e.target.result);
                 };
                 reader.readAsDataURL(e.target.files[0]);
             }
@@ -174,14 +225,14 @@ case "$1" in
                     dropArea.classList.remove('drag-drop');
                     
                     // Save to localStorage
-                    localStorage.setItem('screenshot-v-$TIMESTAMP', e.target.result);
+                    localStorage.setItem('screenshot-$SEMANTIC_VERSION', e.target.result);
                 };
                 reader.readAsDataURL(files[0]);
             }
         }
         
         // Load saved screenshot
-        const saved = localStorage.getItem('screenshot-v-$TIMESTAMP');
+        const saved = localStorage.getItem('screenshot-$SEMANTIC_VERSION');
         if (saved) {
             display.src = saved;
             display.style.display = 'block';
@@ -197,7 +248,7 @@ case "$1" in
         
         // Save screenshot functionality
         function saveScreenshot() {
-            const savedImage = localStorage.getItem('screenshot-v-$TIMESTAMP');
+            const savedImage = localStorage.getItem('screenshot-$SEMANTIC_VERSION');
             const saveBtn = document.getElementById('save-btn');
             const saveStatus = document.getElementById('save-status');
             
@@ -216,7 +267,7 @@ case "$1" in
             // Simulate save process (since this is a static HTML file, we use localStorage persistence)
             setTimeout(() => {
                 // Re-save to ensure persistence
-                localStorage.setItem('screenshot-v-$TIMESTAMP', savedImage);
+                localStorage.setItem('screenshot-$SEMANTIC_VERSION', savedImage);
                 
                 // Update the HTML file itself with the screenshot data
                 const htmlContent = document.documentElement.outerHTML;
@@ -248,10 +299,18 @@ EOF
         
         # Git commit
         git add .
-        git commit -m "UI Version $TIMESTAMP: $DESCRIPTION"
-        git tag "v-$TIMESTAMP"
+        git commit -m "$SEMANTIC_VERSION: $DESCRIPTION"
+        git tag "$SEMANTIC_VERSION"
         
-        echo "✅ UI Version saved as: v-$TIMESTAMP"
+        # Determine what changed based on version increment
+        VERSION_TYPE="patch"
+        if echo "$DESCRIPTION" | tr '[:upper:]' '[:lower:]' | grep -q -E "(breaking|major|incompatible)"; then
+            VERSION_TYPE="major"
+        elif echo "$DESCRIPTION" | tr '[:upper:]' '[:lower:]' | grep -q -E "(feature|add|new|enhance)"; then
+            VERSION_TYPE="minor"
+        fi
+        
+        echo "✅ UI Version saved as: $SEMANTIC_VERSION ($VERSION_TYPE release)"
         echo "📋 Description: $DESCRIPTION"
         echo "📂 Files saved to: $VERSION_DIR/"
         echo "🌐 Version page: file://$(pwd)/$VERSION_DIR/version-summary.html"
