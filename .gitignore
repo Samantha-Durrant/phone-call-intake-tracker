@@ -37,3 +37,18 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Version management
+versions/
+branches_backup/
+*.patch
+*.diff
+
+# Temporary development files
+temp/
+tmp/
+experimental/
+
+# Version-specific configs
+config.*.json
+settings.*.js

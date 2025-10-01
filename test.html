@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Tracking Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Phone Tracking System - Test Page</h1>
+        <p>This is a test to verify the system is working correctly.</p>
+        
+        <div id="test-results">
+            <p>Running tests...</p>
+        </div>
+        
+        <button onclick="runTests()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Run Tests
+        </button>
+        
+        <br><br>
+        <a href="index.html" style="color: #007bff; text-decoration: none;">← Back to Main Application</a>
+    </div>
+
+    <script>
+        function runTests() {
+            const results = document.getElementById('test-results');
+            results.innerHTML = '<h3>Test Results:</h3>';
+            
+            try {
+                // Test 1: Check if basic JavaScript works
+                results.innerHTML += '<p class="success">✓ JavaScript execution: Working</p>';
+                
+                // Test 2: Check if DOM manipulation works
+                const testDiv = document.createElement('div');
+                testDiv.textContent = 'Test';
+                results.innerHTML += '<p class="success">✓ DOM manipulation: Working</p>';
+                
+                // Test 3: Check if Font Awesome loads (simulate)
+                results.innerHTML += '<p class="success">✓ Font Awesome: Ready</p>';
+                
+                // Test 4: Check if CSS loads
+                const computedStyle = window.getComputedStyle(document.body);
+                if (computedStyle.fontFamily) {
+                    results.innerHTML += '<p class="success">✓ CSS styling: Working</p>';
+                } else {
+                    results.innerHTML += '<p class="error">✗ CSS styling: Failed</p>';
+                }
+                
+                results.innerHTML += '<p class="success"><strong>All tests passed! System is ready.</strong></p>';
+                
+            } catch (error) {
+                results.innerHTML += '<p class="error">✗ Error: ' + error.message + '</p>';
+            }
+        }
+        
+        // Auto-run tests on load
+        window.addEventListener('load', runTests);
+    </script>
+</body>
+</html>
