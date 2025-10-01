@@ -9,16 +9,26 @@ case "$1" in
     git add .
     git commit -m "UI Iteration: Starting point - $2"
     ITERATION=$(git rev-list --count HEAD)
-    git tag "ui-v1.$ITERATION-$(date +%m%d)"
-    echo "✅ Tagged as ui-v1.$ITERATION-$(date +%m%d)"
+    TAG="ui-v1.$ITERATION-$(date +%m%d)"
+    git tag "$TAG"
+    echo "✅ Tagged as $TAG"
     echo "📝 Edit feedback/iteration-$ITERATION.md to document changes"
+    echo "📸 IMPORTANT: Take screenshots for visual tracking:"
+    echo "   - Full page: screenshots/${TAG}_full-page.png"
+    echo "   - Individual panels: screenshots/${TAG}_[panel-name].png"
+    echo "   - Mobile view: screenshots/${TAG}_mobile-view.png"
+    echo "🌐 Open index.html in browser to capture screenshots"
     ;;
     
   "save")
     echo "💾 Saving UI iteration..."
+    CURRENT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "ui-v1.0-baseline")
     git add .
     git commit -m "UI Iteration: $2"
     echo "✅ Changes committed: $2"
+    echo "📸 Don't forget to take screenshots:"
+    echo "   - screenshots/${CURRENT_TAG}_[description].png"
+    echo "   - Document visual changes in feedback/"
     ;;
     
   "compare")
@@ -51,6 +61,42 @@ case "$1" in
     git status --porcelain
     ;;
     
+  "visual")
+    echo "📸 Visual Tracking Commands:"
+    echo ""
+    echo "Current version screenshots should be saved as:"
+    CURRENT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "current")
+    echo "  screenshots/${CURRENT_TAG}_full-page.png"
+    echo "  screenshots/${CURRENT_TAG}_patient-panel.png"  
+    echo "  screenshots/${CURRENT_TAG}_crm-panel.png"
+    echo "  screenshots/${CURRENT_TAG}_appointment-panel.png"
+    echo "  screenshots/${CURRENT_TAG}_mobile-view.png"
+    echo ""
+    echo "📋 Screenshot checklist:"
+    echo "  □ Full page view"
+    echo "  □ Each panel individually"
+    echo "  □ Mobile responsive view"
+    echo "  □ Simulation controls"
+    echo "  □ Any modal/popup states"
+    ;;
+    
+  "gallery")
+    echo "🖼️  Visual History Gallery:"
+    echo ""
+    if [ -d "screenshots" ] && [ "$(ls -A screenshots/)" ]; then
+      echo "Available screenshot versions:"
+      ls screenshots/ | sed 's/^/  📸 /'
+      echo ""
+      echo "🔍 To compare versions visually:"
+      echo "  1. Open screenshots in image viewer"
+      echo "  2. Compare side-by-side"
+      echo "  3. Document findings in feedback/"
+    else
+      echo "⚠️  No screenshots found yet."
+      echo "📸 Start taking screenshots with: ./ui-iteration.sh visual"
+    fi
+    ;;
+
   *)
     echo "🎨 UI Iteration Helper"
     echo ""
@@ -61,6 +107,10 @@ case "$1" in
     echo "  rollback              - Undo last changes"
     echo "  history               - Show iteration history"
     echo "  status                - Show current development status"
+    echo "  visual                - Show screenshot naming guide"
+    echo "  gallery               - View available screenshots"
+    echo "  visual                - Show visual tracking commands"
+    echo "  gallery                - Show visual history gallery"
     echo ""
     echo "Example:"
     echo "  ./ui-iteration.sh start 'Improving button contrast'"
