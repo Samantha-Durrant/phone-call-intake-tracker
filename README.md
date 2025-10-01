@@ -1,50 +1,62 @@
-# Phone Call Intake System
+# 📱 Phone Call Intake System
 
-A React + TypeScript application for tracking phone call intake at medical clinics.
+A simple browser-based application for tracking phone call intake at medical clinics with **visual version control**.
 
-## Features
+## ✨ Features
 
-- **Interactive Form**: Replace traditional paper forms with digital intake
-- **Caller ID Integration**: Automatically identifies existing patients
-- **Real-time Analytics**: Track daily call statistics and booking rates
-- **Responsive Design**: Works on desktop and tablet devices
-- **Clean Medical UI**: Professional design using TailwindCSS
+- **Digital Intake Form**: Replace paper forms with clean digital interface
+- **Patient Recognition**: Auto-identifies existing patients by phone number
+- **Appointment Tracking**: Track bookings and reasons for non-bookings
+- **Simulation Mode**: Test with sample patients for training
+- **Visual Version Control**: Save UI screenshots + code for each version
 
-## Components
+## 🎯 Simplified Workflow
 
-- **CallerBanner**: Shows patient info if matched, or "Unknown Caller"
-- **IntakeRow**: Reusable form row component
-- **ToggleButton**: Clickable buttons that highlight when selected
-- **NotesBox**: Text area for patient notes
-- **AnalyticsPanel**: Displays daily call statistics
+This project uses a **screenshot + code** version control system:
 
-## Quick Start
+1. **Save Version**: `./simple-version.sh save "Description"`
+2. **Add Screenshot**: Drag/drop full-page screenshot to version page
+3. **Browse Versions**: `./simple-version.sh list` or `./simple-version.sh web`
+4. **Restore Anytime**: `./simple-version.sh restore v-YYYYMMDD_HHMMSS`
 
-### Option 1: Simple HTML Preview
-1. Open `public/index.html` in your browser
-2. The app uses CDN-loaded React and TailwindCSS for quick testing
+📋 **[See detailed workflow →](SIMPLE-WORKFLOW.md)**
 
-### Option 2: Full React Development Setup
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
+## 🚀 Quick Start
 
-2. Start the development server:
-   ```bash
-   npm start
-   ```
+### Option 1: Direct Browser Use
+```bash
+open index.html    # Opens the current UI in your browser
+```
 
-3. Open [http://localhost:3000](http://localhost:3000) to view it in the browser
+### Option 2: Live Development
+```bash
+# If you want to modify and track versions
+./simple-version.sh web    # Opens current UI + version browser
+```
 
-## Usage
+## 📸 Version Control Commands
 
-1. **Phone Number Entry**: Enter caller's phone number - system will auto-match existing patients
-2. **Patient Information**: Fill in name and select patient type
+| Command | What it does |
+|---------|-------------|
+| `./simple-version.sh save "desc"` | Save current UI + code |
+| `./simple-version.sh list` | Show all versions with links |
+| `./simple-version.sh web` | Open current UI + version browser |
+| `./simple-version.sh restore v-XXX` | Restore to specific version |
+
+## 📋 Using the Intake System
+
+1. **Phone Number**: Enter caller's number - auto-matches existing patients
+2. **Patient Info**: Fill in name and select patient type
 3. **Appointment Status**: Toggle whether appointment was booked
 4. **Reason Tracking**: If not booked, select reason from dropdown
 5. **Notes**: Add any additional call notes
 6. **Submit**: Save the intake record
+
+## 🎮 Simulation Features
+
+- **Test Patients**: Pre-loaded sample patients for training
+- **Simulation Controls**: Practice without affecting real data
+- **Auto-populate**: Click patients to auto-fill forms
 
 ## Mock Data
 
