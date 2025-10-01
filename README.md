@@ -14,6 +14,13 @@ A simple browser-based application for tracking phone call intake at medical cli
 
 This project uses a **screenshot + code** version control system:
 
+### Option 1: UI Save Button (Easiest)
+1. **Click "Save Version"** button in the UI header
+2. **Enter description** in the dialog
+3. **Copy & run command** from the modal
+4. **Add screenshot** to the version page that opens
+
+### Option 2: Terminal Command
 1. **Save Version**: `./simple-version.sh save "Description"`
 2. **Add Screenshot**: Drag/drop full-page screenshot to version page
 3. **Browse Versions**: `./simple-version.sh list` or `./simple-version.sh web`

@@ -4,6 +4,13 @@
 
 ## Quick Start
 
+### Method 1: UI Button (Easiest)
+1. **Click "Save Version"** in the UI header (purple button with camera icon)
+2. **Enter description** in the popup dialog
+3. **Copy and run** the terminal command shown
+4. **Add screenshot** to the version page that opens
+
+### Method 2: Terminal Command
 1. **Save a version**: `./simple-version.sh save "Description of changes"`
 2. **Add screenshot**: The version page opens automatically - drag/drop your screenshot
 3. **Done!** Your UI version is saved with visual + code
