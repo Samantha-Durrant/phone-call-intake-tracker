@@ -80,11 +80,4 @@
 ## 📂 **File Structure**
 ```
 Phones tracking/
-├── index.html                    # Main UI application
-├── version-tracker.html          # Version control dashboard  
-├── screenshots/                  # Visual history
-├── feedback/                     # Iteration documentation
-├── ui-iteration.sh              # Workflow automation
-├── capture-screenshots.sh       # Screenshot helper
-└── compare-visuals.sh           # Version comparison
-```
+├── index.html          

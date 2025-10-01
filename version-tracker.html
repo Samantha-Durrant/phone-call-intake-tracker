@@ -464,7 +464,12 @@
             </div>
             
             <div class="uploaded-files" id="uploaded-files" style="display: none;">
-                <h4>✅ Successfully Added Screenshots</h4>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h4 style="margin: 0;">✅ Successfully Added Screenshots</h4>
+                    <button onclick="clearSavedFiles()" style="background: #dc3545; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                        🗑️ Clear All
+                    </button>
+                </div>
                 <div id="file-list"></div>
             </div>
             
@@ -571,7 +576,7 @@
         </div>
     </div>
 
-    <button class="refresh-btn" onclick="location.reload()" title="Refresh tracking data">
+    <button class="refresh-btn" onclick="if(confirm('Refresh page? (Uploaded files will be preserved)')) location.reload()" title="Manual refresh - uploaded files will be preserved">
         🔄
     </button>
 
@@ -579,6 +584,32 @@
         // Current version tracking
         let currentVersion = 'ui-v1.4-1001';
         let uploadedFiles = [];
+        
+        // Load saved files from localStorage
+        function loadSavedFiles() {
+            const saved = localStorage.getItem('uploadedFiles');
+            if (saved) {
+                try {
+                    uploadedFiles = JSON.parse(saved);
+                    if (uploadedFiles.length > 0) {
+                        showUploadedFiles();
+                        updateChecklist();
+                    }
+                } catch (e) {
+                    console.log('No saved files to load');
+                    uploadedFiles = [];
+                }
+            }
+        }
+        
+        // Save files to localStorage
+        function saveFiles() {
+            try {
+                localStorage.setItem('uploadedFiles', JSON.stringify(uploadedFiles));
+            } catch (e) {
+                console.log('Could not save files to localStorage');
+            }
+        }
         
         // Handle version selection
         function setupVersionSelector() {
@@ -698,6 +729,9 @@
                     uploadedFiles.push(processedFile);
                     processed++;
                     
+                    // Save to localStorage
+                    saveFiles();
+                    
                     // Update progress
                     const progress = (processed / files.length) * 100;
                     progressFill.style.width = progress + '%';
@@ -811,31 +845,38 @@
         
         // Generate download/save instructions
         function generateDownloadInstructions() {
+            // Only add instructions if they don't already exist
+            if (document.getElementById('download-instructions')) {
+                return;
+            }
+            
             const instructionsDiv = document.createElement('div');
+            instructionsDiv.id = 'download-instructions';
             instructionsDiv.className = 'command-card';
             instructionsDiv.innerHTML = `
-                <h4>💾 Next Steps - Save to Screenshots Folder</h4>
-                <p>Your files have been processed and renamed. To complete the process:</p>
+                <h4>💾 Save Screenshots to Project Folder</h4>
+                <p><strong>Your files are ready and will persist even if you refresh this page!</strong></p>
                 <ol style="margin: 0.5rem 0;">
-                    <li>Right-click each image above and "Save As..."</li>
-                    <li>Navigate to: <code>screenshots/</code> folder</li>
-                    <li>The filename is already set correctly</li>
-                    <li>Run: <code>git add screenshots/ && git commit -m "Add visual documentation for ${currentVersion}"</code></li>
+                    <li><strong>Right-click each image above</strong> and select "Save As..." or "Save Image As..."</li>
+                    <li><strong>Navigate to:</strong> <code>/Users/samanthadurrant/Desktop/Phones tracking/screenshots/</code></li>
+                    <li><strong>The filename is already set correctly</strong> - just click Save</li>
+                    <li><strong>After saving all images, run this command:</strong></li>
                 </ol>
                 <div class="command" style="margin-top: 1rem;">
                     cd "/Users/samanthadurrant/Desktop/Phones tracking"<br>
                     git add screenshots/<br>
                     git commit -m "Add visual documentation for ${currentVersion}"
                 </div>
+                <p style="margin-top: 1rem; font-size: 0.9rem; color: #6c757d;">
+                    💡 <strong>Tip:</strong> Files will stay here until you manually clear them or save them to the project folder.
+                </p>
             `;
             
             document.getElementById('uploaded-files').appendChild(instructionsDiv);
         }
         
-        // Auto-refresh every 30 seconds to show any new screenshots
-        setTimeout(() => {
-            location.reload();
-        }, 30000);
+        // Auto-refresh removed to prevent losing uploaded files
+        // Files now persist until manually refreshed
         
         // Check for screenshots and update status
         function updateScreenshotStatus() {
@@ -843,10 +884,23 @@
             console.log('Checking for screenshots...');
         }
         
+        // Clear saved files
+        function clearSavedFiles() {
+            if (confirm('Clear all uploaded files? This cannot be undone.')) {
+                uploadedFiles = [];
+                localStorage.removeItem('uploadedFiles');
+                document.getElementById('uploaded-files').style.display = 'none';
+                // Reset checklist
+                const checkboxes = document.querySelectorAll('#checklist input[type="checkbox"]');
+                checkboxes.forEach(cb => cb.checked = false);
+            }
+        }
+        
         // Initialize everything
         document.addEventListener('DOMContentLoaded', () => {
             setupDragAndDrop();
             setupVersionSelector();
+            loadSavedFiles(); // Load any previously uploaded files
             updateScreenshotStatus();
         });
     </script>
