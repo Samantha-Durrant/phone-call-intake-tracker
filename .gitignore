@@ -52,3 +52,13 @@ experimental/
 # Version-specific configs
 config.*.json
 settings.*.js
+
+# Feedback workflow
+feedback/private-notes.md
+feedback/*-confidential.*
+screenshots/temp-*
+screenshots/*-private.*
+
+# UI iteration backups
+ui-backup-*/
+iteration-backup/
