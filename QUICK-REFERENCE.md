@@ -47,8 +47,18 @@
 
 ---
 
-## 📸 **Screenshot Workflow**
+## 📸 **Screenshot Workflow (Drag & Drop)**
 
+### **Option 1: Drag & Drop (Recommended)**
+1. **Take screenshots** using browser tools or Cmd+Shift+4  
+2. **Open version tracker**: `version-tracker.html`
+3. **Go to "Visual Gallery" tab**
+4. **Drag screenshots** into the drop zone
+5. **Files auto-rename** with version tags
+6. **Save to screenshots folder** as instructed
+7. **Commit to git** using provided command
+
+### **Option 2: Manual**
 1. **Open your app**: `index.html`
 2. **Take screenshots** using browser tools or Cmd+Shift+4
 3. **Save with naming convention**: `ui-v1.4-1001_[description].png`
