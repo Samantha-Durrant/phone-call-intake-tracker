@@ -229,6 +229,127 @@
             background: #5a6fd8;
             transform: scale(1.1);
         }
+        
+        .drop-zone {
+            border: 3px dashed #667eea;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            background: #f8f9fa;
+            margin: 1rem 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .drop-zone.dragover {
+            border-color: #28a745;
+            background: #d4edda;
+            transform: scale(1.02);
+        }
+        
+        .drop-zone-content {
+            color: #6c757d;
+        }
+        
+        .drop-zone-content h3 {
+            margin: 0 0 0.5rem 0;
+            color: #495057;
+        }
+        
+        .drop-zone-content p {
+            margin: 0;
+            font-size: 0.9rem;
+        }
+        
+        .upload-progress {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #e3f2fd;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0.5rem 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #4caf50;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .uploaded-files {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .uploaded-file {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .file-preview {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .file-status {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-processing {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .auto-naming {
+            background: #e3f2fd;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .naming-preview {
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.9rem;
+            background: white;
+            padding: 0.5rem;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            margin: 0.5rem 0;
+        }
     </style>
 </head>
 <body>
@@ -300,16 +421,64 @@
     <div id="gallery" class="tab-content">
         <div class="comparison-section">
             <h2>📸 Visual Gallery</h2>
-            <p>Screenshots will appear here as you capture them for each iteration.</p>
+            <p>Drag and drop screenshot files here to automatically organize them by version.</p>
+            
+            <div class="drop-zone" id="screenshot-dropzone">
+                <div class="drop-zone-content">
+                    <h3>🖼️ Drop Screenshots Here</h3>
+                    <p>Drag image files here or click to select files</p>
+                    <p style="font-size: 0.8rem; margin-top: 0.5rem;">
+                        Files will be automatically renamed with current version tag
+                    </p>
+                </div>
+                <input type="file" id="file-input" multiple accept="image/*" style="display: none;">
+            </div>
+            
+            <div class="auto-naming">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h4 style="margin: 0;">🏷️ Auto-Naming Preview</h4>
+                    <div>
+                        <label for="version-select" style="margin-right: 0.5rem; font-weight: 600;">Version:</label>
+                        <select id="version-select" style="padding: 0.25rem 0.5rem; border-radius: 4px; border: 1px solid #dee2e6;">
+                            <option value="ui-v1.4-1001">ui-v1.4-1001 (Current)</option>
+                            <option value="custom">Custom Version...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="naming-preview" id="naming-preview">
+                    your-screenshot.png → ui-v1.4-1001_full-page.png<br>
+                    mobile-view.png → ui-v1.4-1001_mobile-view.png<br>
+                    panel.png → ui-v1.4-1001_patient-panel.png
+                </div>
+                <p style="font-size: 0.9rem; color: #6c757d; margin: 0.5rem 0 0 0;">
+                    Files are automatically renamed based on content or you can specify the type
+                </p>
+            </div>
+            
+            <div class="upload-progress" id="upload-progress">
+                <h4>📤 Processing Screenshots...</h4>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <p id="progress-text">0% complete</p>
+            </div>
+            
+            <div class="uploaded-files" id="uploaded-files" style="display: none;">
+                <h4>✅ Successfully Added Screenshots</h4>
+                <div id="file-list"></div>
+            </div>
+            
             <div class="command-card">
                 <h4>📋 Screenshot Checklist for Current Version (ui-v1.4-1001):</h4>
-                <div>□ Full page view</div>
-                <div>□ Patient information panel</div>
-                <div>□ CRM flags and notes panel</div>
-                <div>□ Appointment status panel</div>
-                <div>□ Mobile responsive view</div>
-                <div>□ Simulation controls</div>
-                <div>□ Modal states (if applicable)</div>
+                <div id="checklist">
+                    <label><input type="checkbox" id="check-full"> Full page view</label><br>
+                    <label><input type="checkbox" id="check-patient"> Patient information panel</label><br>
+                    <label><input type="checkbox" id="check-crm"> CRM flags and notes panel</label><br>
+                    <label><input type="checkbox" id="check-appointment"> Appointment status panel</label><br>
+                    <label><input type="checkbox" id="check-mobile"> Mobile responsive view</label><br>
+                    <label><input type="checkbox" id="check-controls"> Simulation controls</label><br>
+                    <label><input type="checkbox" id="check-modal"> Modal states (if applicable)</label>
+                </div>
             </div>
         </div>
     </div>
@@ -407,6 +576,45 @@
     </button>
 
     <script>
+        // Current version tracking
+        let currentVersion = 'ui-v1.4-1001';
+        let uploadedFiles = [];
+        
+        // Handle version selection
+        function setupVersionSelector() {
+            const versionSelect = document.getElementById('version-select');
+            
+            versionSelect.addEventListener('change', (e) => {
+                if (e.target.value === 'custom') {
+                    const customVersion = prompt('Enter custom version tag (e.g., ui-v1.5-1002):');
+                    if (customVersion) {
+                        currentVersion = customVersion;
+                        // Add to dropdown
+                        const option = document.createElement('option');
+                        option.value = customVersion;
+                        option.textContent = customVersion + ' (Custom)';
+                        option.selected = true;
+                        versionSelect.insertBefore(option, versionSelect.lastElementChild);
+                    } else {
+                        versionSelect.value = currentVersion;
+                    }
+                } else {
+                    currentVersion = e.target.value;
+                }
+                updateNamingPreview();
+            });
+        }
+        
+        // Update naming preview
+        function updateNamingPreview() {
+            const preview = document.getElementById('naming-preview');
+            preview.innerHTML = `
+                your-screenshot.png → ${currentVersion}_full-page.png<br>
+                mobile-view.png → ${currentVersion}_mobile-view.png<br>
+                panel.png → ${currentVersion}_patient-panel.png
+            `;
+        }
+        
         function showTab(tabName) {
             // Hide all tab contents
             const contents = document.querySelectorAll('.tab-content');
@@ -423,6 +631,207 @@
             event.target.classList.add('active');
         }
         
+        // Drag and drop functionality
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('screenshot-dropzone');
+            const fileInput = document.getElementById('file-input');
+            
+            // Click to select files
+            dropZone.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            // File input change
+            fileInput.addEventListener('change', (e) => {
+                handleFiles(e.target.files);
+            });
+            
+            // Drag events
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+            
+            dropZone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                handleFiles(e.dataTransfer.files);
+            });
+        }
+        
+        // Handle dropped/selected files
+        function handleFiles(files) {
+            const fileArray = Array.from(files);
+            const imageFiles = fileArray.filter(file => file.type.startsWith('image/'));
+            
+            if (imageFiles.length === 0) {
+                alert('Please select image files only.');
+                return;
+            }
+            
+            showUploadProgress();
+            processFiles(imageFiles);
+        }
+        
+        // Process and rename files
+        function processFiles(files) {
+            const progressFill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('progress-text');
+            let processed = 0;
+            
+            files.forEach((file, index) => {
+                setTimeout(() => {
+                    const newName = generateFileName(file.name);
+                    const processedFile = {
+                        originalName: file.name,
+                        newName: newName,
+                        file: file,
+                        type: detectScreenshotType(file.name),
+                        preview: URL.createObjectURL(file)
+                    };
+                    
+                    uploadedFiles.push(processedFile);
+                    processed++;
+                    
+                    // Update progress
+                    const progress = (processed / files.length) * 100;
+                    progressFill.style.width = progress + '%';
+                    progressText.textContent = Math.round(progress) + '% complete';
+                    
+                    // If all files processed
+                    if (processed === files.length) {
+                        setTimeout(() => {
+                            hideUploadProgress();
+                            showUploadedFiles();
+                            updateChecklist();
+                            generateDownloadInstructions();
+                        }, 500);
+                    }
+                }, index * 200); // Stagger processing for visual effect
+            });
+        }
+        
+        // Generate appropriate filename
+        function generateFileName(originalName) {
+            const baseName = originalName.toLowerCase().replace(/\.[^/.]+$/, "");
+            let type = detectScreenshotType(baseName);
+            return `${currentVersion}_${type}.png`;
+        }
+        
+        // Detect screenshot type from filename
+        function detectScreenshotType(filename) {
+            const name = filename.toLowerCase();
+            
+            if (name.includes('full') || name.includes('page') || name.includes('complete')) {
+                return 'full-page';
+            } else if (name.includes('patient') || name.includes('info')) {
+                return 'patient-panel';
+            } else if (name.includes('crm') || name.includes('flag')) {
+                return 'crm-panel';
+            } else if (name.includes('appointment') || name.includes('status')) {
+                return 'appointment-panel';
+            } else if (name.includes('mobile') || name.includes('responsive')) {
+                return 'mobile-view';
+            } else if (name.includes('control') || name.includes('simulation')) {
+                return 'simulation-controls';
+            } else if (name.includes('modal') || name.includes('popup')) {
+                return 'modal-state';
+            } else {
+                // Default naming based on order
+                const count = uploadedFiles.length + 1;
+                const types = ['full-page', 'patient-panel', 'crm-panel', 'appointment-panel', 'mobile-view'];
+                return types[count - 1] || `screenshot-${count}`;
+            }
+        }
+        
+        // Show upload progress
+        function showUploadProgress() {
+            document.getElementById('upload-progress').style.display = 'block';
+            document.getElementById('progress-fill').style.width = '0%';
+            document.getElementById('progress-text').textContent = '0% complete';
+        }
+        
+        // Hide upload progress
+        function hideUploadProgress() {
+            document.getElementById('upload-progress').style.display = 'none';
+        }
+        
+        // Show uploaded files
+        function showUploadedFiles() {
+            const uploadedSection = document.getElementById('uploaded-files');
+            const fileList = document.getElementById('file-list');
+            
+            uploadedSection.style.display = 'block';
+            fileList.innerHTML = '';
+            
+            uploadedFiles.forEach(file => {
+                const fileDiv = document.createElement('div');
+                fileDiv.className = 'uploaded-file';
+                fileDiv.innerHTML = `
+                    <div class="file-info">
+                        <img src="${file.preview}" alt="Preview" class="file-preview">
+                        <div>
+                            <div style="font-weight: 600;">${file.newName}</div>
+                            <div style="font-size: 0.8rem; color: #6c757d;">Original: ${file.originalName}</div>
+                        </div>
+                    </div>
+                    <div class="file-status status-success">✅ Ready</div>
+                `;
+                fileList.appendChild(fileDiv);
+            });
+        }
+        
+        // Update checklist based on uploaded files
+        function updateChecklist() {
+            const typeMap = {
+                'full-page': 'check-full',
+                'patient-panel': 'check-patient',
+                'crm-panel': 'check-crm',
+                'appointment-panel': 'check-appointment',
+                'mobile-view': 'check-mobile',
+                'simulation-controls': 'check-controls',
+                'modal-state': 'check-modal'
+            };
+            
+            uploadedFiles.forEach(file => {
+                const checkboxId = typeMap[file.type];
+                if (checkboxId) {
+                    const checkbox = document.getElementById(checkboxId);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+                }
+            });
+        }
+        
+        // Generate download/save instructions
+        function generateDownloadInstructions() {
+            const instructionsDiv = document.createElement('div');
+            instructionsDiv.className = 'command-card';
+            instructionsDiv.innerHTML = `
+                <h4>💾 Next Steps - Save to Screenshots Folder</h4>
+                <p>Your files have been processed and renamed. To complete the process:</p>
+                <ol style="margin: 0.5rem 0;">
+                    <li>Right-click each image above and "Save As..."</li>
+                    <li>Navigate to: <code>screenshots/</code> folder</li>
+                    <li>The filename is already set correctly</li>
+                    <li>Run: <code>git add screenshots/ && git commit -m "Add visual documentation for ${currentVersion}"</code></li>
+                </ol>
+                <div class="command" style="margin-top: 1rem;">
+                    cd "/Users/samanthadurrant/Desktop/Phones tracking"<br>
+                    git add screenshots/<br>
+                    git commit -m "Add visual documentation for ${currentVersion}"
+                </div>
+            `;
+            
+            document.getElementById('uploaded-files').appendChild(instructionsDiv);
+        }
+        
         // Auto-refresh every 30 seconds to show any new screenshots
         setTimeout(() => {
             location.reload();
@@ -434,8 +843,12 @@
             console.log('Checking for screenshots...');
         }
         
-        // Initialize
-        updateScreenshotStatus();
+        // Initialize everything
+        document.addEventListener('DOMContentLoaded', () => {
+            setupDragAndDrop();
+            setupVersionSelector();
+            updateScreenshotStatus();
+        });
     </script>
 </body>
 </html>
