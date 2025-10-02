@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 
 print_header() {
     echo -e "${BLUE}=================================${NC}"
-    echo -e "${BLUE}📱 Simple UI Version Manager${NC}"
+    echo -e "${BLUE}� Simple UI Version Manager${NC}"
     echo -e "${BLUE}=================================${NC}"
 }
 
@@ -94,6 +94,15 @@ EOF
     echo -e "${GREEN}✅ Version saved successfully!${NC}"
     echo -e "${BLUE}📁 Location: ${VERSION_DIR}${NC}"
     echo -e "${YELLOW}🌐 View: ${VERSION_DIR}/version-summary.html${NC}"
+}  
+        MINOR=$((MINOR + 1))
+        PATCH=0
+    else
+        # Patch version increment (bug fixes, updates, etc.)
+        PATCH=$((PATCH + 1))
+    fi
+    
+    echo "v${MAJOR}.${MINOR}.${PATCH}"
 }
 
 update_version_index() {
