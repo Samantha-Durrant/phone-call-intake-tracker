@@ -37,6 +37,10 @@ body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantare
 .seg{border:none;background:transparent;padding:6px 10px;border-radius:8px;cursor:pointer;color:#374151;font-size:13px}
 .seg.active{background:#fff;border:1px solid var(--line)}
 
+/* Highlight active selection for patient type using brand color */
+.pt-type.segmented{border-color:var(--line)}
+.pt-type .seg.active{border-color:var(--brand);color:var(--brand)}
+
 .reason{display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px}
 .hidden{display:none!important}
 
