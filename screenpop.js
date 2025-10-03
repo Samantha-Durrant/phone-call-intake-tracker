@@ -117,14 +117,30 @@
     }
   });
 
-  // Mini action buttons (Task/Transfer) toggle pressed state
+  // Mini action buttons (Task/Transfer) with toggle behavior
+  // - Clicking an unselected button selects it and deselects its sibling
+  // - Clicking the already selected button deselects it (so none selected)
   qsa('.reasons .mini-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const row = btn.closest('.reason-row');
+      const wasPressed = btn.classList.contains('pressed');
       qsa('.mini-btn', row).forEach(b => b.classList.remove('pressed'));
-      btn.classList.add('pressed');
+      if (!wasPressed) {
+        btn.classList.add('pressed');
+      }
     });
   });
+
+  // Make the entire Confirmation row toggle the checkbox when clicking empty space
+  const confirmInput = qs('#confirmCheck');
+  if (confirmInput) {
+    const confirmRow = confirmInput.closest('.reason-row');
+    confirmRow?.addEventListener('click', (e) => {
+      // Ignore direct clicks on interactive elements to preserve native behavior
+      if (e.target.closest('input,button,.mini-btn,.checkmark,label,select,textarea')) return;
+      confirmInput.checked = !confirmInput.checked;
+    });
+  }
 
   // Clear
   clearBtn?.addEventListener('click', () => {
