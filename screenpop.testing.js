@@ -63,7 +63,7 @@
   async function trueNew(change){
     // Blank out all patient fields and mark as New
     qsa('input[type="text"], input[type="tel"], input[type="date"]').forEach(i => i.value='');
-    const type = qs('#patientType'); if (type) type.checked = false; // unchecked = New
+    setPatientType('new');
     // Clear Task/Transfer and Confirmation; clear reason UI
     qsa('.reasons .mini-btn').forEach(b => b.classList.remove('pressed'));
     const confirm = qs('#confirmCheck'); if (confirm) confirm.checked = false;
@@ -81,7 +81,7 @@
 
   function resetAll(){
     qsa('input[type="text"], input[type="tel"], input[type="date"]').forEach(i => i.value='');
-    const chk = qs('#patientType'); if (chk) chk.checked = false;
+    setPatientType('new');
     window.ScreenpopAPI.applyAppointment({ scheduled: true, change: 'none' });
     // Now clear buttons/checkbox for a full reset
     qsa('.reasons .mini-btn').forEach(b => b.classList.remove('pressed'));
@@ -104,4 +104,10 @@
     // Auto-run the first scenario on load for convenience
     run();
   });
+
+  function setPatientType(type){
+    const group = qs('.pt-type');
+    if (!group) return;
+    qsa('.seg', group).forEach(b => b.classList.toggle('active', b.getAttribute('data-ptype') === type));
+  }
 })();

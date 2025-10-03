@@ -42,13 +42,9 @@
           <input id="patientDOB" type="date" />
         </label>
       </div>
-      <div class="chips">
-        <span class="chip">New</span>
-        <div class="toggle">
-          <input type="checkbox" id="patientType" />
-          <label for="patientType" aria-label="Toggle New/Existing"></label>
-        </div>
-        <span class="chip alt">Existing</span>
+      <div class="pt-type segmented" role="group" aria-label="Patient Type">
+        <button type="button" class="seg" data-ptype="new">New</button>
+        <button type="button" class="seg active" data-ptype="existing">Existing</button>
       </div>
     </section>
 
@@ -123,4 +119,3 @@
   <script src="screenpop.mock.js"></script>
 </body>
 </html>
-

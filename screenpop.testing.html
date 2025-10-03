@@ -75,7 +75,7 @@
         <label class="field"><span class="label">MRN</span><input id="patientMRN" type="text" placeholder="—" autocomplete="off" /></label>
         <label class="field"><span class="label">DOB</span><input id="patientDOB" type="date" /></label>
       </div>
-      <div class="chips"><span class="chip">New</span><div class="toggle"><input type="checkbox" id="patientType" /><label for="patientType"></label></div><span class="chip alt">Existing</span></div>
+      <div class="pt-type segmented" role="group" aria-label="Patient Type"><button type="button" class="seg" data-ptype="new">New</button><button type="button" class="seg active" data-ptype="existing">Existing</button></div>
     </section>
 
     <section class="section">

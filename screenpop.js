@@ -65,6 +65,27 @@
   const clearBtn = qs('#clearBtn');
   const doneBtn = qs('#doneBtn');
   const statusMsg = qs('#statusMsg');
+  const ptTypeGroup = qs('.pt-type');
+
+  // Patient type segmented control
+  function setPatientType(type){
+    if (!ptTypeGroup) return;
+    qsa('.seg', ptTypeGroup).forEach(b => b.classList.toggle('active', b.getAttribute('data-ptype') === type));
+  }
+  function getPatientType(){
+    const active = ptTypeGroup ? qs('.seg.active', ptTypeGroup) : null;
+    return active ? active.getAttribute('data-ptype') : 'existing';
+  }
+  if (ptTypeGroup){
+    ptTypeGroup.addEventListener('click', (e) => {
+      const btn = e.target.closest('.seg');
+      if (!btn) return;
+      const isActive = btn.classList.contains('active');
+      // Allow toggling off to select the other explicitly or keep one always selected
+      qsa('.seg', ptTypeGroup).forEach(b => b.classList.remove('active'));
+      if (!isActive) btn.classList.add('active'); else btn.classList.add('active');
+    });
+  }
 
   function setPhone(phone){ const el = qs('#patientPhone'); if (el) el.value = phone; }
   function applyPatient(p){
@@ -72,9 +93,7 @@
     if (p.phone) setPhone(p.phone);
     if (p.mrn) qs('#patientMRN').value = p.mrn;
     if (p.dob) qs('#patientDOB').value = normDate(p.dob);
-    // Toggle new/existing (checked => existing)
-    const chk = qs('#patientType');
-    if (chk && typeof p.isExisting === 'boolean') chk.checked = !!p.isExisting;
+    if (typeof p.isExisting === 'boolean') setPatientType(p.isExisting ? 'existing' : 'new');
   }
 
   function normDate(d){
@@ -145,7 +164,7 @@
   // Clear
   clearBtn?.addEventListener('click', () => {
     qsa('input[type="text"], input[type="tel"], input[type="date"]').forEach(i => i.value='');
-    qs('#patientType').checked = false;
+    setPatientType('new');
     // reset segments
     qsa('.segmented').forEach(group => {
       const first = qs('.seg', group);
