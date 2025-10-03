@@ -106,7 +106,16 @@
   function startSession(){ SESSION_ID = 'sess_' + Math.random().toString(36).slice(2,8); ACCEPT_BG = false; window.ScreenpopLogic.configure({ sessionId: SESSION_ID, acceptBackground: false }); setBanner(); log('session_start',{sessionId:SESSION_ID}); }
   function endSession(){ log('session_end',{sessionId:SESSION_ID}); SESSION_ID=null; ACCEPT_BG=true; window.ScreenpopLogic.configure({ sessionId:null, acceptBackground:true }); setBanner(); }
 
-  function resetAll(){ qsa('input[type="text"], input[type="tel"], input[type="date"]').forEach(i=>i.value=''); setPatientType('new'); clearExtras(); const groups=qsa('.segmented'); groups.forEach(g=>{ qsa('.seg',g).forEach(b=>b.classList.remove('active')); qsa('.seg',g)[0].classList.add('active'); }); }
+  function resetAll(){
+    qsa('input[type="text"], input[type="tel"], input[type="date"]').forEach(i=>i.value='');
+    setPatientType('new');
+    clearExtras();
+    // Clear reason area explicitly
+    const sel = qs('#reasonSelect'); if (sel) sel.value = '';
+    const wrap = qs('#otherReasonWrap'); if (wrap) wrap.classList.add('hidden');
+    const groups=qsa('.segmented');
+    groups.forEach(g=>{ qsa('.seg',g).forEach(b=>b.classList.remove('active')); qsa('.seg',g)[0].classList.add('active'); });
+  }
 
   // --- Init ---
   document.addEventListener('DOMContentLoaded', () => {

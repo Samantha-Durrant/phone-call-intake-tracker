@@ -101,6 +101,9 @@
     qsa('input[type="text"], input[type="tel"], input[type="date"]').forEach(i => i.value='');
     setPatientType('new');
     clearExtras();
+    // Clear reason area explicitly
+    const sel = qs('#reasonSelect'); if (sel) sel.value = '';
+    const wrap = qs('#otherReasonWrap'); if (wrap) wrap.classList.add('hidden');
     // Clear change/scheduled segments via UI defaults
     const schedGroup = qsa('.segmented')[0];
     if (schedGroup){ qsa('.seg', schedGroup).forEach(b => b.classList.remove('active')); qsa('.seg', schedGroup)[0].classList.add('active'); }

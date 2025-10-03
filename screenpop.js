@@ -38,11 +38,19 @@
       if (typeof update.scheduled === 'boolean') setSegment('scheduled', update.scheduled ? 'yes' : 'no');
       if (update.change) setSegment('change', update.change);
       handleVisibility();
+      // Reason handling: only set when explicitly provided. Otherwise clear when change requires it.
       if (update.reason){
         reasonSelect.value = update.reason === 'Other' ? 'Other' : update.reason;
         if (update.reason === 'Other') {
           otherReasonWrap.classList.remove('hidden');
           if (update.otherText) qs('#otherReason').value = update.otherText || '';
+        }
+      } else {
+        const ch = update.change || currentValue('change');
+        if (ch === 'cancellation' || ch === 'reschedule') {
+          // No explicit reason supplied: ensure UI does not prefill
+          if (reasonSelect) reasonSelect.value = '';
+          if (otherReasonWrap) otherReasonWrap.classList.add('hidden');
         }
       }
     }
