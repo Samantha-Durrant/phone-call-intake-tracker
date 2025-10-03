@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<!-- Snapshot copy of index.html at time of versioning -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Tracking Screenpop - UI Concept</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous">
+    
+    <!-- Note: This is a frozen snapshot. Edits should be made in index.html. -->
+</head>
+<body>
+    <div class="screenpop-container">
+        <!-- Header -->
+        <header class="screenpop-header">
+            <div class="header-left">
+                <i class="fas fa-mobile-alt"></i>
+                <h1>Phone Tracking System</h1>
+                <span id="callIndicator" class="call-indicator hidden">
+                    <i class="fas fa-phone"></i> Active Call
+                </span>
+            </div>
+            <div class="header-right">
+                <button class="save-version-btn" onclick="saveVersion()" title="Save UI Version">
+                    <i class="fas fa-camera"></i> Save Version
+                </button>
+                <div class="connection-status">
+                    <span class="status-indicator active"></span>
+                    <span>Systems Connected</span>
+                </div>
+                <button class="save-version-btn" onclick="openUiScreenpop()" title="Open UI Screenpop">
+                    <i class="fas fa-window-restore"></i> Open UI Screenpop
+                </button>
+                <button class="close-btn" onclick="closeScreenpop()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content (snapshot content retained) -->
+        <main class="screenpop-main">
+            <section class="patient-info-panel">
+                <h2><i class="fas fa-user"></i> Patient Information</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Phone Number:</label>
+                        <span id="phoneNumber">+1 (555) 123-4567</span>
+                    </div>
+                    <div class="info-item">
+                        <label>First Name:</label>
+                        <span id="firstName">John</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Last Name:</label>
+                        <span id="lastName">Smith</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Date of Birth:</label>
+                        <span id="dateOfBirth">03/15/1985</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Patient Type:</label>
+                        <span id="patientType" class="status-existing">Existing Patient</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Last Updated:</label>
+                        <span id="lastUpdated">2 minutes ago</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="crm-flags-panel">
+                <h2><i class="fas fa-flag"></i> CRM Flags & Notes</h2>
+                <div class="flags-content">
+                    <div class="flags-list" id="crmFlags">
+                        <div class="flag-item priority">
+                            <i class="fas fa-exclamation-circle"></i>
+                            <span>High Priority</span>
+                        </div>
+                        <div class="flag-item verified">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Insurance Verified</span>
+                        </div>
+                        <div class="flag-item recurring">
+                            <i class="fas fa-sync"></i>
+                            <span>Recurring Patient</span>
+                        </div>
+                    </div>
+                    <div class="no-flags" id="noFlags" style="display: none;">
+                        <i class="fas fa-info-circle"></i>
+                        <p>No CRM flags for this patient</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="booking-panel">
+                <h2><i class="fas fa-calendar-check"></i> Appointment Status</h2>
+                <div class="booking-content">
+                    <div class="booking-status">
+                        <div class="status-display" id="appointmentStatus">
+                            <div class="status-indicator">
+                                <i class="fas fa-sync fa-spin" id="statusIcon"></i>
+                                <span id="statusText">Checking CRM...</span>
+                            </div>
+                            <div class="status-details" id="statusDetails" style="display: none;">
+                                <small id="appointmentDetails">Last checked: Just now</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Simulation UI omitted for brevity in snapshot -->
+        </main>
+
+        <footer class="action-bar">
+            <button class="action-btn primary" onclick="refreshData()">
+                <i class="fas fa-sync-alt"></i>
+                Refresh Data
+            </button>
+            <button class="action-btn secondary" onclick="exportData()">
+                <i class="fas fa-download"></i>
+                Export Report
+            </button>
+            <button class="action-btn secondary" onclick="viewHistory()">
+                <i class="fas fa-history"></i>
+                View History
+            </button>
+            <button class="action-btn danger" onclick="emergencyStop()">
+                <i class="fas fa-stop-circle"></i>
+                Emergency Stop
+            </button>
+        </footer>
+    </div>
+
+    <!-- Embedded UI-only Screenpop overlay -->
+    <div id="uiScreenpopOverlay" class="ui-screenpop-overlay hidden" aria-hidden="true">
+        <div class="ui-screenpop-frame" role="dialog" aria-label="UI Screenpop">
+            <button class="ui-screenpop-close" onclick="closeUiScreenpop()" aria-label="Close UI Screenpop">
+                <i class="fas fa-times"></i>
+            </button>
+            <iframe class="ui-screenpop-iframe" src="screenpop.html" title="UI Screenpop"></iframe>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <!-- End snapshot -->
+</body>
+</html>
+
