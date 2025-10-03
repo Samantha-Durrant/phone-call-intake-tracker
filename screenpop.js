@@ -2,6 +2,7 @@
 (function(){
   const qs = (s, r=document) => r.querySelector(s);
   const qsa = (s, r=document) => Array.from(r.querySelectorAll(s));
+  let programmaticChange = false; // used to avoid auto-populating reasons on automated updates
 
   // --- Simple integration facade (non-breaking) ---
   // Consumers can provide async functions to fetch data from a CRM.
@@ -36,7 +37,10 @@
     applyAppointment(update){
       if (!update) return;
       if (typeof update.scheduled === 'boolean') setSegment('scheduled', update.scheduled ? 'yes' : 'no');
-      if (update.change) setSegment('change', update.change);
+      if (update.change) {
+        programmaticChange = true;
+        setSegment('change', update.change);
+      }
       handleVisibility();
       // Reason handling: only set when explicitly provided. Otherwise clear when change requires it.
       if (update.reason){
@@ -53,6 +57,7 @@
           if (otherReasonWrap) otherReasonWrap.classList.add('hidden');
         }
       }
+      programmaticChange = false;
     }
   };
 
@@ -129,6 +134,11 @@
     // Show reason only for cancellation or reschedule
     if(change === 'cancellation' || change === 'reschedule'){
       reasonBlock.classList.remove('hidden');
+      // If this was a programmatic change (from CRM/logics) do not auto-populate; reset to "Select reason"
+      if (programmaticChange && reasonSelect) {
+        reasonSelect.value = '';
+        if (otherReasonWrap) otherReasonWrap.classList.add('hidden');
+      }
     } else {
       reasonBlock.classList.add('hidden');
       reasonSelect.value = '';
