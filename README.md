@@ -58,8 +58,6 @@ Please share feedback using this form:
 
 - <a href="https://docs.google.com/forms/d/e/1FAIpQLSeL0Jo3nNpOEfzw6ffi6e1jXw5Pm9ZfZ_ClJO4X4xXUQIt0zQ/viewform?usp=header" target="_blank" rel="noopener">Open Feedback Form ▶</a>
 
-Note: GitHub READMEs do not support interactive forms inline. The link above opens a hosted HTML form. Replace the Formspree endpoint in `feedback/form.html` with your own form ID before distribution.
-
 ## What’s in each page
 
 - `screenpop.html` — Compact UI only (no simulation); fields for patient and appointment context; manual reasons; New/Existing segment buttons.
