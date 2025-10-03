@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<!-- Version 4 testing: banner + diff log + multi-appointment scenarios + preset editor -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Call Screenpop (v4 Testing)</title>
+  <link rel="stylesheet" href="screenpop.css" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous" />
+  <style>
+    body{background:#f5f7fb}
+    .topbar{position:fixed;top:12px;left:16px;right:16px;z-index:30;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .banner{flex:1;min-width:280px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 6px 18px rgba(0,0,0,.06)}
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid #e5e7eb;background:#f8fafc;font-size:12px;color:#374151}
+    .badge.primary{border-color:#4f46e5;background:#eef2ff;color:#4338ca}
+    .controls{display:flex;gap:8px}
+    .controls select,.controls button{height:32px;border:1px solid #e5e7eb;border-radius:8px;padding:0 10px;font-size:14px;background:#fff}
+    .controls .primary{background:#4f46e5;border-color:#4f46e5;color:#fff}
+    .panel{position:fixed;top:64px;left:16px;z-index:20;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.08);padding:8px 10px}
+    .log{right:16px;max-width:560px}
+    .log pre{margin:0;white-space:pre-wrap;word-break:break-word;max-height:280px;overflow:auto;font:12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace}
+    .presets{left:16px;max-width:560px}
+    .presets textarea{width:520px;max-width:520px;height:160px;border:1px solid #e5e7eb;border-radius:8px;padding:8px;font-size:13px}
+    .presets .row{display:flex;gap:8px;align-items:center;margin-top:6px}
+    .spacer{height:120px}
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="banner" id="sessionBanner">
+      <span class="badge primary" id="sessionStatus"><i class="fa-solid fa-phone"></i> Inactive</span>
+      <span class="badge" id="sessionId">session: —</span>
+      <span class="badge" id="bgMode">background: allowed</span>
+      <span class="badge" title="Only apply events tagged to this session when active">scope: in‑call only</span>
+    </div>
+    <div class="controls">
+      <button id="startSession" class="primary" title="Start in‑call session">Start</button>
+      <button id="endSession" title="End session">End</button>
+      <select id="scenario" aria-label="Scenario">
+        <option value="existing_cancel">Existing — Cancel only appt</option>
+        <option value="existing_reschedule">Existing — Reschedule</option>
+        <option value="confirm">Existing — Confirm</option>
+        <option value="ma_call">Existing — MA Call</option>
+        <option value="results_call">Existing — Results</option>
+        <option value="provider_question">Existing — Provider Question</option>
+        <option value="refill_request">Existing — Refill Request</option>
+        <option value="billing_question">Existing — Billing Question</option>
+        <option disabled>──────────</option>
+        <option value="new_cancel">New — Cancel only appt</option>
+        <option value="new_reschedule">New — Reschedule</option>
+        <option value="new_confirm">New — Confirm</option>
+        <option value="new_ma_call">New — MA Call</option>
+        <option value="new_results_call">New — Results</option>
+        <option value="new_provider_question">New — Provider Question</option>
+        <option value="new_refill_request">New — Refill Request</option>
+        <option value="new_billing_question">New — Billing Question</option>
+        <option disabled>──────────</option>
+        <option value="true_new_blank">True New — Blank</option>
+        <option value="true_new_cancel">True New — Cancel</option>
+        <option value="true_new_reschedule">True New — Reschedule</option>
+        <option value="true_new_confirm">True New — Confirm</option>
+        <option value="true_new_ma_call">True New — MA Call</option>
+        <option value="true_new_results_call">True New — Results</option>
+        <option value="true_new_provider_question">True New — Provider Question</option>
+        <option value="true_new_refill_request">True New — Refill Request</option>
+        <option value="true_new_billing_question">True New — Billing Question</option>
+        <option disabled>──────────</option>
+        <option value="two_appts_cancel_one">Multi — 2 appts, cancel 1</option>
+        <option value="two_appts_reschedule_one">Multi — 2 appts, resched 1</option>
+        <option value="one_appt_book_second">Multi — 1 appt, book 2nd</option>
+        <option value="all_cancelled">Multi — all cancelled</option>
+      </select>
+      <button id="runScenario" class="primary">Run</button>
+      <button id="resetScenario">Reset</button>
+    </div>
+  </div>
+
+  <div class="panel presets">
+    <strong>Preset Editor</strong>
+    <div class="row" style="margin-top:6px">
+      <select id="savedPresets" title="Saved presets"></select>
+      <button id="loadPreset">Load</button>
+      <button id="savePreset">Save</button>
+      <button id="deletePreset">Delete</button>
+      <button id="copyLink">Copy Link</button>
+    </div>
+    <textarea id="presetText" spellcheck="false" placeholder='{"type":"cancel","appointments":[{"status":"cancelled"}],"reason":"Illness/Family Emergency"}'></textarea>
+    <div class="row">
+      <button id="runPreset" class="primary">Run Preset</button>
+    </div>
+  </div>
+
+  <div class="panel log" style="right:16px">
+    <strong>State + Event Log</strong>
+    <pre id="log"></pre>
+  </div>
+
+  <div class="spacer"></div>
+
+  <!-- Screenpop UI -->
+  <div class="mini-screenpop" role="dialog" aria-label="Call Screenpop">
+    <header class="mini-header">
+      <div class="title">
+        <i class="fa-solid fa-phone"></i>
+        <span>Call Screenpop (v4 Testing)</span>
+      </div>
+      <button class="icon-btn" aria-label="Close" title="Close" onclick="window.close?.()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+
+    <section class="section">
+      <h3 class="section-title"><i class="fa-regular fa-user"></i> Patient</h3>
+      <div class="grid">
+        <label class="field"><span class="label">Name</span><input id="patientName" type="text" placeholder="—" autocomplete="off"/></label>
+        <label class="field"><span class="label">Phone</span><input id="patientPhone" type="tel" placeholder="—" autocomplete="off"/></label>
+        <label class="field"><span class="label">MRN</span><input id="patientMRN" type="text" placeholder="—" autocomplete="off"/></label>
+        <label class="field"><span class="label">DOB</span><input id="patientDOB" type="date"/></label>
+      </div>
+      <div class="pt-type segmented" role="group" aria-label="Patient Type">
+        <button type="button" class="seg" data-ptype="new">New</button>
+        <button type="button" class="seg active" data-ptype="existing">Existing</button>
+      </div>
+    </section>
+
+    <section class="section">
+      <h3 class="section-title"><i class="fa-regular fa-calendar"></i> Appointment Context</h3>
+      <div class="row"><span class="label">Scheduled?</span><div class="segmented" role="group" aria-label="Scheduled"><button class="seg active" data-value="yes" data-group="scheduled">Yes</button><button class="seg" data-value="no" data-group="scheduled">No</button></div></div>
+      <div class="row"><span class="label">Change</span><div class="segmented" role="group" aria-label="Change Type"><button class="seg active" data-value="none" data-group="change">None</button><button class="seg" data-value="cancellation" data-group="change">Cancellation</button><button class="seg" data-value="reschedule" data-group="change">Reschedule</button></div></div>
+      <div id="reasonBlock" class="reason hidden">
+        <label class="field"><span class="label">Reason</span>
+          <select id="reasonSelect"><option value="">Select reason...</option><option>No longer needed</option><option>Illness/Family Emergency</option><option>Work/School Conflict</option><option>Insurance</option><option>Referral</option><option>POOO r/s</option><option>Other</option></select>
+        </label>
+        <label id="otherReasonWrap" class="field hidden"><span class="label">Other (details)</span><input id="otherReason" type="text" placeholder="Enter details"/></label>
+      </div>
+    </section>
+
+    <section class="section">
+      <h3 class="section-title"><i class="fa-regular fa-message"></i> Other Call Reasons</h3>
+      <div class="reasons">
+        <div class="reason-row"><span class="reason-label">Confirmation</span><label class="checkbox"><input id="confirmCheck" type="checkbox"/><span class="checkmark"></span></label></div>
+        <div class="reason-row"><span class="reason-label">MA Call</span><div class="actions"><button class="mini-btn" data-action="task">Task</button><button class="mini-btn alt" data-action="transfer">Transfer</button></div></div>
+        <div class="reason-row"><span class="reason-label">Results</span><div class="actions"><button class="mini-btn" data-action="task">Task</button><button class="mini-btn alt" data-action="transfer">Transfer</button></div></div>
+        <div class="reason-row"><span class="reason-label">Provider Question</span><div class="actions"><button class="mini-btn" data-action="task">Task</button><button class="mini-btn alt" data-action="transfer">Transfer</button></div></div>
+        <div class="reason-row"><span class="reason-label">Refill Request</span><div class="actions"><button class="mini-btn" data-action="task">Task</button><button class="mini-btn alt" data-action="transfer">Transfer</button></div></div>
+        <div class="reason-row"><span class="reason-label">Billing Question</span><div class="actions"><button class="mini-btn" data-action="task">Task</button><button class="mini-btn alt" data-action="transfer">Transfer</button></div></div>
+      </div>
+    </section>
+
+    <footer class="mini-footer">
+      <div class="left"><small id="statusMsg" class="muted">v4 testing — banner + diff log + presets</small></div>
+      <div class="right"><button class="btn ghost" id="clearBtn">Clear</button><button class="btn primary" id="doneBtn">Done</button></div>
+    </footer>
+  </div>
+
+  <script src="screenpop.js"></script>
+  <script src="screenpop.mock.js"></script>
+  <script src="screenpop.logic.js"></script>
+  <script src="screenpop.v4.driver.js"></script>
+</body>
+</html>
+
