@@ -1,0 +1,122 @@
+<!-- Final snapshot of screenpop.html as of 2025-10-03 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Call Screenpop (UI Only) — Final 2025-10-03</title>
+  <link rel="stylesheet" href="screenpop.css" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous" />
+  <meta name="color-scheme" content="light dark" />
+  <style>body{background:transparent}</style>
+</head>
+<body>
+  <!-- content identical to current screenpop.html -->
+  <div class="mini-screenpop" role="dialog" aria-label="Call Screenpop">
+    <header class="mini-header">
+      <div class="title">
+        <i class="fa-solid fa-phone"></i>
+        <span>Call Screenpop</span>
+      </div>
+      <button class="icon-btn" aria-label="Close" title="Close" onclick="window.close?.()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+
+    <section class="section">
+      <h3 class="section-title"><i class="fa-regular fa-user"></i> Patient</h3>
+      <div class="grid">
+        <label class="field">
+          <span class="label">Name</span>
+          <input id="patientName" type="text" placeholder="—" inputmode="text" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span class="label">Phone</span>
+          <input id="patientPhone" type="tel" placeholder="—" inputmode="tel" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span class="label">MRN</span>
+          <input id="patientMRN" type="text" placeholder="—" inputmode="numeric" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span class="label">DOB</span>
+          <input id="patientDOB" type="date" />
+        </label>
+      </div>
+      <div class="pt-type segmented" role="group" aria-label="Patient Type">
+        <button type="button" class="seg" data-ptype="new">New</button>
+        <button type="button" class="seg active" data-ptype="existing">Existing</button>
+      </div>
+    </section>
+
+    <section class="section">
+      <h3 class="section-title"><i class="fa-regular fa-calendar"></i> Appointment Context</h3>
+      <div class="row">
+        <span class="label">Scheduled?</span>
+        <div class="segmented" role="group" aria-label="Scheduled">
+          <button type="button" class="seg active" data-value="yes" data-group="scheduled">Yes</button>
+          <button type="button" class="seg" data-value="no" data-group="scheduled">No</button>
+        </div>
+      </div>
+      <div class="row">
+        <span class="label">Change</span>
+        <div class="segmented" role="group" aria-label="Change Type">
+          <button type="button" class="seg active" data-value="none" data-group="change">None</button>
+          <button type="button" class="seg" data-value="cancellation" data-group="change">Cancellation</button>
+          <button type="button" class="seg" data-value="reschedule" data-group="change">Reschedule</button>
+        </div>
+      </div>
+      <div id="reasonBlock" class="reason hidden">
+        <label class="field">
+          <span class="label">Reason</span>
+          <select id="reasonSelect">
+            <option value="">Select reason...</option>
+            <option>No longer needed</option>
+            <option>Illness/Family Emergency</option>
+            <option>Work/School Conflict</option>
+            <option>Insurance</option>
+            <option>Referral</option>
+            <option>POOO r/s</option>
+            <option>Other</option>
+          </select>
+        </label>
+        <label id="otherReasonWrap" class="field hidden">
+          <span class="label">Other (details)</span>
+          <input id="otherReason" type="text" placeholder="Enter details" />
+        </label>
+      </div>
+    </section>
+
+    <section class="section">
+      <h3 class="section-title"><i class="fa-regular fa-message"></i> Other Call Reasons</h3>
+      <div class="reasons">
+        <div class="reason-row">
+          <span class="reason-label">Confirmation</span>
+          <label class="checkbox">
+            <input id="confirmCheck" type="checkbox" />
+            <span class="checkmark" title="Confirmed" aria-label="Confirmed"></span>
+          </label>
+        </div>
+        <div class="reason-row"><span class="reason-label">MA Call</span><div class="actions"><button class="mini-btn" data-action="task">Task</button><button class="mini-btn alt" data-action="transfer">Transfer</button></div></div>
+        <div class="reason-row"><span class="reason-label">Results</span><div class="actions"><button class="mini-btn" data-action="task">Task</button><button class="mini-btn alt" data-action="transfer">Transfer</button></div></div>
+        <div class="reason-row"><span class="reason-label">Provider Question</span><div class="actions"><button class="mini-btn" data-action="task">Task</button><button class="mini-btn alt" data-action="transfer">Transfer</button></div></div>
+        <div class="reason-row"><span class="reason-label">Refill Request</span><div class="actions"><button class="mini-btn" data-action="task">Task</button><button class="mini-btn alt" data-action="transfer">Transfer</button></div></div>
+        <div class="reason-row"><span class="reason-label">Billing Question</span><div class="actions"><button class="mini-btn" data-action="task">Task</button><button class="mini-btn alt" data-action="transfer">Transfer</button></div></div>
+      </div>
+    </section>
+
+    <footer class="mini-footer">
+      <div class="left">
+        <small id="statusMsg" class="muted">UI only — no data saved</small>
+      </div>
+      <div class="right">
+        <button class="btn ghost" type="button" id="clearBtn">Clear</button>
+        <button class="btn primary" type="button" id="doneBtn">Done</button>
+      </div>
+    </footer>
+  </div>
+
+  <script src="screenpop.js"></script>
+</body>
+</html>
+

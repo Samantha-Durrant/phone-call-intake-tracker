@@ -1,116 +1,51 @@
-# 📱 Phone Call Intake System
+# Phone Call Intake Screenpop
 
-A simple browser-based application for tracking phone call intake at medical clinics with **visual version control**.
+Compact, browser‑based screenpop UI for phone call intake at medical clinics. The project focuses on a small, fast UI you can embed or open standalone, with multiple testing pages to simulate real workflows.
 
-## ✨ Features
+## Live Links
 
-- **Digital Intake Form**: Replace paper forms with clean digital interface
-- **Patient Recognition**: Auto-identifies existing patients by phone number
-- **Appointment Tracking**: Track bookings and reasons for non-bookings
-- **Simulation Mode**: Test with sample patients for training
-- **Visual Version Control**: Save UI screenshots + code for each version
+- Final Screenpop (UI only)
+  - https://samantha-durrant.github.io/phone-call-intake-tracker/screenpop.html
 
-## 🎯 Simplified Workflow
+- Testing (scenario driver)
+  - https://samantha-durrant.github.io/phone-call-intake-tracker/screenpop.testing.html
 
-This project uses a **screenshot + code** version control system:
+- Testing v2 (in‑call changes only)
+  - https://samantha-durrant.github.io/phone-call-intake-tracker/screenpop.testing.v2.html
 
-### Option 1: UI Save Button (Easiest)
-1. **Click "Save Version"** button in the UI header
-2. **Enter description** in the dialog
-3. **Copy & run command** from the modal
-4. **Add screenshot** to the version page that opens
+## Final Snapshots as of 2025‑10‑03
 
-### Option 2: Terminal Command
-1. **Save Version**: `./simple-version.sh save "Description"`
-2. **Add Screenshot**: Drag/drop full-page screenshot to version page
-3. **Browse Versions**: `./simple-version.sh list` or `./simple-version.sh web`
-4. **Restore Anytime**: `./simple-version.sh restore v-YYYYMMDD_HHMMSS`
+These are frozen copies of the current state for sharing and reference.
 
-📋 **[See detailed workflow →](SIMPLE-WORKFLOW.md)**
+- screenpop.final‑2025‑10‑03.html
+- screenpop.testing.final‑2025‑10‑03.html
+- screenpop.testing.v2.final‑2025‑10‑03.html
 
-## 🚀 Quick Start
+## What’s in each page
 
-### Option 1: Direct Browser Use
-```bash
-open index.html    # Opens the current UI in your browser
-```
+- `screenpop.html` — Compact UI only (no simulation); fields for patient and appointment context; manual reasons; New/Existing segment buttons.
+- `screenpop.testing.html` — Scenario dropdown to simulate existing/new/true‑new, cancellation/reschedule, confirmation, and “other call reasons”. Now defaults non‑appointment reasons to “No scheduled” + “No change”.
+- `screenpop.testing.v2.html` — In‑call rules: only appointment changes that occur during the call mark “Scheduled = Yes”. If there is no in‑call change, the call captures “Scheduled = No”.
 
-### Option 2: Live Development
-```bash
-# If you want to modify and track versions
-./simple-version.sh web    # Opens current UI + version browser
-```
+## Local Preview
 
-## 📸 Version Control Commands
+- Simple server
+  - `python3 -m http.server 5500`
+  - Open http://localhost:5500/screenpop.html (or any page above)
 
-| Command | What it does |
-|---------|-------------|
-| `./simple-version.sh save "desc"` | Save current UI + code |
-| `./simple-version.sh list` | Show all versions with links |
-| `./simple-version.sh web` | Open current UI + version browser |
-| `./simple-version.sh restore v-XXX` | Restore to specific version |
+- Direct file (local only)
+  - Drag any `.html` file into your browser.
 
-## 📋 Using the Intake System
+## Versioning Approach
 
-1. **Phone Number**: Enter caller's number - auto-matches existing patients
-2. **Patient Info**: Fill in name and select patient type
-3. **Appointment Status**: Toggle whether appointment was booked
-4. **Reason Tracking**: If not booked, select reason from dropdown
-5. **Notes**: Add any additional call notes
-6. **Submit**: Save the intake record
+- We keep all prior versions to show design evolution (v1/v2/v3/v4 pages, testing variants).
+- Going forward, new testing iterations branch from `screenpop.testing.html`.
+- When ready, we snapshot into a dated “final” HTML (see 2025‑10‑03 list above).
 
-## 🎮 Simulation Features
+## Non‑PII Data Direction (future)
 
-- **Test Patients**: Pre-loaded sample patients for training
-- **Simulation Controls**: Practice without affecting real data
-- **Auto-populate**: Click patients to auto-fill forms
+- When analytics is added, only non‑PII call/session metadata will be sent (no name/phone/MRN/DOB). Session IDs will be used to correlate events.
 
-## Mock Data
+## Housekeeping
 
-The application includes sample patient data for testing:
-- John Smith: +1-555-0123
-- Sarah Johnson: +1-555-0456  
-- Michael Brown: +1-555-0789
-
-Try entering these numbers to see the caller ID matching in action!
-
-## Customization
-
-- **Add more reasons**: Edit the `reasonNotBookedOptions` array
-- **Modify patient data**: Update the `MOCK_PATIENTS` array
-- **Styling**: Adjust TailwindCSS classes for different themes
-- **Analytics**: Modify the analytics calculations in the submit handler
-
-## File Structure
-
-```
-src/
-├── App.tsx          # Main application component
-├── index.tsx        # React DOM entry point
-└── ...
-
-public/
-├── index.html       # HTML template
-└── ...
-
-package.json         # Dependencies and scripts
-README.md           # This file
-```
-
-## Next Steps for Production
-
-1. **API Integration**: Replace mock data with real API calls
-2. **Database**: Connect to patient management system
-3. **Authentication**: Add user login/permissions
-4. **Reporting**: Export analytics to external systems
-5. **Phone Integration**: Connect with VoIP systems for automatic caller ID
-6. **Validation**: Add comprehensive form validation
-7. **Accessibility**: Ensure WCAG compliance
-
-## Technologies Used
-
-- React 18
-- TypeScript
-- TailwindCSS
-- HTML5
-- Modern JavaScript (ES6+)
+- Legacy/unused files are moved under `archive/` to keep the repo focused while preserving history.
