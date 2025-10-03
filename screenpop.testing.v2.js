@@ -58,7 +58,10 @@
       case 'new_refill_request':
       case 'new_billing_question':
       case 'true_new_blank':
-        // Not an appointment change; do not flip flags
+        // Not an appointment change; force defaults: NO scheduled, NO change
+        changeHappened = false;
+        derivedScheduled = false;
+        lastChange = 'none';
         break;
     }
     // Apply to UI per rules
@@ -96,4 +99,3 @@
     resetBtn.addEventListener('click', resetAll);
   });
 })();
-

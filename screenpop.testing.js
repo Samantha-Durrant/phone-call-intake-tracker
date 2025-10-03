@@ -35,11 +35,12 @@
         sessionId: SESSION_ID
       });
     },
-    ma_call: async () => { await handleIncoming(DEFAULT_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
-    results_call: async () => { await handleIncoming(DEFAULT_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
-    provider_question: async () => { await handleIncoming(DEFAULT_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
-    refill_request: async () => { await handleIncoming(DEFAULT_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
-    billing_question: async () => { await handleIncoming(DEFAULT_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
+    // Non-appointment reasons should default to NO scheduled and NO change
+    ma_call: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
+    results_call: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
+    provider_question: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
+    refill_request: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
+    billing_question: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
 
     // New patient scenarios (use a phone not present in mock)
     new_cancel: async () => {
@@ -54,22 +55,22 @@
       await handleIncoming(NEW_PHONE);
       ScreenpopLogic.processCrmEvent({ type:'confirm', appointments:[{status:'confirmed'}], occurredAt: Date.now(), sessionId: SESSION_ID });
     },
-    new_ma_call: async () => { await handleIncoming(NEW_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
-    new_results_call: async () => { await handleIncoming(NEW_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
-    new_provider_question: async () => { await handleIncoming(NEW_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
-    new_refill_request: async () => { await handleIncoming(NEW_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
-    new_billing_question: async () => { await handleIncoming(NEW_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
+    new_ma_call: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
+    new_results_call: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
+    new_provider_question: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
+    new_refill_request: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
+    new_billing_question: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
 
     // True new patient: do not auto-populate any patient fields
     true_new_blank: async () => { await trueNew('none'); },
     true_new_cancel: async () => { await trueNew('cancellation'); },
     true_new_reschedule: async () => { await trueNew('reschedule'); },
     true_new_confirm: async () => { await trueNew('none'); },
-    true_new_ma_call: async () => { await trueNew('none'); },
-    true_new_results_call: async () => { await trueNew('none'); },
-    true_new_provider_question: async () => { await trueNew('none'); },
-    true_new_refill_request: async () => { await trueNew('none'); },
-    true_new_billing_question: async () => { await trueNew('none'); },
+    true_new_ma_call: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
+    true_new_results_call: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
+    true_new_provider_question: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
+    true_new_refill_request: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
+    true_new_billing_question: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
   };
 
   async function handleIncoming(phone){
