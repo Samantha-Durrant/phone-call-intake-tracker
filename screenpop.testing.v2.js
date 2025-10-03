@@ -33,7 +33,17 @@
 
   // Map scenario name to an in-call CRM change (if any)
   async function runScenario(key){
-    if (!inCall) { pulse('Start Call to track changes'); return; }
+    const nonAppt = new Set(['ma_call','results_call','provider_question','refill_request','billing_question','new_ma_call','new_results_call','new_provider_question','new_refill_request','new_billing_question','true_new_blank']);
+    if (!inCall) {
+      // For non-appointment scenarios, still default to NO scheduled and NO change even if not in-call
+      if (nonAppt.has(key)) {
+        changeHappened = false; derivedScheduled = false; lastChange = 'none';
+        applyUI();
+      } else {
+        pulse('Start Call to track changes');
+      }
+      return;
+    }
     switch(key){
       case 'existing_cancel':
       case 'new_cancel':
