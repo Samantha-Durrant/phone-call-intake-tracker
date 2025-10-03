@@ -43,10 +43,34 @@
     new_provider_question: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
     new_refill_request: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
     new_billing_question: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
+
+    // True new patient: do not auto-populate any patient fields
+    true_new_blank: async () => { await trueNew('none'); },
+    true_new_cancel: async () => { await trueNew('cancellation'); },
+    true_new_reschedule: async () => { await trueNew('reschedule'); },
+    true_new_confirm: async () => { await trueNew('none'); },
+    true_new_ma_call: async () => { await trueNew('none'); },
+    true_new_results_call: async () => { await trueNew('none'); },
+    true_new_provider_question: async () => { await trueNew('none'); },
+    true_new_refill_request: async () => { await trueNew('none'); },
+    true_new_billing_question: async () => { await trueNew('none'); },
   };
 
   async function handleIncoming(phone){
     await window.ScreenpopAPI.handleIncomingCall(phone || DEFAULT_PHONE);
+  }
+
+  async function trueNew(change){
+    // Blank out all patient fields and mark as New
+    qsa('input[type="text"], input[type="tel"], input[type="date"]').forEach(i => i.value='');
+    const type = qs('#patientType'); if (type) type.checked = false; // unchecked = New
+    // Clear Task/Transfer and Confirmation; clear reason UI
+    qsa('.reasons .mini-btn').forEach(b => b.classList.remove('pressed'));
+    const confirm = qs('#confirmCheck'); if (confirm) confirm.checked = false;
+    const sel = qs('#reasonSelect'); if (sel) sel.value = '';
+    const wrap = qs('#otherReasonWrap'); if (wrap) wrap.classList.add('hidden');
+    // Ensure Scheduled = No, apply change as requested (no auto reason)
+    window.ScreenpopAPI.applyAppointment({ scheduled: false, change: change || 'none' });
   }
 
   // Intentionally do not automate Task/Transfer or Confirmation selections
