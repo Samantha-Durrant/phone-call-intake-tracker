@@ -44,12 +44,12 @@
     existing_cancel: async () => {
       await handleIncoming(DEFAULT_PHONE);
       clearExtras();
-      sendEvent({ type:'cancel', appointments:[{status:'cancelled'}], reason:'Illness/Family Emergency', occurredAt: Date.now(), sessionId: SESSION_ID });
+      sendEvent({ type:'cancel', appointments:[{status:'cancelled'}], occurredAt: Date.now(), sessionId: SESSION_ID });
     },
     existing_reschedule: async () => {
       await handleIncoming(DEFAULT_PHONE);
       clearExtras();
-      sendEvent({ type:'reschedule', appointments:[{status:'rescheduled'}], reason:'Work/School Conflict', occurredAt: Date.now(), sessionId: SESSION_ID });
+      sendEvent({ type:'reschedule', appointments:[{status:'rescheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID });
     },
     confirm: async () => {
       await handleIncoming(DEFAULT_PHONE);
@@ -63,8 +63,8 @@
     billing_question: async () => { await handleIncoming(DEFAULT_PHONE); clearExtras(); sendEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
 
     // New patient flows (known phone but treated as new via patientType buttons if needed)
-    new_cancel: async () => { await handleIncoming(NEW_PHONE); setPatientType('new'); clearExtras(); sendEvent({ type:'cancel', appointments:[{status:'cancelled'}], reason:'Illness/Family Emergency', occurredAt: Date.now(), sessionId: SESSION_ID }); },
-    new_reschedule: async () => { await handleIncoming(NEW_PHONE); setPatientType('new'); clearExtras(); sendEvent({ type:'reschedule', appointments:[{status:'rescheduled'}], reason:'Work/School Conflict', occurredAt: Date.now(), sessionId: SESSION_ID }); },
+    new_cancel: async () => { await handleIncoming(NEW_PHONE); setPatientType('new'); clearExtras(); sendEvent({ type:'cancel', appointments:[{status:'cancelled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
+    new_reschedule: async () => { await handleIncoming(NEW_PHONE); setPatientType('new'); clearExtras(); sendEvent({ type:'reschedule', appointments:[{status:'rescheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
     new_confirm: async () => { await handleIncoming(NEW_PHONE); setPatientType('new'); clearExtras(); sendEvent({ type:'confirm', appointments:[{status:'confirmed'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
     new_ma_call: async () => { await handleIncoming(NEW_PHONE); setPatientType('new'); clearExtras(); sendEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
     new_results_call: async () => { await handleIncoming(NEW_PHONE); setPatientType('new'); clearExtras(); sendEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
@@ -124,4 +124,3 @@
     run();
   });
 })();
-

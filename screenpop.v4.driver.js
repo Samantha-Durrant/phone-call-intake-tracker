@@ -60,8 +60,8 @@
   // --- Scenarios (adds multi-appointment cases) ---
   const scenarios = {
     // Existing
-    existing_cancel: async ()=>{ await incoming(DEFAULT_PHONE); clearExtras(); sendEvent({type:'cancel', appointments:[{status:'cancelled'}], reason:'Illness/Family Emergency', occurredAt:Date.now(), sessionId:SESSION_ID}); },
-    existing_reschedule: async ()=>{ await incoming(DEFAULT_PHONE); clearExtras(); sendEvent({type:'reschedule', appointments:[{status:'rescheduled'}], reason:'Work/School Conflict', occurredAt:Date.now(), sessionId:SESSION_ID}); },
+    existing_cancel: async ()=>{ await incoming(DEFAULT_PHONE); clearExtras(); sendEvent({type:'cancel', appointments:[{status:'cancelled'}], occurredAt:Date.now(), sessionId:SESSION_ID}); },
+    existing_reschedule: async ()=>{ await incoming(DEFAULT_PHONE); clearExtras(); sendEvent({type:'reschedule', appointments:[{status:'rescheduled'}], occurredAt:Date.now(), sessionId:SESSION_ID}); },
     confirm: async ()=>{ await incoming(DEFAULT_PHONE); clearExtras(); sendEvent({type:'confirm', appointments:[{status:'confirmed'}], occurredAt:Date.now(), sessionId:SESSION_ID}); },
     ma_call: async ()=>{ await incoming(DEFAULT_PHONE); clearExtras(); sendEvent({type:'none', appointments:[{status:'scheduled'}], occurredAt:Date.now(), sessionId:SESSION_ID}); },
     results_call: async ()=>{ await incoming(DEFAULT_PHONE); clearExtras(); sendEvent({type:'none', appointments:[{status:'scheduled'}], occurredAt:Date.now(), sessionId:SESSION_ID}); },
@@ -69,8 +69,8 @@
     refill_request: async ()=>{ await incoming(DEFAULT_PHONE); clearExtras(); sendEvent({type:'none', appointments:[{status:'scheduled'}], occurredAt:Date.now(), sessionId:SESSION_ID}); },
     billing_question: async ()=>{ await incoming(DEFAULT_PHONE); clearExtras(); sendEvent({type:'none', appointments:[{status:'scheduled'}], occurredAt:Date.now(), sessionId:SESSION_ID}); },
     // New
-    new_cancel: async ()=>{ await incoming(NEW_PHONE); setPatientType('new'); clearExtras(); sendEvent({type:'cancel', appointments:[{status:'cancelled'}], reason:'Illness/Family Emergency', occurredAt:Date.now(), sessionId:SESSION_ID}); },
-    new_reschedule: async ()=>{ await incoming(NEW_PHONE); setPatientType('new'); clearExtras(); sendEvent({type:'reschedule', appointments:[{status:'rescheduled'}], reason:'Work/School Conflict', occurredAt:Date.now(), sessionId:SESSION_ID}); },
+    new_cancel: async ()=>{ await incoming(NEW_PHONE); setPatientType('new'); clearExtras(); sendEvent({type:'cancel', appointments:[{status:'cancelled'}], occurredAt:Date.now(), sessionId:SESSION_ID}); },
+    new_reschedule: async ()=>{ await incoming(NEW_PHONE); setPatientType('new'); clearExtras(); sendEvent({type:'reschedule', appointments:[{status:'rescheduled'}], occurredAt:Date.now(), sessionId:SESSION_ID}); },
     new_confirm: async ()=>{ await incoming(NEW_PHONE); setPatientType('new'); clearExtras(); sendEvent({type:'confirm', appointments:[{status:'confirmed'}], occurredAt:Date.now(), sessionId:SESSION_ID}); },
     new_ma_call: async ()=>{ await incoming(NEW_PHONE); setPatientType('new'); clearExtras(); sendEvent({type:'none', appointments:[{status:'scheduled'}], occurredAt:Date.now(), sessionId:SESSION_ID}); },
     new_results_call: async ()=>{ await incoming(NEW_PHONE); setPatientType('new'); clearExtras(); sendEvent({type:'none', appointments:[{status:'scheduled'}], occurredAt:Date.now(), sessionId:SESSION_ID}); },
@@ -88,8 +88,8 @@
     true_new_refill_request: async ()=>{ clearFields(); setPatientType('new'); clearExtras(); sendEvent({type:'none', appointments:[{status:'scheduled'}], occurredAt:Date.now(), sessionId:SESSION_ID}); },
     true_new_billing_question: async ()=>{ clearFields(); setPatientType('new'); clearExtras(); sendEvent({type:'none', appointments:[{status:'scheduled'}], occurredAt:Date.now(), sessionId:SESSION_ID}); },
     // Multi-appointment demos
-    two_appts_cancel_one: async ()=>{ await incoming(DEFAULT_PHONE); clearExtras(); ScreenpopLogic.processCrmSnapshot({appointments:[{status:'scheduled'},{status:'cancelled'}], lastChange:{type:'cancel',reason:'Work/School Conflict'}, occurredAt:Date.now(), sessionId:SESSION_ID}); log('snapshot', {appointments:[{status:'scheduled'},{status:'cancelled'}]}); },
-    two_appts_reschedule_one: async ()=>{ await incoming(DEFAULT_PHONE); clearExtras(); ScreenpopLogic.processCrmSnapshot({appointments:[{status:'scheduled'},{status:'rescheduled'}], lastChange:{type:'reschedule',reason:'Provider unavailable'}, occurredAt:Date.now(), sessionId:SESSION_ID}); log('snapshot', {appointments:[{status:'scheduled'},{status:'rescheduled'}]}); },
+    two_appts_cancel_one: async ()=>{ await incoming(DEFAULT_PHONE); clearExtras(); ScreenpopLogic.processCrmSnapshot({appointments:[{status:'scheduled'},{status:'cancelled'}], lastChange:{type:'cancel'}, occurredAt:Date.now(), sessionId:SESSION_ID}); log('snapshot', {appointments:[{status:'scheduled'},{status:'cancelled'}]}); },
+    two_appts_reschedule_one: async ()=>{ await incoming(DEFAULT_PHONE); clearExtras(); ScreenpopLogic.processCrmSnapshot({appointments:[{status:'scheduled'},{status:'rescheduled'}], lastChange:{type:'reschedule'}, occurredAt:Date.now(), sessionId:SESSION_ID}); log('snapshot', {appointments:[{status:'scheduled'},{status:'rescheduled'}]}); },
     one_appt_book_second: async ()=>{ await incoming(DEFAULT_PHONE); clearExtras(); ScreenpopLogic.processCrmSnapshot({appointments:[{status:'scheduled'},{status:'scheduled'}], lastChange:{type:'book'}, occurredAt:Date.now(), sessionId:SESSION_ID}); log('snapshot', {appointments:[{status:'scheduled'},{status:'scheduled'}]}); },
     all_cancelled: async ()=>{ await incoming(DEFAULT_PHONE); clearExtras(); ScreenpopLogic.processCrmSnapshot({appointments:[{status:'cancelled'},{status:'cancelled'}], lastChange:{type:'cancel'}, occurredAt:Date.now(), sessionId:SESSION_ID}); log('snapshot', {appointments:[{status:'cancelled'},{status:'cancelled'}]}); },
   };
@@ -146,4 +146,3 @@
     run();
   });
 })();
-

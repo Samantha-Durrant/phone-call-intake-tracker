@@ -13,7 +13,6 @@
       ScreenpopLogic.processCrmEvent({
         type: 'cancel',
         appointments: [{ status: 'cancelled' }],
-        reason: 'Illness/Family Emergency',
         occurredAt: Date.now(),
         sessionId: SESSION_ID
       });
@@ -23,7 +22,6 @@
       ScreenpopLogic.processCrmEvent({
         type: 'reschedule',
         appointments: [{ status: 'rescheduled' }],
-        reason: 'Work/School Conflict',
         occurredAt: Date.now(),
         sessionId: SESSION_ID
       });
@@ -46,11 +44,11 @@
     // New patient scenarios (use a phone not present in mock)
     new_cancel: async () => {
       await handleIncoming(NEW_PHONE);
-      ScreenpopLogic.processCrmEvent({ type:'cancel', appointments:[{status:'cancelled'}], reason:'Illness/Family Emergency', occurredAt: Date.now(), sessionId: SESSION_ID });
+      ScreenpopLogic.processCrmEvent({ type:'cancel', appointments:[{status:'cancelled'}], occurredAt: Date.now(), sessionId: SESSION_ID });
     },
     new_reschedule: async () => {
       await handleIncoming(NEW_PHONE);
-      ScreenpopLogic.processCrmEvent({ type:'reschedule', appointments:[{status:'rescheduled'}], reason:'Work/School Conflict', occurredAt: Date.now(), sessionId: SESSION_ID });
+      ScreenpopLogic.processCrmEvent({ type:'reschedule', appointments:[{status:'rescheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID });
     },
     new_confirm: async () => {
       await handleIncoming(NEW_PHONE);
