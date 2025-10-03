@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ScreenPop Feedback Form</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous" />
+  <style>
+    :root{--brand:#4f46e5;--line:#e5e7eb;--muted:#6b7280}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;color:#111827;background:#f7f8fb}
+    .container{max-width:780px;margin:40px auto;padding:0 16px}
+    .card{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.06);padding:20px}
+    h1{margin:0 0 8px;font-size:22px}
+    p.desc{margin:0 0 16px;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .full{grid-column:1/-1}
+    label{display:block;font-size:13px;color:#374151;margin-bottom:6px}
+    input[type="text"],input[type="number"],select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff}
+    textarea{min-height:90px;resize:vertical}
+    .field{margin-bottom:12px}
+    .radio{display:flex;gap:14px;align-items:center}
+    .actions{display:flex;gap:10px;margin-top:12px}
+    button{height:38px;padding:0 14px;border-radius:8px;border:1px solid var(--line);cursor:pointer;background:#fff}
+    .primary{background:var(--brand);border-color:var(--brand);color:#fff}
+    .note{font-size:12px;color:var(--muted);margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1><i class="fa-regular fa-comment-dots"></i> ScreenPop Feedback</h1>
+      <p class="desc">Your feedback helps refine the screenpop UI and workflow. Patient information is not collected by this form.</p>
+
+      <!-- Replace `your-form-id` with your Formspree ID -->
+      <form action="https://formspree.io/f/your-form-id" method="POST">
+        <div class="grid">
+          <div class="field">
+            <label>Name (optional)</label>
+            <input type="text" name="name" />
+          </div>
+          <div class="field">
+            <label>Role</label>
+            <select name="role">
+              <option>MA</option>
+              <option>Front Desk</option>
+              <option>Billing</option>
+              <option>Provider</option>
+              <option>Other</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Layout clarity (1–5)</label>
+            <input type="number" name="layout" min="1" max="5" />
+          </div>
+          <div class="field">
+            <label>Are colors/icons intuitive?</label>
+            <div class="radio">
+              <label><input type="radio" name="colors" value="Yes" /> Yes</label>
+              <label><input type="radio" name="colors" value="No" /> No</label>
+              <label><input type="radio" name="colors" value="Somewhat" /> Somewhat</label>
+            </div>
+          </div>
+
+          <div class="field full">
+            <label>Suggestions for visual design</label>
+            <textarea name="appearance_suggestions"></textarea>
+          </div>
+
+          <div class="field">
+            <label>Ease of navigation (1–5)</label>
+            <input type="number" name="navigation" min="1" max="5" />
+          </div>
+          <div class="field full">
+            <label>Features that felt confusing/unnecessary</label>
+            <textarea name="confusing_features"></textarea>
+          </div>
+          <div class="field full">
+            <label>Features that worked best</label>
+            <textarea name="best_features"></textarea>
+          </div>
+
+          <div class="field">
+            <label>Do outcome options fit typical calls?</label>
+            <div class="radio">
+              <label><input type="radio" name="outcomes" value="Yes" /> Yes</label>
+              <label><input type="radio" name="outcomes" value="No" /> No</label>
+              <label><input type="radio" name="outcomes" value="Partial" /> Partial</label>
+            </div>
+          </div>
+          <div class="field full">
+            <label>Situations not accounted for</label>
+            <textarea name="missed_situations"></textarea>
+          </div>
+          <div class="field full">
+            <label>Additional logic to add</label>
+            <textarea name="logic"></textarea>
+          </div>
+
+          <div class="field full">
+            <label>Biggest improvement suggestion</label>
+            <textarea name="biggest_improvement"></textarea>
+          </div>
+          <div class="field full">
+            <label>Other factors (training, reporting, integrations)</label>
+            <textarea name="other_factors"></textarea>
+          </div>
+          <div class="field">
+            <label>Overall value (1–5)</label>
+            <input type="number" name="value" min="1" max="5" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="primary">Submit Feedback</button>
+          <button type="reset">Reset</button>
+        </div>
+        <p class="note">This form is powered by Formspree. Replace the endpoint with your own form ID before sharing.</p>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
+
