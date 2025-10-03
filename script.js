@@ -804,6 +804,21 @@ function closeScreenpop() {
     }
 }
 
+// UI-only screenpop embed controls
+function openUiScreenpop() {
+    const overlay = document.getElementById('uiScreenpopOverlay');
+    if (!overlay) return;
+    overlay.classList.remove('hidden');
+    overlay.setAttribute('aria-hidden', 'false');
+}
+
+function closeUiScreenpop() {
+    const overlay = document.getElementById('uiScreenpopOverlay');
+    if (!overlay) return;
+    overlay.classList.add('hidden');
+    overlay.setAttribute('aria-hidden', 'true');
+}
+
 function toggleSimulationControls() {
     const controls = document.querySelector('.simulation-buttons');
     const status = document.querySelector('.simulation-status');
@@ -876,6 +891,7 @@ document.addEventListener('keydown', function(event) {
     // Escape to close
     if (event.key === 'Escape') {
         closeScreenpop();
+        closeUiScreenpop();
     }
 });
 

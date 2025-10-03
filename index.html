@@ -26,6 +26,9 @@
                     <span class="status-indicator active"></span>
                     <span>Systems Connected</span>
                 </div>
+                <button class="save-version-btn" onclick="openUiScreenpop()" title="Open UI Screenpop">
+                    <i class="fas fa-window-restore"></i> Open UI Screenpop
+                </button>
                 <button class="close-btn" onclick="closeScreenpop()">
                     <i class="fas fa-times"></i>
                 </button>
@@ -308,6 +311,16 @@
         <div class="loading-content">
             <i class="fas fa-spinner fa-spin"></i>
             <p>Syncing with systems...</p>
+        </div>
+    </div>
+
+    <!-- Embedded UI-only Screenpop overlay -->
+    <div id="uiScreenpopOverlay" class="ui-screenpop-overlay hidden" aria-hidden="true">
+        <div class="ui-screenpop-frame" role="dialog" aria-label="UI Screenpop">
+            <button class="ui-screenpop-close" onclick="closeUiScreenpop()" aria-label="Close UI Screenpop">
+                <i class="fas fa-times"></i>
+            </button>
+            <iframe class="ui-screenpop-iframe" src="screenpop.html" title="UI Screenpop"></iframe>
         </div>
     </div>
 
