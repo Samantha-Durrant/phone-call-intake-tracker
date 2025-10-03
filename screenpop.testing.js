@@ -5,44 +5,62 @@
 
   const DEFAULT_PHONE = '+15551234567'; // maps to John Smith in mock
   const NEW_PHONE = '+15559998888'; // not in mock => treated as new patient
+  let SESSION_ID = null;
 
   const scenarios = {
     existing_cancel: async () => {
       await handleIncoming(DEFAULT_PHONE);
-      window.ScreenpopAPI.applyAppointment({ scheduled: true, change: 'cancellation', reason: 'Illness/Family Emergency' });
+      ScreenpopLogic.processCrmEvent({
+        type: 'cancel',
+        appointments: [{ status: 'cancelled' }],
+        reason: 'Illness/Family Emergency',
+        occurredAt: Date.now(),
+        sessionId: SESSION_ID
+      });
     },
     existing_reschedule: async () => {
       await handleIncoming(DEFAULT_PHONE);
-      window.ScreenpopAPI.applyAppointment({ scheduled: true, change: 'reschedule', reason: 'Work/School Conflict' });
+      ScreenpopLogic.processCrmEvent({
+        type: 'reschedule',
+        appointments: [{ status: 'rescheduled' }],
+        reason: 'Work/School Conflict',
+        occurredAt: Date.now(),
+        sessionId: SESSION_ID
+      });
     },
     confirm: async () => {
       await handleIncoming(DEFAULT_PHONE);
-      window.ScreenpopAPI.applyAppointment({ scheduled: true, change: 'none' });
+      ScreenpopLogic.processCrmEvent({
+        type: 'confirm',
+        appointments: [{ status: 'confirmed' }],
+        occurredAt: Date.now(),
+        sessionId: SESSION_ID
+      });
     },
-    ma_call: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
-    results_call: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
-    provider_question: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
-    refill_request: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
-    billing_question: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
+    ma_call: async () => { await handleIncoming(DEFAULT_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
+    results_call: async () => { await handleIncoming(DEFAULT_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
+    provider_question: async () => { await handleIncoming(DEFAULT_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
+    refill_request: async () => { await handleIncoming(DEFAULT_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
+    billing_question: async () => { await handleIncoming(DEFAULT_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
 
     // New patient scenarios (use a phone not present in mock)
     new_cancel: async () => {
       await handleIncoming(NEW_PHONE);
-      window.ScreenpopAPI.applyAppointment({ scheduled: true, change: 'cancellation', reason: 'Illness/Family Emergency' });
+      ScreenpopLogic.processCrmEvent({ type:'cancel', appointments:[{status:'cancelled'}], reason:'Illness/Family Emergency', occurredAt: Date.now(), sessionId: SESSION_ID });
     },
     new_reschedule: async () => {
       await handleIncoming(NEW_PHONE);
-      window.ScreenpopAPI.applyAppointment({ scheduled: true, change: 'reschedule', reason: 'Work/School Conflict' });
+      ScreenpopLogic.processCrmEvent({ type:'reschedule', appointments:[{status:'rescheduled'}], reason:'Work/School Conflict', occurredAt: Date.now(), sessionId: SESSION_ID });
     },
     new_confirm: async () => {
       await handleIncoming(NEW_PHONE);
-      window.ScreenpopAPI.applyAppointment({ scheduled: true, change: 'none' });
+      ScreenpopLogic.processCrmEvent({ type:'confirm', appointments:[{status:'confirmed'}], occurredAt: Date.now(), sessionId: SESSION_ID });
     },
-    new_ma_call: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
-    new_results_call: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
-    new_provider_question: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
-    new_refill_request: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
-    new_billing_question: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
+    new_ma_call: async () => { await handleIncoming(NEW_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
+    new_results_call: async () => { await handleIncoming(NEW_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
+    new_provider_question: async () => { await handleIncoming(NEW_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
+    new_refill_request: async () => { await handleIncoming(NEW_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
+    new_billing_question: async () => { await handleIncoming(NEW_PHONE); ScreenpopLogic.processCrmEvent({ type:'none', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID }); },
 
     // True new patient: do not auto-populate any patient fields
     true_new_blank: async () => { await trueNew('none'); },
@@ -69,8 +87,15 @@
     const confirm = qs('#confirmCheck'); if (confirm) confirm.checked = false;
     const sel = qs('#reasonSelect'); if (sel) sel.value = '';
     const wrap = qs('#otherReasonWrap'); if (wrap) wrap.classList.add('hidden');
-    // Ensure Scheduled = No, apply change as requested (no auto reason)
-    window.ScreenpopAPI.applyAppointment({ scheduled: false, change: change || 'none' });
+    // Ensure Scheduled is derived by logic
+    if (change === 'cancellation') {
+      ScreenpopLogic.processCrmEvent({ type:'cancel', appointments:[{status:'cancelled'}], occurredAt: Date.now(), sessionId: SESSION_ID });
+    } else if (change === 'reschedule') {
+      ScreenpopLogic.processCrmEvent({ type:'reschedule', appointments:[{status:'rescheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID });
+    } else {
+      // no change; keep scheduled unset (none)
+      ScreenpopLogic.processCrmEvent({ type:'none', appointments: [], occurredAt: Date.now(), sessionId: SESSION_ID });
+    }
   }
 
   // Intentionally do not automate Task/Transfer or Confirmation selections
@@ -91,6 +116,9 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    // Start a session for in-call testing; ignore background
+    SESSION_ID = 'sess_' + Math.random().toString(36).slice(2,8);
+    window.ScreenpopLogic?.configure({ sessionId: SESSION_ID, acceptBackground: false });
     const select = qs('#scenario');
     const runBtn = qs('#runScenario');
     const resetBtn = qs('#resetScenario');
