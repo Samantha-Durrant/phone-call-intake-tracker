@@ -28,6 +28,9 @@
     // Do not auto-select Task/Transfer or Confirmation; leave manual
     qsa('.reasons .mini-btn').forEach(b => b.classList.remove('pressed'));
     const confirm = qs('#confirmCheck'); if (confirm) confirm.checked = false;
+    // Ensure reason defaults to "Select reason" when scenarios run
+    const sel = qs('#reasonSelect'); if (sel) sel.value = '';
+    const wrap = qs('#otherReasonWrap'); if (wrap) wrap.classList.add('hidden');
   }
 
   function clearPatient(){

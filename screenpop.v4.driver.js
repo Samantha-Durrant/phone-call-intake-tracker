@@ -54,7 +54,12 @@
     log('incoming_call', { phone, sessionId: SESSION_ID });
   }
 
-  function clearExtras(){ qsa('.reasons .mini-btn').forEach(b=>b.classList.remove('pressed')); const c=qs('#confirmCheck'); if(c) c.checked=false; }
+  function clearExtras(){
+    qsa('.reasons .mini-btn').forEach(b=>b.classList.remove('pressed')); const c=qs('#confirmCheck'); if(c) c.checked=false;
+    // Ensure reason defaults to "Select reason" when scenarios run
+    const sel = qs('#reasonSelect'); if (sel) sel.value = '';
+    const wrap = qs('#otherReasonWrap'); if (wrap) wrap.classList.add('hidden');
+  }
   function clearFields(){ qsa('input[type="text"], input[type="tel"], input[type="date"]').forEach(i=>i.value=''); }
 
   // --- Scenarios (adds multi-appointment cases) ---
