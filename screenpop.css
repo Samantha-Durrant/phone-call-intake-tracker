@@ -4,7 +4,10 @@
 html,body{height:100%}
 body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;color:var(--text);background:#f5f7fb}
 
-.mini-screenpop{position:fixed;right:16px;bottom:16px;width:min(25vw,460px);min-width:320px;max-width:460px;background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.12);display:flex;flex-direction:column;overflow:hidden}
+.mini-screenpop{position:fixed;right:16px;bottom:16px;width:min(25vw,460px);min-width:320px;max-width:460px;background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.12);display:flex;flex-direction:column;max-height:calc(100vh - 32px);overflow:hidden}
+.mini-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
+.mini-header{position:sticky;top:0;z-index:2}
+.mini-footer{position:sticky;bottom:0;z-index:2}
 
 .mini-header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:linear-gradient(180deg,#f9fafb,#f3f4f6);border-bottom:1px solid var(--line)}
 .title{display:flex;align-items:center;gap:8px;font-weight:600}
@@ -65,6 +68,14 @@ body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantare
 .btn.ghost{background:#fff}
 .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
 .btn.primary:hover{background:#4338ca}
+
+/* Household chooser and banners */
+.banner{display:flex;align-items:center;gap:8px;padding:8px;border:1px dashed var(--line);border-radius:8px;background:#f8fafc}
+.chooser{border:1px solid var(--line);border-radius:10px;padding:8px;background:#fff;margin-top:8px}
+.chooser-header{font-weight:600;margin-bottom:6px}
+.chooser-list{display:flex;flex-direction:column;gap:6px}
+.chooser-item{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.chooser-item .meta{font-size:12px;color:var(--muted)}
 
 @media (max-width: 980px){.mini-screenpop{width:min(42vw,460px)}}
 @media (max-width: 640px){.mini-screenpop{left:16px;right:16px;width:auto}}

@@ -71,6 +71,32 @@
     true_new_provider_question: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
     true_new_refill_request: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
     true_new_billing_question: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
+
+    // Household: phone maps to multiple patients -> show chooser
+    household_match: async () => {
+      await handleIncoming('+15553334444'); // Sarah Smith + John Smith per mock
+      // Leave selection to user via chooser UI
+    },
+    // No match: unknown phone -> show no-match banner and prompt to search
+    no_match_phone: async () => {
+      await handleIncoming('+15550000000'); // not in mock
+      // Auto-toggle to Someone Else to expose subject fields for convenience
+      document.querySelectorAll('.seg[data-group="callfor"]').forEach(b => b.classList.toggle('active', b.getAttribute('data-value')==='proxy'));
+      // Scroll to subject search
+      document.getElementById('subjectSearchWrap')?.scrollIntoView({behavior:'smooth', block:'nearest'});
+    },
+    // Proxy flow: force Someone Else and let user apply a subject
+    proxy_flow: async () => {
+      await handleIncoming(DEFAULT_PHONE);
+      // Switch to Someone Else
+      document.querySelectorAll('.seg[data-group="callfor"]').forEach(b => b.classList.toggle('active', b.getAttribute('data-value')==='proxy'));
+      // Clear patient fields to avoid confusion
+      ['patientName','patientMRN','patientDOB','patientPhone'].forEach(id => { const el = document.getElementById(id); if (el) el.value=''; });
+      ScreenpopAPI.applyAppointment({ scheduled:false, change:'none' });
+      // Expose subject search
+      document.getElementById('subjectSearchWrap')?.classList.remove('hidden');
+      document.getElementById('subjectSearchWrap')?.setAttribute('aria-hidden','false');
+    },
   };
 
   async function handleIncoming(phone){

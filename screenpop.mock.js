@@ -1,10 +1,21 @@
 // Mock CRM adapter for proof-of-concept demos
 // Loads sample patient + appointment data and drives the UI via ScreenpopAPI
 (function(){
+  // Base patients
+  const patients = [
+    { id: 'p1', name: 'John Smith', phone: '+1 (555) 123-4567', mrn: 'A123456', dob: '1985-03-15', isExisting: true },
+    { id: 'p2', name: 'Sarah Johnson', phone: '+1 (555) 456-7890', mrn: 'B998877', dob: '1992-08-22', isExisting: true },
+    { id: 'p3', name: 'Michael Brown', phone: '+1 (555) 777-1234', mrn: 'C445566', dob: '1978-11-05', isExisting: true },
+    { id: 'p4', name: 'Sarah Smith', phone: '+1 (555) 333-4444', mrn: 'D112233', dob: '1979-01-10', isExisting: true },
+  ];
+
+  // Phones that map to one or more patients
   const byPhone = new Map([
-    ['+15551234567', { id: 'p1', name: 'John Smith', phone: '+1 (555) 123-4567', mrn: 'A123456', dob: '1985-03-15', isExisting: true }],
-    ['+15554567890', { id: 'p2', name: 'Sarah Johnson', phone: '+1 (555) 456-7890', mrn: 'B998877', dob: '1992-08-22', isExisting: true }],
-    ['+15557771234', { id: 'p3', name: 'Michael Brown', phone: '+1 (555) 777-1234', mrn: 'C445566', dob: '1978-11-05', isExisting: true }],
+    ['+15551234567', patients.find(p=>p.id==='p1')], // single: John
+    ['+15554567890', patients.find(p=>p.id==='p2')], // single: Sarah Johnson
+    ['+15557771234', patients.find(p=>p.id==='p3')], // single: Michael
+    // Household phone shared by Sarah Smith and John Smith
+    ['+15553334444', [ patients.find(p=>p.id==='p4'), patients.find(p=>p.id==='p1') ]],
   ]);
 
   function normalize(phone){
@@ -19,9 +30,22 @@
   window.ScreenpopAPI?.configure({
     lookupPatientByPhone: async (phone) => {
       const key = normalize(phone);
-      // Simulate network latency
-      await delay(400);
-      return byPhone.get(key) || null; // null => new patient
+      await delay(300);
+      const hit = byPhone.get(key);
+      if (!hit) return null;
+      return hit; // could be object or array
+    },
+    searchPatients: async ({ name, dob, mrn }) => {
+      await delay(300);
+      const n = (name||'').trim().toLowerCase();
+      const d = (dob||'').trim();
+      const m = (mrn||'').trim().toLowerCase();
+      return patients.filter(p => {
+        const byName = n ? p.name.toLowerCase().includes(n) : true;
+        const byDob = d ? p.dob === d : true;
+        const byMrn = m ? p.mrn.toLowerCase() === m : true;
+        return byName && byDob && byMrn;
+      }).slice(0,5);
     },
     onReasonSubmit: ({ change, reason, otherText }) => {
       console.log('[MockCRM] Reason captured:', { change, reason, otherText });
@@ -50,6 +74,7 @@
       case 'existing_scheduled': return '+15551234567';
       case 'existing_cancelled': return '+15554567890';
       case 'existing_rescheduled': return '+15557771234';
+      case 'household': return '+15553334444';
       case 'new': return '+15559998888';
       default: return '+15551234567';
     }
@@ -79,4 +104,3 @@
 
   function delay(ms){ return new Promise(r => setTimeout(r, ms)); }
 })();
-

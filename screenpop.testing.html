@@ -50,6 +50,10 @@
       <option value="true_new_provider_question">True New Patient — Provider Question</option>
       <option value="true_new_refill_request">True New Patient — Refill Request</option>
       <option value="true_new_billing_question">True New Patient — Billing Question</option>
+      <option disabled>──────────</option>
+      <option value="household_match">Household Phone — Multiple Matches</option>
+      <option value="no_match_phone">No Match — Search Subject</option>
+      <option value="proxy_flow">Proxy Call — Someone Else</option>
     </select>
     <button id="runScenario" class="primary">Run</button>
     <button id="resetScenario">Reset</button>
@@ -61,6 +65,7 @@
       <div class="title">
         <i class="fa-solid fa-phone"></i>
         <span>Call Screenpop (Testing)</span>
+        <span id="callerBadge" class="chip alt hidden" aria-hidden="true"></span>
       </div>
       <button class="icon-btn" aria-label="Close" title="Close" onclick="window.close?.()">
         <i class="fa-solid fa-xmark"></i>
@@ -69,6 +74,25 @@
 
     <section class="section">
       <h3 class="section-title"><i class="fa-regular fa-user"></i> Patient</h3>
+      <div class="row" style="margin-bottom:.5rem">
+        <span class="label">Call For</span>
+        <div class="segmented" role="group" aria-label="Call For">
+          <button type="button" class="seg active" data-group="callfor" data-value="self">Self</button>
+          <button type="button" class="seg" data-group="callfor" data-value="proxy">Someone Else</button>
+        </div>
+      </div>
+      <div id="noMatchBanner" class="banner hidden" aria-hidden="true">
+        <span>No match for caller phone. Search patient by name/DOB.</span>
+        <div style="margin-left:auto; display:flex; gap:6px; align-items:center;">
+          <button class="btn ghost" type="button" id="showSearchBtn">Search Patient</button>
+          <button class="btn ghost" type="button" id="copyCallerToSubjectBtn">Copy caller phone</button>
+          <label class="checkbox" style="gap:6px">
+            <input id="markCrmUpdate" type="checkbox" />
+            <span class="checkmark" title="Mark for CRM update"></span>
+            <small class="muted">Mark for CRM update</small>
+          </label>
+        </div>
+      </div>
       <div class="grid">
         <label class="field"><span class="label">Name</span><input id="patientName" type="text" placeholder="—" autocomplete="off" /></label>
         <label class="field"><span class="label">Phone</span><input id="patientPhone" type="tel" placeholder="—" autocomplete="off" /></label>
@@ -76,6 +100,32 @@
         <label class="field"><span class="label">DOB</span><input id="patientDOB" type="date" /></label>
       </div>
       <div class="pt-type segmented" role="group" aria-label="Patient Type"><button type="button" class="seg" data-ptype="new">New</button><button type="button" class="seg active" data-ptype="existing">Existing</button></div>
+
+      <!-- Subject search/apply shown when Call For = Someone Else -->
+      <div id="subjectSearchWrap" class="grid hidden" aria-hidden="true" style="margin-top:.5rem">
+        <label class="field"><span class="label">Subject Name</span><input id="subjectName" type="text" placeholder="Enter full name" autocomplete="off" /></label>
+        <label class="field"><span class="label">Subject DOB</span><input id="subjectDOB" type="date" /></label>
+        <label class="field"><span class="label">Subject MRN (optional)</span><input id="subjectMRN" type="text" placeholder="—" autocomplete="off" /></label>
+        <label class="field"><span class="label">Subject Phone (optional)</span><input id="subjectPhone" type="tel" placeholder="—" autocomplete="off" /></label>
+        <div class="field" style="grid-column: 1 / -1; display:flex; gap:.5rem; align-items:center;">
+          <button class="btn" type="button" id="applySubjectBtn">Apply Subject</button>
+          <button class="btn" type="button" id="findSubjectBtn">Find</button>
+          <button class="btn ghost" type="button" id="switchPatientBtn">Switch/Clear</button>
+          <small class="muted">Applies to patient fields; caller phone remains unchanged.</small>
+        </div>
+      </div>
+
+      <!-- Household chooser / search results -->
+      <div id="householdChooser" class="chooser hidden" aria-hidden="true">
+        <div class="chooser-header">Possible matches for this caller</div>
+        <div id="householdList" class="chooser-list"></div>
+        <div class="chooser-actions" style="display:flex; align-items:center; gap:8px; justify-content:space-between; margin-top:6px;">
+          <button class="btn ghost" type="button" id="householdSearchBtn">None of these → Search</button>
+          <button class="icon-btn" type="button" id="closeHouseholdBtn" aria-label="Close chooser" title="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
     </section>
 
     <section class="section">
