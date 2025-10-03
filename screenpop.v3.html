@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<!-- Version 3: session-aware CRM logic + quick event simulator -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Call Screenpop (v3 Logic Testing)</title>
+  <link rel="stylesheet" href="screenpop.css" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous" />
+  <style>
+    body{background:#f5f7fb}
+    .demo-bar{position:fixed;top:16px;left:16px;z-index:10;display:flex;gap:8px;align-items:center;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:8px 10px;box-shadow:0 8px 24px rgba(0,0,0,.08)}
+    .demo-bar input,.demo-bar select{height:32px;border:1px solid #e5e7eb;border-radius:8px;padding:0 8px}
+    .demo-bar button{height:32px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;cursor:pointer;padding:0 10px;font-weight:600}
+    .demo-bar .primary{background:#4f46e5;border-color:#4f46e5;color:#fff}
+    .log{position:fixed;top:64px;left:16px;z-index:9;max-width:420px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:8px 10px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace; font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.06)}
+    .log pre{margin:0;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto}
+  </style>
+</head>
+<body>
+  <div class="demo-bar">
+    <button id="startSession" class="primary">Start Call Session</button>
+    <button id="endSession">End Session</button>
+    <select id="eventType">
+      <option value="cancel">Cancel only appointment</option>
+      <option value="book">Book appointment</option>
+      <option value="reschedule">Reschedule appointment</option>
+      <option value="confirm">Confirm appointment</option>
+      <option value="snapshot">Apply CRM snapshot</option>
+    </select>
+    <select id="eventScope">
+      <option value="in_call">This session</option>
+      <option value="background">Background</option>
+    </select>
+    <button id="sendEvent">Send</button>
+  </div>
+  <div class="log"><strong>Event Log</strong><pre id="log"></pre></div>
+
+  <!-- UI -->
+  <div class="mini-screenpop" role="dialog" aria-label="Call Screenpop">
+    <header class="mini-header">
+      <div class="title">
+        <i class="fa-solid fa-phone"></i>
+        <span>Call Screenpop (v3 Logic)</span>
+      </div>
+      <button class="icon-btn" aria-label="Close" title="Close" onclick="window.close?.()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+
+    <section class="section">
+      <h3 class="section-title"><i class="fa-regular fa-user"></i> Patient</h3>
+      <div class="grid">
+        <label class="field"><span class="label">Name</span><input id="patientName" type="text" placeholder="—" autocomplete="off"/></label>
+        <label class="field"><span class="label">Phone</span><input id="patientPhone" type="tel" placeholder="—" autocomplete="off"/></label>
+        <label class="field"><span class="label">MRN</span><input id="patientMRN" type="text" placeholder="—" autocomplete="off"/></label>
+        <label class="field"><span class="label">DOB</span><input id="patientDOB" type="date"/></label>
+      </div>
+      <div class="pt-type segmented" role="group" aria-label="Patient Type">
+        <button type="button" class="seg" data-ptype="new">New</button>
+        <button type="button" class="seg active" data-ptype="existing">Existing</button>
+      </div>
+    </section>
+
+    <section class="section">
+      <h3 class="section-title"><i class="fa-regular fa-calendar"></i> Appointment Context</h3>
+      <div class="row"><span class="label">Scheduled?</span><div class="segmented" role="group" aria-label="Scheduled"><button class="seg active" data-value="yes" data-group="scheduled">Yes</button><button class="seg" data-value="no" data-group="scheduled">No</button></div></div>
+      <div class="row"><span class="label">Change</span><div class="segmented" role="group" aria-label="Change Type"><button class="seg active" data-value="none" data-group="change">None</button><button class="seg" data-value="cancellation" data-group="change">Cancellation</button><button class="seg" data-value="reschedule" data-group="change">Reschedule</button></div></div>
+      <div id="reasonBlock" class="reason hidden">
+        <label class="field"><span class="label">Reason</span>
+          <select id="reasonSelect"><option value="">Select reason...</option><option>No longer needed</option><option>Illness/Family Emergency</option><option>Work/School Conflict</option><option>Insurance</option><option>Referral</option><option>POOO r/s</option><option>Other</option></select>
+        </label>
+        <label id="otherReasonWrap" class="field hidden"><span class="label">Other (details)</span><input id="otherReason" type="text" placeholder="Enter details"/></label>
+      </div>
+    </section>
+
+    <section class="section">
+      <h3 class="section-title"><i class="fa-regular fa-message"></i> Other Call Reasons</h3>
+      <div class="reasons">
+        <div class="reason-row"><span class="reason-label">Confirmation</span><label class="checkbox"><input id="confirmCheck" type="checkbox"/><span class="checkmark"></span></label></div>
+        <div class="reason-row"><span class="reason-label">MA Call</span><div class="actions"><button class="mini-btn" data-action="task">Task</button><button class="mini-btn alt" data-action="transfer">Transfer</button></div></div>
+        <div class="reason-row"><span class="reason-label">Results</span><div class="actions"><button class="mini-btn" data-action="task">Task</button><button class="mini-btn alt" data-action="transfer">Transfer</button></div></div>
+        <div class="reason-row"><span class="reason-label">Provider Question</span><div class="actions"><button class="mini-btn" data-action="task">Task</button><button class="mini-btn alt" data-action="transfer">Transfer</button></div></div>
+        <div class="reason-row"><span class="reason-label">Refill Request</span><div class="actions"><button class="mini-btn" data-action="task">Task</button><button class="mini-btn alt" data-action="transfer">Transfer</button></div></div>
+        <div class="reason-row"><span class="reason-label">Billing Question</span><div class="actions"><button class="mini-btn" data-action="task">Task</button><button class="mini-btn alt" data-action="transfer">Transfer</button></div></div>
+      </div>
+    </section>
+
+    <footer class="mini-footer">
+      <div class="left"><small id="statusMsg" class="muted">v3 logic — session-aware CRM updates</small></div>
+      <div class="right"><button class="btn ghost" id="clearBtn">Clear</button><button class="btn primary" id="doneBtn">Done</button></div>
+    </footer>
+  </div>
+
+  <script src="screenpop.js"></script>
+  <script src="screenpop.logic.js"></script>
+  <script>
+    (function(){
+      const log = document.getElementById('log');
+      const eventType = document.getElementById('eventType');
+      const eventScope = document.getElementById('eventScope');
+      let sessionId = null;
+
+      function append(msg){
+        log.textContent = `[${new Date().toLocaleTimeString()}] ${msg}\n` + log.textContent;
+      }
+
+      document.getElementById('startSession').addEventListener('click', () => {
+        sessionId = 'sess_' + Math.random().toString(36).slice(2,8);
+        window.ScreenpopLogic.configure({ sessionId, acceptBackground: false });
+        append(`Started session ${sessionId} (acceptBackground=false)`);
+      });
+
+      document.getElementById('endSession').addEventListener('click', () => {
+        append(`Ended session ${sessionId || '—'}`);
+        sessionId = null;
+        window.ScreenpopLogic.configure({ sessionId: null, acceptBackground: true });
+      });
+
+      document.getElementById('sendEvent').addEventListener('click', () => {
+        const type = eventType.value;
+        const scope = eventScope.value;
+        const inCall = scope === 'in_call';
+        // Build a simple payload showing the rules clearly
+        let payload;
+        if (type === 'snapshot') {
+          // Example: one appointment cancelled => none scheduled
+          payload = {
+            appointments: [{ status: 'cancelled' }],
+            lastChange: { type: 'cancel', reason: 'Illness/Family Emergency' },
+            occurredAt: Date.now(),
+            sessionId: inCall ? sessionId : 'bg_'+Math.random().toString(36).slice(2,6)
+          };
+          window.ScreenpopLogic.processCrmSnapshot(payload);
+          append(`snapshot ${inCall ? '(in-call)' : '(background)'}: ${JSON.stringify(payload)}`);
+          return;
+        }
+        
+        // Event updates
+        if (type === 'cancel') {
+          payload = {
+            type: 'cancel',
+            appointments: [{ status: 'cancelled' }], // only appointment -> cancelled
+            reason: 'Illness/Family Emergency',
+            occurredAt: Date.now(),
+            sessionId: inCall ? sessionId : 'bg_'+Math.random().toString(36).slice(2,6)
+          };
+        } else if (type === 'book' || type === 'confirm' || type === 'reschedule') {
+          payload = {
+            type,
+            appointments: [{ status: type === 'reschedule' ? 'rescheduled' : 'scheduled' }],
+            occurredAt: Date.now(),
+            sessionId: inCall ? sessionId : 'bg_'+Math.random().toString(36).slice(2,6)
+          };
+        }
+        window.ScreenpopLogic.processCrmEvent(payload);
+        append(`event ${inCall ? '(in-call)' : '(background)'}: ${JSON.stringify(payload)}`);
+      });
+    })();
+  </script>
+</body>
+</html>
+
