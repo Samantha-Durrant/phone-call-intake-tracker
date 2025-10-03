@@ -9,55 +9,41 @@
     existing_cancel: async () => {
       await handleIncoming();
       window.ScreenpopAPI.applyAppointment({ scheduled: true, change: 'cancellation', reason: 'Illness/Family Emergency' });
-      clearOtherReasons();
     },
     existing_reschedule: async () => {
       await handleIncoming();
       window.ScreenpopAPI.applyAppointment({ scheduled: true, change: 'reschedule', reason: 'Work/School Conflict' });
-      clearOtherReasons();
     },
     confirm: async () => {
       await handleIncoming();
       window.ScreenpopAPI.applyAppointment({ scheduled: true, change: 'none' });
-      clearOtherReasons();
-      const c = qs('#confirmCheck'); if (c) c.checked = true;
     },
-    ma_call: async () => { await handleIncoming(); selectReasonRow('MA Call'); },
-    results_call: async () => { await handleIncoming(); selectReasonRow('Results'); },
-    provider_question: async () => { await handleIncoming(); selectReasonRow('Provider Question'); },
-    refill_request: async () => { await handleIncoming(); selectReasonRow('Refill Request'); },
-    billing_question: async () => { await handleIncoming(); selectReasonRow('Billing Question'); },
+    ma_call: async () => { await handleIncoming(); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
+    results_call: async () => { await handleIncoming(); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
+    provider_question: async () => { await handleIncoming(); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
+    refill_request: async () => { await handleIncoming(); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
+    billing_question: async () => { await handleIncoming(); window.ScreenpopAPI.applyAppointment({ change: 'none' }); },
   };
 
   async function handleIncoming(){
     await window.ScreenpopAPI.handleIncomingCall(DEFAULT_PHONE);
   }
 
-  function selectReasonRow(label){
-    clearOtherReasons();
-    const rows = qsa('.reason-row');
-    const row = rows.find(r => (qs('.reason-label', r)?.textContent || '').trim() === label);
-    if (!row) return;
-    const taskBtn = qs('.mini-btn', row); // default to Task
-    if (taskBtn) taskBtn.classList.add('pressed');
-    const confirm = qs('#confirmCheck'); if (confirm) confirm.checked = false;
-    // Make sure appointment change is none to emphasize "other reasons"
-    window.ScreenpopAPI.applyAppointment({ change: 'none' });
-  }
+  // Intentionally do not automate Task/Transfer or Confirmation selections
 
   function clearOtherReasons(){
-    qsa('.reasons .mini-btn').forEach(b => b.classList.remove('pressed'));
-    const confirm = qs('#confirmCheck'); if (confirm) confirm.checked = false;
-    // Reset reason dropdown if visible
-    const sel = qs('#reasonSelect'); if (sel) sel.value = '';
-    const wrap = qs('#otherReasonWrap'); if (wrap) wrap.classList.add('hidden');
+    // Keep user selections intact unless Reset is clicked.
   }
 
   function resetAll(){
     qsa('input[type="text"], input[type="tel"], input[type="date"]').forEach(i => i.value='');
     const chk = qs('#patientType'); if (chk) chk.checked = false;
     window.ScreenpopAPI.applyAppointment({ scheduled: true, change: 'none' });
-    clearOtherReasons();
+    // Now clear buttons/checkbox for a full reset
+    qsa('.reasons .mini-btn').forEach(b => b.classList.remove('pressed'));
+    const confirm = qs('#confirmCheck'); if (confirm) confirm.checked = false;
+    const sel = qs('#reasonSelect'); if (sel) sel.value = '';
+    const wrap = qs('#otherReasonWrap'); if (wrap) wrap.classList.add('hidden');
   }
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -75,4 +61,3 @@
     run();
   });
 })();
-
