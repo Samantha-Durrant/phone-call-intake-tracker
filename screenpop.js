@@ -311,17 +311,29 @@
     try {
       const payload = buildPayload();
       const meta = getCallMeta();
-      const entry = { time: Date.now(), ...meta, ...payload };
-      try { const ch = new BroadcastChannel('screenpop-analytics'); ch.postMessage({ type:'submit', entry }); ch.close(); } catch {}
+      const id = `sp_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+      const entry = { id, time: Date.now(), ...meta, ...payload };
+      // 1) Direct append to ledger and daily store (guarantees visibility regardless of listeners)
       try {
-        localStorage.setItem('screenpop_submit', JSON.stringify(entry));
-        localStorage.setItem(`screenpop_submit_${Date.now()}`, JSON.stringify(entry));
-        const existing = JSON.parse(localStorage.getItem('screenpop_analytics_v1') || '[]');
-        if (Array.isArray(existing)) {
-          existing.unshift(entry);
-          localStorage.setItem('screenpop_analytics_v1', JSON.stringify(existing));
+        const LEDGER_KEY = 'screenpop_ledger_v1';
+        const DAILY_KEY = 'screenpop_daily_entries_v1';
+        // Ledger
+        const ledger = JSON.parse(localStorage.getItem(LEDGER_KEY) || '[]');
+        if (!Array.isArray(ledger) || !ledger.find(e => e && e.id === id)) {
+          ledger.unshift(entry);
+          localStorage.setItem(LEDGER_KEY, JSON.stringify(ledger));
+        }
+        // Daily (kept for backward-compat with any older analytics viewers)
+        const daily = JSON.parse(localStorage.getItem(DAILY_KEY) || '[]');
+        if (!Array.isArray(daily) || !daily.find(e => e && e.id === id)) {
+          daily.unshift(entry);
+          localStorage.setItem(DAILY_KEY, JSON.stringify(daily));
         }
       } catch {}
+      // 2) Live update via BroadcastChannel
+      try { const ch = new BroadcastChannel('screenpop-analytics'); ch.postMessage({ type:'submit', entry }); ch.close(); } catch {}
+      // 3) Storage event fallback (processed and removed by analytics)
+      try { localStorage.setItem(`screenpop_submit_${id}`, JSON.stringify(entry)); } catch {}
     } catch {}
 
     pulse('Captured (UI only)');

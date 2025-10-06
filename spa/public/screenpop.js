@@ -230,17 +230,17 @@
   doneBtn?.addEventListener('click', () => {
     const payload = collectPayload();
     try { integration.onReasonSubmit?.(payload); } catch (e) { /* noop */ }
-    // Broadcast to analytics listeners (separate page)
+    // Broadcast to analytics listeners (separate page) and commit to daily store
     try {
       const meta = getCallMeta();
-      const entry = { time: Date.now(), ...meta, ...payload };
+      const id = `sp_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+      const entry = { id, time: Date.now(), ...meta, ...payload };
+      // 1) Direct append to daily store so analytics always sees it
+      try { const DAILY_KEY='screenpop_daily_entries_v1'; const list=JSON.parse(localStorage.getItem(DAILY_KEY)||'[]'); if(!Array.isArray(list) || !list.find(e=>e&&e.id===id)){ list.unshift(entry); localStorage.setItem(DAILY_KEY, JSON.stringify(list)); } } catch {}
+      // 2) Broadcast live
       try { const ch = new BroadcastChannel('screenpop-analytics'); ch.postMessage({ type:'submit', entry }); ch.close(); } catch {}
-      try {
-        localStorage.setItem('screenpop_submit', JSON.stringify(entry));
-        localStorage.setItem(`screenpop_submit_${Date.now()}`, JSON.stringify(entry));
-        const existing = JSON.parse(localStorage.getItem('screenpop_analytics_v1') || '[]');
-        if (Array.isArray(existing)) { existing.unshift(entry); localStorage.setItem('screenpop_analytics_v1', JSON.stringify(existing)); }
-      } catch {}
+      // 3) Storage event fallback (processed and removed by analytics)
+      try { localStorage.setItem(`screenpop_submit_${id}`, JSON.stringify(entry)); } catch {}
     } catch {}
     pulse('Saved');
   });
@@ -286,6 +286,16 @@
     });
     return out;
   }
+
+  // Mini action buttons (Task/Transfer) toggle behavior
+  qsa('.reasons .mini-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('.reason-row');
+      const wasPressed = btn.classList.contains('pressed');
+      qsa('.mini-btn', row).forEach(b => b.classList.remove('pressed'));
+      if (!wasPressed) btn.classList.add('pressed');
+    });
+  });
 
   reasonSelect?.addEventListener('change', () => {
     if (reasonSelect.value === 'Other') {
