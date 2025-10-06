@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Screenpop Analytics</title>
+    <meta name="color-scheme" content="light dark" />
+    <style>
+      :root{ --line:#e5e7eb; --muted:#6b7280; --brand:#4f46e5; }
+      *{ box-sizing:border-box }
+      html,body{ height:100% }
+      body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#f5f7fb; color:#111827; }
+      header{ display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:linear-gradient(180deg,#f9fafb,#f3f4f6); border-bottom:1px solid var(--line) }
+      .wrap{ display:grid; grid-template-columns:minmax(360px, 560px) 1fr; gap:12px; padding:12px; height:calc(100% - 56px) }
+      .panel{ background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; display:flex; flex-direction:column }
+      .panel h2{ margin:0; padding:10px 12px; font-size:14px; border-bottom:1px solid var(--line); background:#f9fafb }
+      .panel .body{ flex:1; overflow:auto }
+      iframe{ width:100%; height:100%; border:0; display:block }
+      .toolbar{ display:flex; gap:8px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line); background:#fff }
+      button{ height:32px; padding:0 10px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer; font-weight:600 }
+      button.primary{ background:var(--brand); border-color:var(--brand); color:#fff }
+      table{ width:100%; border-collapse:collapse; font-size:13px }
+      th, td{ text-align:left; padding:8px; border-bottom:1px solid var(--line); vertical-align:top }
+      th{ position:sticky; top:0; background:#f9fafb; z-index:1 }
+      .muted{ color:var(--muted) }
+      .empty{ padding:16px; color:var(--muted) }
+      @media (max-width: 980px){ .wrap{ grid-template-columns: 1fr; height:auto } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>Screenpop Analytics</strong>
+      <div class="muted">Data updates when the agent clicks “Done”.</div>
+    </header>
+    <div class="wrap">
+      <div class="panel">
+        <h2>Live Screenpop</h2>
+        <div class="body">
+          <!-- Same-origin required to access ScreenpopAPI in iframe -->
+          <iframe id="screenpopFrame" src="../screenpop.html" title="Screenpop"></iframe>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="toolbar">
+          <button id="exportCsvBtn">Export CSV</button>
+          <button id="clearBtn">Clear</button>
+          <div class="muted" id="countBadge"></div>
+        </div>
+        <div class="body">
+          <table id="analyticsTable" aria-label="Screenpop submissions">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Agent</th>
+                <th>Call ID</th>
+                <th>ANI</th>
+                <th>Patient</th>
+                <th>Scheduled</th>
+                <th>Change</th>
+                <th>Reason</th>
+                <th>Other</th>
+              </tr>
+            </thead>
+            <tbody id="analyticsBody">
+              <tr class="empty"><td colspan="9">No submissions yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script src="./analytics.js" type="module"></script>
+  </body>
+  </html>
+
