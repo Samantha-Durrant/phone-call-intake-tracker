@@ -9,9 +9,53 @@
     <meta name="color-scheme" content="light dark" />
     <style>
       body { background: transparent; }
+      .demo-bar { position: fixed; top: 16px; left: 16px; z-index: 9; display: flex; gap: 8px; align-items: center; background: #fff; border:1px solid #e5e7eb; border-radius: 10px; padding: 8px 10px; box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+      .demo-bar select { height: 34px; border:1px solid #e5e7eb; border-radius: 8px; padding: 0 8px; font-size: 14px; }
+      .demo-bar button { height: 34px; border-radius: 8px; border:1px solid #e5e7eb; background:#fff; cursor:pointer; padding:0 10px; font-weight:600; }
+      .demo-bar .primary { background:#4f46e5; border-color:#4f46e5; color:#fff; }
+      .mini-screenpop { bottom: 16px; right: 16px; }
     </style>
   </head>
   <body>
+    <div class="demo-bar" aria-label="Scenario Controls">
+      <i class="fa-solid fa-vials" aria-hidden="true"></i>
+      <label for="scenario" style="font-size:13px;color:#374151;">Scenario:</label>
+      <select id="scenario" aria-label="Simulation Scenario">
+        <option value="existing_cancel">Existing Patient — Cancellation</option>
+        <option value="existing_reschedule">Existing Patient — Reschedule</option>
+        <option value="confirm">Existing Patient — Confirmation</option>
+        <option value="ma_call">Existing Patient — Returning MA Call</option>
+        <option value="results_call">Existing Patient — Returning Results Call</option>
+        <option value="provider_question">Existing Patient — Provider Question</option>
+        <option value="refill_request">Existing Patient — Refill Request</option>
+        <option value="billing_question">Existing Patient — Billing Question</option>
+        <option disabled>──────────</option>
+        <option value="new_cancel">New Patient — Cancellation</option>
+        <option value="new_reschedule">New Patient — Reschedule</option>
+        <option value="new_confirm">New Patient — Confirmation</option>
+        <option value="new_ma_call">New Patient — Returning MA Call</option>
+        <option value="new_results_call">New Patient — Returning Results Call</option>
+        <option value="new_provider_question">New Patient — Provider Question</option>
+        <option value="new_refill_request">New Patient — Refill Request</option>
+        <option value="new_billing_question">New Patient — Billing Question</option>
+        <option disabled>──────────</option>
+        <option value="true_new_blank">True New Patient — No CRM Data</option>
+        <option value="true_new_cancel">True New Patient — Cancellation</option>
+        <option value="true_new_reschedule">True New Patient — Reschedule</option>
+        <option value="true_new_confirm">True New Patient — Confirmation</option>
+        <option value="true_new_ma_call">True New Patient — Returning MA Call</option>
+        <option value="true_new_results_call">True New Patient — Returning Results Call</option>
+        <option value="true_new_provider_question">True New Patient — Provider Question</option>
+        <option value="true_new_refill_request">True New Patient — Refill Request</option>
+        <option value="true_new_billing_question">True New Patient — Billing Question</option>
+        <option disabled>──────────</option>
+        <option value="household_match">Household Phone — Multiple Matches</option>
+        <option value="no_match_phone">No Match — Search Subject</option>
+        <option value="proxy_flow">Proxy Call — Someone Else</option>
+      </select>
+      <button id="runScenario" class="primary">Run</button>
+      <button id="resetScenario">Reset</button>
+    </div>
     <div class="mini-screenpop" role="dialog" aria-label="Call Screenpop">
       <header class="mini-header">
         <div class="title">
@@ -215,7 +259,9 @@
 
     <!-- Existing behavior scripts are duplicated into /public for static serving/build output -->
     <script src="/screenpop.js"></script>
+    <script src="/screenpop.mock.js"></script>
     <script src="/screenpop.logic.js"></script>
+    <script src="/screenpop.testing.js"></script>
     <!-- SPA glue for params, built by Vite -->
     <script type="module" src="/src/main.js"></script>
     <script type="module" src="/src/integrations.js"></script>
