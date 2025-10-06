@@ -299,13 +299,31 @@
 
   // Done
   doneBtn?.addEventListener('click', () => {
-    // If a change requires a reason, pass it to host if configured
+    // Preserve existing callback contract when a reason is required
     const change = currentValue('change');
     if ((change === 'cancellation' || change === 'reschedule') && integration.onReasonSubmit) {
       const reason = reasonSelect.value || '';
       const otherText = (reason === 'Other') ? (qs('#otherReason').value || '') : '';
       try { integration.onReasonSubmit({ change, reason, otherText }); } catch(e) { console.warn('onReasonSubmit failed', e); }
     }
+
+    // Broadcast full payload to separate analytics listeners (no visual/UI changes)
+    try {
+      const payload = buildPayload();
+      const meta = getCallMeta();
+      const entry = { time: Date.now(), ...meta, ...payload };
+      try { const ch = new BroadcastChannel('screenpop-analytics'); ch.postMessage({ type:'submit', entry }); ch.close(); } catch {}
+      try {
+        localStorage.setItem('screenpop_submit', JSON.stringify(entry));
+        localStorage.setItem(`screenpop_submit_${Date.now()}`, JSON.stringify(entry));
+        const existing = JSON.parse(localStorage.getItem('screenpop_analytics_v1') || '[]');
+        if (Array.isArray(existing)) {
+          existing.unshift(entry);
+          localStorage.setItem('screenpop_analytics_v1', JSON.stringify(existing));
+        }
+      } catch {}
+    } catch {}
+
     pulse('Captured (UI only)');
   });
 
@@ -418,6 +436,59 @@
       handleVisibility();
     }
   } catch {}
+
+  function buildPayload(){
+    const reason = reasonSelect?.value || '';
+    const otherText = (reason === 'Other') ? (qs('#otherReason')?.value || '') : '';
+    const ptActive = qs('.pt-type .seg.active');
+    const patientType = ptActive ? ptActive.getAttribute('data-ptype') : '';
+    const confirmed = !!qs('#confirmCheck')?.checked;
+    const actions = harvestActions();
+    const meta = getCallMeta();
+    return {
+      patient: {
+        name: qs('#patientName')?.value || '',
+        phone: qs('#patientPhone')?.value || '',
+        mrn: qs('#patientMRN')?.value || '',
+        dob: qs('#patientDOB')?.value || '',
+        type: patientType || (typeof meta.isExisting === 'boolean' ? (meta.isExisting ? 'existing' : 'new') : '')
+      },
+      callFor: currentValue('callfor') || 'self',
+      appointment: {
+        scheduled: currentValue('scheduled') === 'yes',
+        change: currentValue('change') || 'none',
+        reason,
+        otherText,
+        confirmed,
+        type: meta.apptType || ''
+      },
+      actions
+    };
+  }
+
+  function harvestActions(){
+    const out = {};
+    qsa('.reasons .reason-row').forEach(row => {
+      const label = row.querySelector('.reason-label')?.textContent?.trim().toLowerCase() || '';
+      if (!label) return;
+      const key = label.replace(/\s+/g,'_');
+      const task = !!row.querySelector('.mini-btn[data-action="task"].pressed');
+      const transfer = !!row.querySelector('.mini-btn[data-action="transfer"].pressed');
+      out[key] = { task, transfer };
+    });
+    return out;
+  }
+
+  function getCallMeta(){
+    try {
+      const url = new URL(window.location.href);
+      const ani = url.searchParams.get('ani') || url.searchParams.get('phone') || '';
+      const agent = url.searchParams.get('agent') || '';
+      const callId = url.searchParams.get('callId') || '';
+      const apptType = url.searchParams.get('apptType') || url.searchParams.get('appt') || '';
+      return { ani, agent, callId, apptType };
+    } catch { return {}; }
+  }
 
   // Allow parent window to drive this UI via postMessage
   window.addEventListener('message', async (e) => {

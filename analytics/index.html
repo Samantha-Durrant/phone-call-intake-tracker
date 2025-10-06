@@ -30,22 +30,55 @@
   <body>
     <header>
       <strong>Screenpop Analytics</strong>
-      <div class="muted">Data updates when the agent clicks “Done”.</div>
+      <div class="muted">Updates on “Done” from any screenpop tab</div>
     </header>
-    <div class="wrap">
-      <div class="panel">
-        <h2>Live Screenpop</h2>
-        <div class="body">
-          <!-- Same-origin required to access ScreenpopAPI in iframe -->
-          <iframe id="screenpopFrame" src="../screenpop.html" title="Screenpop"></iframe>
-        </div>
-      </div>
-      <div class="panel">
-        <div class="toolbar">
-          <button id="exportCsvBtn">Export CSV</button>
-          <button id="clearBtn">Clear</button>
+    <div class="wrap" style="grid-template-columns: 1fr; gap:12px;">
+      <div class="panel" style="padding-bottom:0">
+        <div class="toolbar" style="justify-content:space-between">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button id="exportCsvBtn">Export CSV</button>
+            <button id="clearBtn">Clear</button>
+            <input id="mrnSearch" type="text" placeholder="Search MRN" style="height:32px;padding:0 10px;border:1px solid var(--line);border-radius:8px" />
+          </div>
           <div class="muted" id="countBadge"></div>
         </div>
+        <div style="display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:8px;padding:8px;border-bottom:1px solid var(--line);background:#fff">
+          <div><div class="muted">Total Calls</div><div id="kpiTotal" style="font-weight:700;font-size:18px">0</div></div>
+          <div><div class="muted">Cancellations</div><div id="kpiCancel" style="font-weight:700;font-size:18px">0</div></div>
+          <div><div class="muted">Reschedules</div><div id="kpiResched" style="font-weight:700;font-size:18px">0</div></div>
+          <div><div class="muted">New</div><div id="kpiNew" style="font-weight:700;font-size:18px">0</div></div>
+          <div><div class="muted">Existing</div><div id="kpiExisting" style="font-weight:700;font-size:18px">0</div></div>
+          <div><div class="muted">Tasks / Transfers</div><div id="kpiActions" style="font-weight:700;font-size:18px">0 / 0</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Time Distribution (8am–5pm)</h2>
+        <div class="body"><canvas id="chartHours" height="180"></canvas></div>
+      </div>
+
+      <div class="panel">
+        <h2>New vs Existing</h2>
+        <div class="body"><canvas id="chartNewExisting" height="160"></canvas></div>
+      </div>
+
+      <div class="panel">
+        <h2>Cancel Reasons</h2>
+        <div class="body"><canvas id="chartCancelReasons" height="200"></canvas></div>
+      </div>
+
+      <div class="panel">
+        <h2>Reschedule Reasons</h2>
+        <div class="body"><canvas id="chartReschedReasons" height="200"></canvas></div>
+      </div>
+
+      <div class="panel">
+        <h2>Tasks / Transfers by Type</h2>
+        <div class="body"><canvas id="chartActions" height="220"></canvas></div>
+      </div>
+
+      <div class="panel">
+        <h2>Submissions</h2>
         <div class="body">
           <table id="analyticsTable" aria-label="Screenpop submissions">
             <thead>
@@ -54,7 +87,9 @@
                 <th>Agent</th>
                 <th>Call ID</th>
                 <th>ANI</th>
+                <th>MRN</th>
                 <th>Patient</th>
+                <th>Type</th>
                 <th>Scheduled</th>
                 <th>Change</th>
                 <th>Reason</th>
@@ -62,7 +97,7 @@
               </tr>
             </thead>
             <tbody id="analyticsBody">
-              <tr class="empty"><td colspan="9">No submissions yet</td></tr>
+              <tr class="empty"><td colspan="11">No submissions yet</td></tr>
             </tbody>
           </table>
         </div>
@@ -72,4 +107,3 @@
     <script src="./analytics.js" type="module"></script>
   </body>
   </html>
-
