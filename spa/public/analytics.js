@@ -41,6 +41,19 @@ function renderTable(){
     tbody.appendChild(tr);
   }
   updateCountBadge();
+  applyMrnFilter();
+}
+
+function applyMrnFilter(){
+  const input=document.getElementById('mrnSearch'); if(!input) return;
+  const q=(input.value||'').trim().toLowerCase();
+  const rows=document.querySelectorAll('#analyticsBody tr');
+  rows.forEach(r=>{
+    if(r.classList.contains('empty')) return;
+    const cells=r.querySelectorAll('td');
+    const mrn=(cells[1]?.textContent||'').toLowerCase();
+    r.style.display = q ? (mrn.includes(q) ? '' : 'none') : '';
+  });
 }
 
 function exportCsv(){
@@ -198,10 +211,29 @@ document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
 document.getElementById('clearBtn').addEventListener('click', ()=>{ const all=loadLedger(); let kept; if(CURRENT_VIEW==='daily') kept=all.filter(e=>!isSameDay(e.time, Date.now())); else { const mk=SELECTED_MONTH||monthKey(Date.now()); kept=all.filter(e=>monthKey(e.time)!==mk); } saveLedger(kept); renderTable(); updateKpisAndCharts(); });
 const tabDaily=document.getElementById('tabDaily'); const tabMonthly=document.getElementById('tabMonthly');
 const monthPicker=document.getElementById('monthPicker'); const dailyDateLabel=document.getElementById('dailyDateLabel');
-function setView(v){ CURRENT_VIEW=v; if(tabDaily&&tabMonthly){ tabDaily.setAttribute('aria-selected', v==='daily'?'true':'false'); tabDaily.style.background=v==='daily'?'#eef2ff':'#fff'; tabMonthly.setAttribute('aria-selected', v==='monthly'?'true':'false'); tabMonthly.style.background=v==='monthly'?'#eef2ff':'#fff'; } if(monthPicker) monthPicker.style.display=v==='monthly'?'':'none'; if(dailyDateLabel) dailyDateLabel.style.display=v==='daily'?'':'none'; renderTable(); updateKpisAndCharts(); }
-tabDaily?.addEventListener('click',()=>setView('daily'));
-tabMonthly?.addEventListener('click',()=>setView('monthly'));
-document.getElementById('mrnSearch').addEventListener('input', (e)=>{ const q=(e.target.value||'').trim().toLowerCase(); const rows=document.querySelectorAll('#analyticsBody tr'); rows.forEach(r=>{ if(r.classList.contains('empty')) return; const cells=r.querySelectorAll('td'); const mrn=(cells[1]?.textContent||'').toLowerCase(); r.style.display = q ? (mrn.includes(q) ? '' : 'none') : ''; }); });
+const tabButtons=[tabDaily,tabMonthly].filter(Boolean);
+function applyTabState(view){
+  tabButtons.forEach(btn=>{
+    const target=btn?.dataset?.view||(btn===tabMonthly?'monthly':'daily');
+    const isActive=target===view;
+    btn.setAttribute('aria-selected', isActive?'true':'false');
+    btn.classList.toggle('active', isActive);
+  });
+}
+function setView(view){
+  CURRENT_VIEW=view;
+  applyTabState(view);
+  if(monthPicker){ monthPicker.style.display=view==='monthly'?'':'none'; if(view==='daily') monthPicker.blur(); }
+  if(dailyDateLabel) dailyDateLabel.style.display=view==='daily'?'':'none';
+  renderTable(); updateKpisAndCharts();
+}
+tabButtons.forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const target=btn.dataset.view||(btn===tabMonthly?'monthly':'daily');
+    setView(target);
+  });
+});
+document.getElementById('mrnSearch').addEventListener('input', applyMrnFilter);
 
 importPendingSubmissions();
 renderTable(); updateKpisAndCharts(); setInterval(()=>{ renderTable(); updateKpisAndCharts(); }, 2000);

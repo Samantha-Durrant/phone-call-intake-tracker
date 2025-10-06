@@ -227,22 +227,39 @@
     handleVisibility();
     pulse('Cleared');
   });
+
   doneBtn?.addEventListener('click', () => {
-    const payload = collectPayload();
-    try { integration.onReasonSubmit?.(payload); } catch (e) { /* noop */ }
-    // Broadcast to analytics listeners (separate page) and commit to daily store
+    const change = currentValue('change');
+    if ((change === 'cancellation' || change === 'reschedule') && integration.onReasonSubmit) {
+      const reason = reasonSelect?.value || '';
+      const otherText = (reason === 'Other') ? (qs('#otherReason')?.value || '') : '';
+      try { integration.onReasonSubmit({ change, reason, otherText }); } catch (e) { console.warn('onReasonSubmit failed', e); }
+    }
+
     try {
+      const payload = collectPayload();
       const meta = getCallMeta();
       const id = `sp_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
       const entry = { id, time: Date.now(), ...meta, ...payload };
-      // 1) Direct append to daily store so analytics always sees it
-      try { const DAILY_KEY='screenpop_daily_entries_v1'; const list=JSON.parse(localStorage.getItem(DAILY_KEY)||'[]'); if(!Array.isArray(list) || !list.find(e=>e&&e.id===id)){ list.unshift(entry); localStorage.setItem(DAILY_KEY, JSON.stringify(list)); } } catch {}
-      // 2) Broadcast live
+      try {
+        const LEDGER_KEY = 'screenpop_ledger_v1';
+        const DAILY_KEY = 'screenpop_daily_entries_v1';
+        const ledger = JSON.parse(localStorage.getItem(LEDGER_KEY) || '[]');
+        if (!Array.isArray(ledger) || !ledger.find(e => e && e.id === id)) {
+          ledger.unshift(entry);
+          localStorage.setItem(LEDGER_KEY, JSON.stringify(ledger));
+        }
+        const daily = JSON.parse(localStorage.getItem(DAILY_KEY) || '[]');
+        if (!Array.isArray(daily) || !daily.find(e => e && e.id === id)) {
+          daily.unshift(entry);
+          localStorage.setItem(DAILY_KEY, JSON.stringify(daily));
+        }
+      } catch {}
       try { const ch = new BroadcastChannel('screenpop-analytics'); ch.postMessage({ type:'submit', entry }); ch.close(); } catch {}
-      // 3) Storage event fallback (processed and removed by analytics)
       try { localStorage.setItem(`screenpop_submit_${id}`, JSON.stringify(entry)); } catch {}
     } catch {}
-    pulse('Saved');
+
+    pulse('Captured (UI only)');
   });
 
   function collectPayload(){
@@ -426,17 +443,6 @@
       return { ani, agent, callId, apptType };
     } catch { return {}; }
   }
-
-  function getCallMeta(){
-    try {
-      const url = new URL(window.location.href);
-      const ani = url.searchParams.get('ani') || url.searchParams.get('phone') || '';
-      const agent = url.searchParams.get('agent') || '';
-      const callId = url.searchParams.get('callId') || '';
-      return { ani, agent, callId };
-    } catch { return {}; }
-  }
-
   // Allow parent window to drive this UI via postMessage
   window.addEventListener('message', async (e) => {
     const msg = e.data || {};

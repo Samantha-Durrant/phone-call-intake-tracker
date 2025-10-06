@@ -16,9 +16,13 @@
       .panel h2{ margin:0; padding:10px 12px; font-size:14px; border-bottom:1px solid var(--line); background:#f9fafb }
       .panel .body{ flex:1; overflow:auto }
       iframe{ width:100%; height:100%; border:0; display:block }
-      .toolbar{ display:flex; gap:8px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line); background:#fff }
+      .toolbar{ display:flex; gap:8px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line); background:#fff; flex-wrap:wrap }
       button{ height:32px; padding:0 10px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer; font-weight:600 }
       button.primary{ background:var(--brand); border-color:var(--brand); color:#fff }
+      .tab-toggle{ display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#fff }
+      .tab-toggle button{ border:none; border-right:1px solid var(--line); background:transparent; padding:6px 12px; font-weight:600; cursor:pointer; color:#111827 }
+      .tab-toggle button:last-child{ border-right:none }
+      .tab-toggle button.active{ background:#eef2ff; color:#1f2937 }
       table{ width:100%; border-collapse:collapse; font-size:13px }
       canvas.chart{ width:100%; height:180px; display:block }
       th, td{ text-align:left; padding:8px; border-bottom:1px solid var(--line); vertical-align:top }
@@ -33,6 +37,9 @@
       .charts{ display:grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap:16px; align-items:stretch }
       .panel.wide{ grid-column: 1 / -1 }
       .panel .body{ padding:8px }
+      .panel.table-panel .body{ padding:0; overflow:auto }
+      .panel.table-panel table{ min-width:720px }
+      tbody tr:nth-child(even){ background:#f9fafb }
       @media (min-width: 1024px){ .kpi-grid{ grid-template-columns: repeat(6,minmax(140px,1fr)); } }
       @media (max-width: 980px){ .wrap{ grid-template-columns: 1fr; height:auto } }
     </style>
@@ -51,9 +58,9 @@
             <input id="mrnSearch" type="text" placeholder="Search MRN" style="height:32px;padding:0 10px;border:1px solid var(--line);border-radius:8px" />
           </div>
           <div style="display:flex;align-items:center;gap:8px">
-            <div role="tablist" aria-label="Range" style="display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden">
-              <button id="tabDaily" role="tab" aria-selected="true" style="padding:6px 10px;border:none;background:#eef2ff;color:#111827;cursor:pointer">Daily</button>
-              <button id="tabMonthly" role="tab" aria-selected="false" style="padding:6px 10px;border:none;background:#fff;color:#111827;cursor:pointer">Monthly</button>
+            <div role="tablist" aria-label="Range" class="tab-toggle">
+              <button id="tabDaily" role="tab" data-view="daily" aria-selected="true" class="active" type="button">Daily</button>
+              <button id="tabMonthly" role="tab" data-view="monthly" aria-selected="false" type="button">Monthly</button>
             </div>
             <span id="dailyDateLabel" class="muted"></span>
             <input id="monthPicker" type="month" style="display:none;height:32px;padding:0 8px;border:1px solid var(--line);border-radius:8px" />
@@ -80,7 +87,7 @@
         <div class="panel"><h2>Transfers by Type</h2><div class="body"><canvas id="chartTransfersByType" class="chart"></canvas></div></div>
       </div>
 
-      <div class="panel">
+      <div class="panel table-panel">
         <h2>Submissions</h2>
         <div class="body">
           <table id="analyticsTable" aria-label="Screenpop submissions">
