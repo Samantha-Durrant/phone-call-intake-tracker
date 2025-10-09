@@ -39,7 +39,7 @@
       .panel .body{ padding:8px }
       .panel.table-panel .body{ padding:0; overflow:auto }
       .panel.table-panel table{ min-width:860px }
-      #chartApptTypes,#chartApptGroups{ height:240px }
+      #chartApptMedical,#chartApptCosmetic{ height:240px }
       table thead th:nth-child(6), table tbody td:nth-child(6){ min-width:160px }
       tbody tr:nth-child(even){ background:#f9fafb }
       @media (min-width: 1024px){ .kpi-grid{ grid-template-columns: repeat(6,minmax(140px,1fr)); } }
@@ -83,8 +83,8 @@
         <div class="panel wide"><h2>Time Distribution (8am–5pm)</h2><div class="body"><canvas id="chartHours" class="chart"></canvas></div></div>
         <div class="panel wide" id="panelWeekdays"><h2>Weekday Distribution (Mon–Fri)</h2><div class="body"><canvas id="chartWeekdays" class="chart"></canvas></div></div>
         <div class="panel"><h2>New vs Existing</h2><div class="body"><canvas id="chartNewExisting" class="chart"></canvas></div></div>
-        <div class="panel"><h2>Appointment Mix (Medical vs Cosmetic)</h2><div class="body"><canvas id="chartApptGroups" class="chart"></canvas></div></div>
-        <div class="panel"><h2>Appointment Types (Top)</h2><div class="body"><canvas id="chartApptTypes" class="chart"></canvas></div></div>
+        <div class="panel"><h2>Medical Appointment Types</h2><div class="body"><canvas id="chartApptMedical" class="chart"></canvas></div></div>
+        <div class="panel"><h2>Cosmetic Appointment Types</h2><div class="body"><canvas id="chartApptCosmetic" class="chart"></canvas></div></div>
         <div class="panel"><h2>Cancel Reasons</h2><div class="body"><canvas id="chartCancelReasons" class="chart"></canvas></div></div>
         <div class="panel"><h2>Reschedule Reasons</h2><div class="body"><canvas id="chartReschedReasons" class="chart"></canvas></div></div>
         <div class="panel"><h2>Tasks by Type</h2><div class="body"><canvas id="chartTasksByType" class="chart"></canvas></div></div>

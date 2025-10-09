@@ -24,6 +24,15 @@ function categorizeAppointment(name){
   return 'Other';
 }
 
+function buildTopEntries(map, limit=12){
+  const entries = Object.entries(map || {}).filter(([,v]) => (Number(v)||0) > 0).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
+  if (!entries.length) return { data:{}, order:[] };
+  let top = entries.slice(0, limit);
+  const otherCount = entries.slice(limit).reduce((acc,[,v])=> acc + (Number(v)||0), 0);
+  if (otherCount > 0) top = [...top, ['Other', otherCount]];
+  return { data:Object.fromEntries(top), order: top.map(([k])=>k) };
+}
+
 function loadEntries(){
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
 }
@@ -175,7 +184,7 @@ function summarize(entries){
     reschedReasons: {},
     actionsByType: {}, // key -> { task, transfer }
     apptTypes: {},
-    apptGroups: { Medical:0, Cosmetic:0, Other:0 }
+    apptGroups: { Medical:{}, Cosmetic:{}, Other:{} }
   };
   const inRange = (h) => h>=8 && h<=17;
   const normReason = (r) => String(r||'').trim().replace(/[\/]+/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
@@ -189,9 +198,12 @@ function summarize(entries){
     if (apptType) {
       sum.apptTypes[apptType] = (sum.apptTypes[apptType] || 0) + 1;
       const group = categorizeAppointment(apptType);
-      sum.apptGroups[group] = (sum.apptGroups[group] || 0) + 1;
+      const bucket = sum.apptGroups[group] || (sum.apptGroups[group] = {});
+      bucket[apptType] = (bucket[apptType] || 0) + 1;
     } else {
-      sum.apptGroups.Other = (sum.apptGroups.Other || 0) + 1;
+      sum.apptTypes['Unspecified'] = (sum.apptTypes['Unspecified'] || 0) + 1;
+      const bucket = sum.apptGroups.Other;
+      bucket['Unspecified'] = (bucket['Unspecified'] || 0) + 1;
     }
     const ch = (e.appointment?.change||'').toLowerCase();
     if (ch === 'cancellation') { sum.cancel++; const r=normReason(e.appointment?.reason); if (r) sum.cancelReasons[r]=(sum.cancelReasons[r]||0)+1; }
@@ -370,13 +382,15 @@ function updateKpisAndCharts(){
   } catch {}
   // Use distinct colors for New vs Existing
   drawBarChart('chartNewExisting', { New: sum.new, Existing: sum.existing }, { palette:['#10b981','#3b82f6'] });
-  const groupOrder = ['Medical','Cosmetic','Other'];
-  const groupMap = Object.fromEntries(groupOrder.map(k => [k, (sum.apptGroups || {})[k] || 0]));
-  const groupPalette = ['#0ea5e9','#f472b6','#9ca3af'];
+  const medTop = buildTopEntries(sum.apptGroups?.Medical);
+  const cosTop = buildTopEntries(sum.apptGroups?.Cosmetic);
+  const apptPalette = ['#0ea5e9','#38bdf8','#0284c7','#0f172a'];
   if (CURRENT_VIEW === 'monthly') {
-    drawBarChart('chartApptGroups', toPercentMap(groupMap), { palette: groupPalette, order: groupOrder, maxValue:100, formatValue:(v)=>`${Math.round(v)}%` });
+    drawBarChart('chartApptMedical', toPercentMap(medTop.data), { palette: apptPalette, order: medTop.order, maxValue:100, formatValue:(v)=>`${Math.round(v)}%` });
+    drawBarChart('chartApptCosmetic', toPercentMap(cosTop.data), { palette: apptPalette, order: cosTop.order, maxValue:100, formatValue:(v)=>`${Math.round(v)}%` });
   } else {
-    drawBarChart('chartApptGroups', groupMap, { palette: groupPalette, order: groupOrder });
+    drawBarChart('chartApptMedical', medTop.data, { palette: apptPalette, order: medTop.order });
+    drawBarChart('chartApptCosmetic', cosTop.data, { palette: apptPalette, order: cosTop.order });
   }
   const cancelPalette = ['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899'];
   const reschedPalette = ['#1d4ed8','#0ea5e9','#14b8a6','#10b981','#84cc16','#eab308','#f59e0b','#f97316','#ef4444','#a855f7'];
@@ -396,18 +410,6 @@ function updateKpisAndCharts(){
   // For Monthly view, show percentages of total calls; Daily stays as counts
   const totalCalls = entries.length || 1;
   const toPercentMap = (m) => Object.fromEntries(Object.entries(m).map(([k,v]) => [k, (v/totalCalls)*100]));
-  const apptEntries = Object.entries(sum.apptTypes || {}).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
-  let topApptEntries = apptEntries.slice(0,12);
-  const otherCount = apptEntries.slice(12).reduce((acc,[,v])=>acc + (Number(v)||0), 0);
-  if (otherCount > 0) topApptEntries = [...topApptEntries, ['Other', otherCount]];
-  const apptOrder = topApptEntries.map(([k])=>k);
-  const apptMap = Object.fromEntries(topApptEntries);
-  const apptPalette = ['#4f46e5','#6366f1','#8b5cf6','#a855f7','#ec4899','#f472b6','#facc15','#f97316','#ef4444','#14b8a6','#0ea5e9','#10b981'];
-  if (CURRENT_VIEW === 'monthly') {
-    drawBarChart('chartApptTypes', toPercentMap(apptMap), { palette: apptPalette, order: apptOrder, maxValue:100, formatValue:(v)=>`${Math.round(v)}%` });
-  } else {
-    drawBarChart('chartApptTypes', apptMap, { palette: apptPalette, order: apptOrder });
-  }
   if (CURRENT_VIEW === 'monthly') {
     drawBarChart('chartCancelReasons', toPercentMap(sum.cancelReasons), {
       palette: cancelPalette,
