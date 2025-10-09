@@ -15,6 +15,8 @@ function canonicalOffice(name){
   return OFFICE_LOOKUP[key] || '';
 }
 
+const PIE_PALETTE = ['#6366f1','#8b5cf6','#ec4899','#f473b7','#f59e0b','#facc15','#10b981','#14b8a6','#0ea5e9','#3b82f6','#a855f7','#ef4444'];
+
 const SCHEDULING_SERIES = [
   { key:'existingScheduled', label:'Existing · Scheduled', color:'#2563eb' },
   { key:'existingNot', label:'Existing · Not Scheduled', color:'#93c5fd' },
@@ -47,6 +49,23 @@ function categorizeAppointment(name){
   if (MEDICAL_APPOINTMENTS.has(norm)) return 'Medical';
   if (COSMETIC_APPOINTMENTS.has(norm)) return 'Cosmetic';
   return 'Other';
+}
+
+function buildApptTypePieData(map){
+  const entries = Object.entries(map || {})
+    .map(([label,count])=>({ label, count:Number(count)||0 }))
+    .filter(item => item.count > 0)
+    .sort((a,b)=>b.count - a.count);
+  if (!entries.length) return [];
+  const LIMIT = 7;
+  const top = entries.slice(0, LIMIT);
+  const remainder = entries.slice(LIMIT).reduce((acc,item)=>acc + (item.count||0), 0);
+  if (remainder > 0){
+    const existingOther = top.find(item => /^other\b/i.test(String(item.label||'')));
+    if (existingOther) existingOther.count += remainder;
+    else top.push({ label:'Other Types', count: remainder });
+  }
+  return top;
 }
 
 function prettyReasonLabel(reason){
@@ -219,6 +238,79 @@ function summarize(entries){
     const actions=e.actions||{}; Object.entries(actions).forEach(([k,v])=>{ if(!sum.actionsByType[k]) sum.actionsByType[k]={task:0,transfer:0}; if(v.task){sum.actionsByType[k].task++; sum.tasks++;} if(v.transfer){sum.actionsByType[k].transfer++; sum.transfers++;} });
   });
   return sum;
+}
+
+function drawPieChart(canvasId, items, { legendId=null, palette=PIE_PALETTE } = {}){
+  const canvas = document.getElementById(canvasId);
+  const legend = legendId ? document.getElementById(legendId) : null;
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const cssW = Math.max(200, canvas.clientWidth || rect.width || 200);
+  const cssH = Math.max(200, canvas.clientHeight || rect.height || cssW);
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+  const data = Array.isArray(items) ? items.filter(item => (item?.count || 0) > 0) : [];
+  if (legend) legend.innerHTML = '';
+  if (!data.length){
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '13px system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('No appointment types yet', cssW / 2, cssH / 2);
+    if (legend){
+      const empty = document.createElement('div');
+      empty.className = 'muted';
+      empty.textContent = 'No appointment types yet';
+      legend.appendChild(empty);
+    }
+    return;
+  }
+  const total = data.reduce((acc,item)=>acc + (item.count || 0), 0) || 1;
+  const radius = Math.max(10, Math.min(cssW, cssH) / 2 - 18);
+  const cx = cssW / 2;
+  const cy = cssH / 2;
+  let start = -Math.PI / 2;
+  ctx.font = '12px system-ui';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  data.forEach((item, idx)=>{
+    const value = Number(item.count) || 0;
+    const fraction = value / total;
+    const slice = fraction * Math.PI * 2;
+    const color = palette[idx % palette.length];
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, start, start + slice);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    if (fraction > 0.06){
+      const mid = start + slice / 2;
+      const lx = cx + Math.cos(mid) * radius * 0.6;
+      const ly = cy + Math.sin(mid) * radius * 0.6;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(`${Math.round(fraction * 100)}%`, lx, ly);
+    }
+    start += slice;
+  });
+  if (legend){
+    data.forEach((item, idx)=>{
+      const row = document.createElement('div');
+      row.className = 'legend-item';
+      const sw = document.createElement('span');
+      sw.className = 'swatch';
+      sw.style.background = palette[idx % palette.length];
+      const label = document.createElement('span');
+      const pct = Math.round((item.count / total) * 100);
+      label.textContent = `${item.label} — ${item.count} (${pct}%)`;
+      row.append(sw, label);
+      legend.appendChild(row);
+    });
+  }
 }
 
 function drawBarChart(canvasId, dataMap, { labelMap={}, color='#4f46e5', palette=null, order=null, maxValue=null, formatValue=null }={}){
@@ -413,6 +505,10 @@ function updateKpisAndCharts(){
   drawStackedMulti('chartNewExisting', officeData, { series: SCHEDULING_SERIES, order: officeOrder });
   renderLegend('chartNewExistingLegend', SCHEDULING_SERIES);
   renderAppointmentLists(sum);
+  const medPie = buildApptTypePieData(sum.apptGroups?.Medical || {});
+  const cosPie = buildApptTypePieData(sum.apptGroups?.Cosmetic || {});
+  drawPieChart('chartApptMedical', medPie, { legendId: 'chartApptMedicalLegend' });
+  drawPieChart('chartApptCosmetic', cosPie, { legendId: 'chartApptCosmeticLegend' });
   const cancelPalette=['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899'];
   const reschedPalette=['#1d4ed8','#0ea5e9','#14b8a6','#10b981','#84cc16','#eab308','#f59e0b','#f97316','#ef4444','#a855f7'];
   const prettyReason=(key)=>{ const map={ 'illness family emergency':'Illness/Family Emergency','work school conflict':'Work/School Conflict','no longer needed':'No longer needed','insurance':'Insurance','referral':'Referral','pooo r s':'POOO r/s' }; if(map[key]) return map[key]; return String(key||'').replace(/\b\w/g,c=>c.toUpperCase()); };
