@@ -110,8 +110,7 @@
     // Clear Task/Transfer and Confirmation; clear reason UI
     qsa('.reasons .mini-btn').forEach(b => b.classList.remove('pressed'));
     const confirm = qs('#confirmCheck'); if (confirm) confirm.checked = false;
-    const sel = qs('#reasonSelect'); if (sel) sel.value = '';
-    const wrap = qs('#otherReasonWrap'); if (wrap) wrap.classList.add('hidden');
+    clearReasonToggles();
     // Ensure Scheduled is derived by logic
     if (change === 'cancellation') {
       ScreenpopLogic.processCrmEvent({ type:'cancel', appointments:[{status:'cancelled'}], occurredAt: Date.now(), sessionId: SESSION_ID });
@@ -136,8 +135,7 @@
     // Now clear buttons/checkbox for a full reset
     qsa('.reasons .mini-btn').forEach(b => b.classList.remove('pressed'));
     const confirm = qs('#confirmCheck'); if (confirm) confirm.checked = false;
-    const sel = qs('#reasonSelect'); if (sel) sel.value = '';
-    const wrap = qs('#otherReasonWrap'); if (wrap) wrap.classList.add('hidden');
+    clearReasonToggles();
   }
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -162,5 +160,9 @@
     const group = qs('.pt-type');
     if (!group) return;
     qsa('.seg', group).forEach(b => b.classList.toggle('active', b.getAttribute('data-ptype') === type));
+  }
+
+  function clearReasonToggles(){
+    qsa('.reason-toggle[aria-pressed="true"]').forEach(btn => btn.click());
   }
 })();
