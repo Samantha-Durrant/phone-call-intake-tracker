@@ -101,6 +101,7 @@
 
   async function handleIncoming(phone){
     await window.ScreenpopAPI.handleIncomingCall(phone || DEFAULT_PHONE);
+    applySelectedApptType();
   }
 
   async function trueNew(change){
@@ -136,6 +137,9 @@
     qsa('.reasons .mini-btn').forEach(b => b.classList.remove('pressed'));
     const confirm = qs('#confirmCheck'); if (confirm) confirm.checked = false;
     clearReasonToggles();
+    const select = qs('#apptTypeSelect');
+    if (select) select.value = '';
+    window.ScreenpopAPI?.setAppointmentType('');
   }
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -145,6 +149,7 @@
     const select = qs('#scenario');
     const runBtn = qs('#runScenario');
     const resetBtn = qs('#resetScenario');
+    const apptSelect = qs('#apptTypeSelect');
     const run = async () => {
       const key = select.value;
       if (scenarios[key]) await scenarios[key]();
@@ -152,6 +157,7 @@
     runBtn?.addEventListener('click', run);
     select?.addEventListener('change', run);
     resetBtn?.addEventListener('click', resetAll);
+    apptSelect?.addEventListener('change', applySelectedApptType);
     // Auto-run the first scenario on load for convenience
     run();
   });
@@ -164,5 +170,12 @@
 
   function clearReasonToggles(){
     qsa('.reason-toggle[aria-pressed="true"]').forEach(btn => btn.click());
+  }
+
+  function applySelectedApptType(){
+    const select = qs('#apptTypeSelect');
+    if (!select) return;
+    const value = select.value || '';
+    window.ScreenpopAPI?.setAppointmentType(value);
   }
 })();

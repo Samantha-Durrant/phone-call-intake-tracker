@@ -5,6 +5,7 @@
   let programmaticChange = false; // used to avoid auto-populating reasons on automated updates
   let callerPhone = null; // preserves the caller's phone even when switching subject
   let lastCallFor = 'self';
+  let appointmentTypeOverride = '';
   function formatPhone(p){
     try {
       const d = String(p||'').replace(/\D+/g,'');
@@ -49,6 +50,7 @@
     async handleIncomingCall(phone){
       if (!phone) return;
       callerPhone = phone;
+      appointmentTypeOverride = '';
       // Only set patient phone automatically when Call For = self
       if (currentValue('callfor') !== 'proxy') setPhone(phone);
       setCallerBadge();
@@ -81,6 +83,10 @@
         programmaticChange = true;
         setSegment('change', update.change);
       }
+      if (Object.prototype.hasOwnProperty.call(update, 'apptType') || Object.prototype.hasOwnProperty.call(update, 'appointmentType')) {
+        const nextType = update.apptType ?? update.appointmentType ?? '';
+        appointmentTypeOverride = nextType || '';
+      }
       handleVisibility();
       // Reason handling: support single or multiple reasons passed from integrations
       const providedReasons = incomingReasonsArray(update);
@@ -100,6 +106,9 @@
         }
       }
       programmaticChange = false;
+    },
+    setAppointmentType(type){
+      appointmentTypeOverride = type || '';
     }
   };
 
@@ -327,6 +336,7 @@
     handleVisibility();
     pulse('Cleared');
     setCallerBadge();
+    appointmentTypeOverride = '';
   });
 
   doneBtn?.addEventListener('click', () => {
@@ -375,6 +385,7 @@
     const confirmed = !!qs('#confirmCheck')?.checked;
     const actions = harvestActions();
     const meta = getCallMeta();
+    const apptType = appointmentTypeOverride || meta.apptType || '';
     return {
       patient: {
         name: qs('#patientName')?.value || '',
@@ -391,7 +402,7 @@
         reasons,
         otherText,
         confirmed,
-        type: meta.apptType || ''
+        type: apptType
       },
       actions
     };
