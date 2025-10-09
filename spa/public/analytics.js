@@ -165,7 +165,9 @@ function updateKpisAndCharts(){
   } catch{}
   drawBarChart('chartNewExisting', { New: sum.new, Existing: sum.existing }, { palette:['#10b981','#3b82f6'] });
   const apptEntries = Object.entries(sum.apptTypes || {}).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
-  const topApptEntries = apptEntries.slice(0,12);
+  let topApptEntries = apptEntries.slice(0,12);
+  const otherCount = apptEntries.slice(12).reduce((acc,[,v])=>acc + (Number(v)||0), 0);
+  if (otherCount > 0) topApptEntries = [...topApptEntries, ['Other', otherCount]];
   const apptOrder = topApptEntries.map(([k])=>k);
   const apptMap = Object.fromEntries(topApptEntries);
   const apptPalette=['#4f46e5','#6366f1','#8b5cf6','#a855f7','#ec4899','#f472b6','#facc15','#f97316','#ef4444','#14b8a6','#0ea5e9','#10b981'];
