@@ -155,13 +155,30 @@ function drawStackedTwo(canvasId, dataMap, { colors=['#10b981','#f59e0b'] }={}){
   keys.forEach((k,i)=>{ const v=dataMap[k]; const total=Math.max(1,(v.task||0)+(v.transfer||0)); const x=pad+i*(barW+gap); const chartTop=6; const chartBottom=height-labelArea-4; const avail=Math.max(12, chartBottom-chartTop); const hTask=Math.round(((v.task||0)/total)*(avail-20)); const hTrans=Math.round(((v.transfer||0)/total)*(avail-20)); let y=chartBottom; ctx.fillStyle=colors[0]; y-=hTask; ctx.fillRect(x,y,barW,hTask); ctx.fillStyle=colors[1]; y-=hTrans; ctx.fillRect(x,y,barW,hTrans); ctx.fillStyle='#111827'; ctx.fillText(`${v.task||0}/${v.transfer||0}`, x, Math.max(chartTop+10, y-4)); ctx.fillStyle='#374151'; wrapped[i].forEach((ln,li)=>{ const ly=chartBottom+14*(li+1); ctx.fillText(ln, x, ly); }); });
 }
 
-function buildTopEntries(map, limit=12){
-  const entries = Object.entries(map || {}).filter(([,v]) => (Number(v)||0) > 0).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
-  if (!entries.length) return { data:{}, order:[] };
-  let top = entries.slice(0, limit);
-  const otherCount = entries.slice(limit).reduce((acc,[,v])=> acc + (Number(v)||0), 0);
-  if (otherCount > 0) top = [...top, ['Other', otherCount]];
-  return { data:Object.fromEntries(top), order: top.map(([k])=>k) };
+function renderAppointmentLists(sum){
+  const total = Math.max(1, Number(sum.total)||1);
+  const medList = document.getElementById('listApptMedical');
+  const cosList = document.getElementById('listApptCosmetic');
+  const render = (el, data) => {
+    if (!el) return;
+    const entries = Object.entries(data || {}).filter(([,v]) => (Number(v)||0) > 0).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
+    el.innerHTML = '';
+    if (!entries.length){
+      const empty = document.createElement('li'); empty.className='appt-empty'; empty.textContent='No appointments captured yet'; el.appendChild(empty); return;
+    }
+    entries.forEach(([label,count])=>{
+      const li = document.createElement('li');
+      const nameSpan = document.createElement('span'); nameSpan.className='appt-label'; nameSpan.textContent = label;
+      const meta = document.createElement('span'); meta.className='appt-meta';
+      const cnt = document.createElement('span'); cnt.className='appt-count'; cnt.textContent = String(count);
+      const pct = document.createElement('span'); pct.className='appt-percent'; pct.textContent = `${Math.round((Number(count)||0)/total*100)}%`;
+      meta.append(cnt, pct);
+      li.append(nameSpan, meta);
+      el.appendChild(li);
+    });
+  };
+  render(medList, sum.apptGroups?.Medical);
+  render(cosList, sum.apptGroups?.Cosmetic);
 }
 
 function updateKpisAndCharts(){
@@ -199,16 +216,7 @@ function updateKpisAndCharts(){
     }
   } catch{}
   drawBarChart('chartNewExisting', { New: sum.new, Existing: sum.existing }, { palette:['#10b981','#3b82f6'] });
-  const groupPalette = ['#0ea5e9','#38bdf8','#0284c7','#0f172a'];
-  const medTop = buildTopEntries(sum.apptGroups?.Medical);
-  const cosTop = buildTopEntries(sum.apptGroups?.Cosmetic);
-  if (CURRENT_VIEW === 'monthly'){
-    drawBarChart('chartApptMedical', toPercentMap(medTop.data), { palette: groupPalette, order: medTop.order, maxValue:100, formatValue:(v)=>`${Math.round(v)}%` });
-    drawBarChart('chartApptCosmetic', toPercentMap(cosTop.data), { palette: groupPalette, order: cosTop.order, maxValue:100, formatValue:(v)=>`${Math.round(v)}%` });
-  } else {
-    drawBarChart('chartApptMedical', medTop.data, { palette: groupPalette, order: medTop.order });
-    drawBarChart('chartApptCosmetic', cosTop.data, { palette: groupPalette, order: cosTop.order });
-  }
+  renderAppointmentLists(sum);
   const cancelPalette=['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899'];
   const reschedPalette=['#1d4ed8','#0ea5e9','#14b8a6','#10b981','#84cc16','#eab308','#f59e0b','#f97316','#ef4444','#a855f7'];
   const prettyReason=(key)=>{ const map={ 'illness family emergency':'Illness/Family Emergency','work school conflict':'Work/School Conflict','no longer needed':'No longer needed','insurance':'Insurance','referral':'Referral','pooo r s':'POOO r/s' }; if(map[key]) return map[key]; return String(key||'').replace(/\b\w/g,c=>c.toUpperCase()); };

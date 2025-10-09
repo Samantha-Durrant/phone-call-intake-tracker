@@ -33,6 +33,32 @@ function buildTopEntries(map, limit=12){
   return { data:Object.fromEntries(top), order: top.map(([k])=>k) };
 }
 
+function renderAppointmentLists(sum){
+  const total = Math.max(1, Number(sum.total)||1);
+  const medList = document.getElementById('listApptMedical');
+  const cosList = document.getElementById('listApptCosmetic');
+  const render = (el, data) => {
+    if (!el) return;
+    const entries = Object.entries(data || {}).filter(([,v]) => (Number(v)||0) > 0).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
+    el.innerHTML = '';
+    if (!entries.length){
+      const empty = document.createElement('li'); empty.className='appt-empty'; empty.textContent='No appointments captured yet'; el.appendChild(empty); return;
+    }
+    entries.forEach(([label,count]) => {
+      const li = document.createElement('li');
+      const name = document.createElement('span'); name.className='appt-label'; name.textContent = label;
+      const meta = document.createElement('span'); meta.className='appt-meta';
+      const cnt = document.createElement('span'); cnt.className='appt-count'; cnt.textContent = String(count);
+      const pct = document.createElement('span'); pct.className='appt-percent'; pct.textContent = `${Math.round((Number(count)||0)/total*100)}%`;
+      meta.append(cnt, pct);
+      li.append(name, meta);
+      el.appendChild(li);
+    });
+  };
+  render(medList, sum.apptGroups?.Medical);
+  render(cosList, sum.apptGroups?.Cosmetic);
+}
+
 function loadEntries(){
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
 }
@@ -382,16 +408,7 @@ function updateKpisAndCharts(){
   } catch {}
   // Use distinct colors for New vs Existing
   drawBarChart('chartNewExisting', { New: sum.new, Existing: sum.existing }, { palette:['#10b981','#3b82f6'] });
-  const medTop = buildTopEntries(sum.apptGroups?.Medical);
-  const cosTop = buildTopEntries(sum.apptGroups?.Cosmetic);
-  const apptPalette = ['#0ea5e9','#38bdf8','#0284c7','#0f172a'];
-  if (CURRENT_VIEW === 'monthly') {
-    drawBarChart('chartApptMedical', toPercentMap(medTop.data), { palette: apptPalette, order: medTop.order, maxValue:100, formatValue:(v)=>`${Math.round(v)}%` });
-    drawBarChart('chartApptCosmetic', toPercentMap(cosTop.data), { palette: apptPalette, order: cosTop.order, maxValue:100, formatValue:(v)=>`${Math.round(v)}%` });
-  } else {
-    drawBarChart('chartApptMedical', medTop.data, { palette: apptPalette, order: medTop.order });
-    drawBarChart('chartApptCosmetic', cosTop.data, { palette: apptPalette, order: cosTop.order });
-  }
+  renderAppointmentLists(sum);
   const cancelPalette = ['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899'];
   const reschedPalette = ['#1d4ed8','#0ea5e9','#14b8a6','#10b981','#84cc16','#eab308','#f59e0b','#f97316','#ef4444','#a855f7'];
   const prettyReason = (key) => {
