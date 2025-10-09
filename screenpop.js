@@ -82,19 +82,21 @@
         setSegment('change', update.change);
       }
       handleVisibility();
-      // Reason handling: only set when explicitly provided. Otherwise clear when change requires it.
-      if (update.reason){
-        reasonSelect.value = update.reason === 'Other' ? 'Other' : update.reason;
-        if (update.reason === 'Other') {
-          otherReasonWrap.classList.remove('hidden');
-          if (update.otherText) qs('#otherReason').value = update.otherText || '';
+      // Reason handling: support single or multiple reasons passed from integrations
+      const providedReasons = incomingReasonsArray(update);
+      if (providedReasons.length){
+        setReasonSelection(providedReasons, { preserveOtherText: true });
+        if (providedReasons.includes('Other') && otherReasonInput) {
+          otherReasonInput.value = update.otherText || '';
+        } else if (!providedReasons.includes('Other') && otherReasonInput) {
+          otherReasonInput.value = '';
         }
+        syncOtherVisibility({ preserveOtherText: true });
       } else {
         const ch = update.change || currentValue('change');
         if (ch === 'cancellation' || ch === 'reschedule') {
-          // No explicit reason supplied: ensure UI does not prefill
-          if (reasonSelect) reasonSelect.value = '';
-          if (otherReasonWrap) otherReasonWrap.classList.add('hidden');
+          // No explicit reason supplied: ensure UI does not preselect anything
+          clearReasonSelection();
         }
       }
       programmaticChange = false;
@@ -113,12 +115,106 @@
   });
 
   const reasonBlock = qs('#reasonBlock');
-  const reasonSelect = qs('#reasonSelect');
+  const reasonToggleList = qs('#reasonToggleList');
   const otherReasonWrap = qs('#otherReasonWrap');
+  const otherReasonInput = qs('#otherReason');
   const clearBtn = qs('#clearBtn');
   const doneBtn = qs('#doneBtn');
   const statusMsg = qs('#statusMsg');
   const ptTypeGroup = qs('.pt-type');
+
+  const REASON_OPTIONS = [
+    'No longer needed',
+    'Illness/Family Emergency',
+    'Work/School Conflict',
+    'Insurance',
+    'Referral',
+    'POOO r/s',
+    'Other'
+  ];
+  const reasonButtons = new Map();
+  const selectedReasons = new Set();
+
+  function ensureReasonOption(reason){
+    const label = String(reason || '').trim();
+    if (!label || !reasonToggleList) return null;
+    if (reasonButtons.has(label)) return reasonButtons.get(label);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'reason-toggle';
+    btn.setAttribute('data-reason', label);
+    btn.setAttribute('aria-pressed','false');
+    btn.textContent = label;
+    btn.addEventListener('click', () => toggleReason(label));
+    reasonToggleList.appendChild(btn);
+    reasonButtons.set(label, btn);
+    return btn;
+  }
+
+  function refreshReasonButtonsState(){
+    reasonButtons.forEach((btn, label) => {
+      const selected = selectedReasons.has(label);
+      btn.classList.toggle('is-selected', selected);
+      btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+  }
+
+  function syncOtherVisibility({ preserveOtherText = false } = {}){
+    if (!otherReasonWrap) return;
+    const hasOther = selectedReasons.has('Other');
+    otherReasonWrap.classList.toggle('hidden', !hasOther);
+    otherReasonWrap.setAttribute('aria-hidden', hasOther ? 'false' : 'true');
+    if (!hasOther && !preserveOtherText && otherReasonInput) {
+      otherReasonInput.value = '';
+    }
+  }
+
+  function setReasonSelection(reasons = [], { preserveOtherText = false } = {}){
+    selectedReasons.clear();
+    const list = Array.isArray(reasons) ? reasons : [reasons];
+    list.map(reason => String(reason || '').trim()).filter(Boolean).forEach(reason => {
+      const btn = ensureReasonOption(reason);
+      if (btn) selectedReasons.add(reason);
+    });
+    refreshReasonButtonsState();
+    syncOtherVisibility({ preserveOtherText });
+  }
+
+  function clearReasonSelection({ preserveOtherText = false } = {}){
+    setReasonSelection([], { preserveOtherText });
+  }
+
+  function getSelectedReasons(){
+    return Array.from(selectedReasons);
+  }
+
+  function toggleReason(reason){
+    const btn = ensureReasonOption(reason);
+    if (!btn) return;
+    if (selectedReasons.has(reason)) {
+      selectedReasons.delete(reason);
+    } else {
+      selectedReasons.add(reason);
+    }
+    refreshReasonButtonsState();
+    syncOtherVisibility();
+  }
+
+  function incomingReasonsArray(update){
+    if (!update) return [];
+    if (Array.isArray(update.reasons)) return normalizeReasonList(update.reasons);
+    if (typeof update.reason !== 'undefined') return normalizeReasonList(update.reason);
+    return [];
+  }
+
+  function normalizeReasonList(value){
+    const list = Array.isArray(value) ? value : [value];
+    return list.map(reason => String(reason || '').trim()).filter(Boolean);
+  }
+
+  REASON_OPTIONS.forEach(ensureReasonOption);
+  syncOtherVisibility();
+  if (reasonBlock) reasonBlock.setAttribute('aria-hidden','true');
 
   // Patient type segmented control
   function setPatientType(type){
@@ -173,17 +269,17 @@
     const change = currentValue('change');
     const callFor = currentValue('callfor') || 'self';
     // Show reason only for cancellation or reschedule
-    if(change === 'cancellation' || change === 'reschedule'){
+    if((change === 'cancellation' || change === 'reschedule') && reasonBlock){
       reasonBlock.classList.remove('hidden');
-      // If this was a programmatic change (from CRM/logics) do not auto-populate; reset to "Select reason"
-      if (programmaticChange && reasonSelect) {
-        reasonSelect.value = '';
-        if (otherReasonWrap) otherReasonWrap.classList.add('hidden');
+      reasonBlock.setAttribute('aria-hidden','false');
+      // If this was a programmatic change (from CRM/logics) do not auto-populate; reset selections
+      if (programmaticChange) {
+        clearReasonSelection();
       }
-    } else {
+    } else if (reasonBlock) {
       reasonBlock.classList.add('hidden');
-      reasonSelect.value = '';
-      otherReasonWrap.classList.add('hidden');
+      reasonBlock.setAttribute('aria-hidden','true');
+      clearReasonSelection();
     }
 
     // Toggle subject search area based on Call For selection
@@ -242,14 +338,6 @@
     if (banner){ banner.classList.add('hidden'); banner.setAttribute('aria-hidden','true'); }
   }
 
-  reasonSelect?.addEventListener('change', () => {
-    if(reasonSelect.value === 'Other'){
-      otherReasonWrap.classList.remove('hidden');
-    } else {
-      otherReasonWrap.classList.add('hidden');
-    }
-  });
-
   // Mini action buttons (Task/Transfer) with toggle behavior
   // - Clicking an unselected button selects it and deselects its sibling
   // - Clicking the already selected button deselects it (so none selected)
@@ -286,9 +374,11 @@
       first?.classList.add('active');
     });
     // reset reason area
-    reasonSelect.value = '';
-    otherReasonWrap.classList.add('hidden');
-    reasonBlock.classList.add('hidden');
+    clearReasonSelection();
+    if (reasonBlock) {
+      reasonBlock.classList.add('hidden');
+      reasonBlock.setAttribute('aria-hidden','true');
+    }
     // reset mini buttons and checkbox
     qsa('.reasons .mini-btn').forEach(b => b.classList.remove('pressed'));
     const confirm = qs('#confirmCheck');
@@ -302,9 +392,11 @@
     // Preserve existing callback contract when a reason is required
     const change = currentValue('change');
     if ((change === 'cancellation' || change === 'reschedule') && integration.onReasonSubmit) {
-      const reason = reasonSelect.value || '';
-      const otherText = (reason === 'Other') ? (qs('#otherReason').value || '') : '';
-      try { integration.onReasonSubmit({ change, reason, otherText }); } catch(e) { console.warn('onReasonSubmit failed', e); }
+      const reasons = getSelectedReasons();
+      const reason = reasons[0] || '';
+      const includesOther = reasons.includes('Other');
+      const otherText = includesOther ? (otherReasonInput?.value || '') : '';
+      try { integration.onReasonSubmit({ change, reason, reasons, otherText }); } catch(e) { console.warn('onReasonSubmit failed', e); }
     }
 
     // Broadcast full payload to separate analytics listeners (no visual/UI changes)
@@ -450,8 +542,10 @@
   } catch {}
 
   function buildPayload(){
-    const reason = reasonSelect?.value || '';
-    const otherText = (reason === 'Other') ? (qs('#otherReason')?.value || '') : '';
+    const reasons = getSelectedReasons();
+    const reason = reasons[0] || '';
+    const includesOther = reasons.includes('Other');
+    const otherText = includesOther ? (otherReasonInput?.value || '') : '';
     const ptActive = qs('.pt-type .seg.active');
     const patientType = ptActive ? ptActive.getAttribute('data-ptype') : '';
     const confirmed = !!qs('#confirmCheck')?.checked;
@@ -470,6 +564,7 @@
         scheduled: currentValue('scheduled') === 'yes',
         change: currentValue('change') || 'none',
         reason,
+        reasons,
         otherText,
         confirmed,
         type: meta.apptType || ''

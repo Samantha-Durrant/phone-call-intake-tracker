@@ -128,19 +128,10 @@
       </div>
 
       <div id="reasonBlock" class="reason hidden">
-        <label class="field">
-          <span class="label">Reason</span>
-          <select id="reasonSelect">
-            <option value="">Select reason...</option>
-            <option>No longer needed</option>
-            <option>Illness/Family Emergency</option>
-            <option>Work/School Conflict</option>
-            <option>Insurance</option>
-            <option>Referral</option>
-            <option>POOO r/s</option>
-            <option>Other</option>
-          </select>
-        </label>
+        <div class="field">
+          <span class="label">Reasons</span>
+          <div id="reasonToggleList" class="reason-toggle-list" role="group" aria-label="Reasons for appointment change"></div>
+        </div>
         <label id="otherReasonWrap" class="field hidden">
           <span class="label">Other (details)</span>
           <input id="otherReason" type="text" placeholder="Enter details" />

@@ -45,6 +45,12 @@ body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantare
 .pt-type .seg.active{border-color:var(--brand);color:var(--brand)}
 
 .reason{display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px}
+.reason-toggle-list{display:flex;flex-wrap:wrap;gap:6px}
+.reason-toggle{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;color:#1f2937;transition:border-color .2s ease,background .2s ease,color .2s ease}
+.reason-toggle:focus{outline:none;border-color:var(--brand-2);box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.reason-toggle.is-selected{background:var(--chip-alt);border-color:var(--brand-2);color:#3730a3}
+.reason-toggle[aria-pressed="true"]{background:var(--chip-alt);border-color:var(--brand-2);color:#3730a3}
+.reason-toggle.is-disabled{opacity:.55;cursor:default}
 .hidden{display:none!important}
 
 .reasons{display:flex;flex-direction:column;gap:8px}

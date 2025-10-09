@@ -30,11 +30,16 @@
     }
   }
 
-  function applyDerived({ scheduled, change, reason, otherText }){
+  function applyDerived({ scheduled, change, reason, reasons, otherText }){
     const update = {};
     if (typeof scheduled === 'boolean') update.scheduled = scheduled;
     if (change) update.change = change;
-    if (reason) update.reason = reason;
+    if (Array.isArray(reasons) && reasons.length) {
+      update.reasons = reasons;
+      if (!reason && reasons.length) update.reason = reasons[0];
+    } else if (reason) {
+      update.reason = reason;
+    }
     if (otherText) update.otherText = otherText;
     if (Object.keys(update).length) {
       window.ScreenpopAPI?.applyAppointment(update);
@@ -56,14 +61,20 @@
       if (typeof acceptBackground === 'boolean') STATE.acceptBackground = acceptBackground;
       if (typeof stalenessMs === 'number') STATE.stalenessMs = stalenessMs;
     },
-    // Full CRM snapshot: { appointments: [{status}], lastChange?: {type, reason, otherText}, occurredAt?, sessionId? }
+    // Full CRM snapshot: { appointments: [{status}], lastChange?: {type, reason, reasons?, otherText}, occurredAt?, sessionId? }
     processCrmSnapshot(snapshot = {}){
       if (!shouldApply(snapshot)) return;
       const scheduled = deriveScheduled(snapshot.appointments);
       const change = mapChangeType(snapshot.lastChange?.type);
-      applyDerived({ scheduled, change, reason: snapshot.lastChange?.reason, otherText: snapshot.lastChange?.otherText });
+      applyDerived({
+        scheduled,
+        change,
+        reason: snapshot.lastChange?.reason,
+        reasons: snapshot.lastChange?.reasons,
+        otherText: snapshot.lastChange?.otherText
+      });
     },
-    // Event-only updates: { type, appointments?, remainingScheduled?, reason?, otherText?, occurredAt?, sessionId? }
+    // Event-only updates: { type, appointments?, remainingScheduled?, reason?, reasons?, otherText?, occurredAt?, sessionId? }
     processCrmEvent(evt = {}){
       if (!shouldApply(evt)) return;
       let scheduled;
@@ -77,8 +88,13 @@
         scheduled = false;
       }
       const change = mapChangeType(evt.type);
-      applyDerived({ scheduled, change, reason: evt.reason, otherText: evt.otherText });
+      applyDerived({
+        scheduled,
+        change,
+        reason: evt.reason,
+        reasons: evt.reasons,
+        otherText: evt.otherText
+      });
     }
   };
 })();
-
