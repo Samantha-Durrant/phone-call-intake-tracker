@@ -29,14 +29,14 @@ function renderTable(){
   const tbody = document.getElementById('analyticsBody');
   const entries = getActiveEntries();
   tbody.innerHTML = '';
-  if (!entries.length){ const tr = document.createElement('tr'); tr.className='empty'; const td=document.createElement('td'); td.colSpan=9; td.textContent='No submissions yet'; tr.appendChild(td); tbody.appendChild(tr); updateCountBadge(); return; }
+  if (!entries.length){ const tr = document.createElement('tr'); tr.className='empty'; const td=document.createElement('td'); td.colSpan=10; td.textContent='No submissions yet'; tr.appendChild(td); tbody.appendChild(tr); updateCountBadge(); return; }
   const prettify=(key)=>{ const map={ ma_call:'MA Call', provider_question:'Provider Question', refill_request:'Refill Request', billing_question:'Billing Question', confirmation:'Confirmation', results:'Results' }; return map[key] || String(key||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()); };
   const summarizeActions=(actions,kind)=>{ if(!actions) return ''; return Object.entries(actions).filter(([_,v])=>!!(v&&v[kind])).map(([k])=>prettify(k)).join('; '); };
   for (const e of entries){
     const tr = document.createElement('tr');
     const td = (t) => { const el = document.createElement('td'); el.textContent = t ?? ''; return el; };
     tr.appendChild(td(fmtDate(e.time))); tr.appendChild(td(e.patient?.mrn||'')); tr.appendChild(td(e.patient?.type||''));
-    tr.appendChild(td(e.appointment?.scheduled ? 'Yes' : 'No')); tr.appendChild(td(e.appointment?.change||'')); tr.appendChild(td(e.appointment?.reason||'')); tr.appendChild(td(e.appointment?.otherText||''));
+    tr.appendChild(td(e.appointment?.scheduled ? 'Yes' : 'No')); tr.appendChild(td(e.appointment?.change||'')); tr.appendChild(td(e.appointment?.type||'')); tr.appendChild(td(e.appointment?.reason||'')); tr.appendChild(td(e.appointment?.otherText||''));
     tr.appendChild(td(summarizeActions(e.actions,'task'))); tr.appendChild(td(summarizeActions(e.actions,'transfer')));
     tbody.appendChild(tr);
   }
@@ -94,12 +94,13 @@ function exportCsv(){
 }
 
 function summarize(entries){
-  const sum = { total: entries.length, cancel:0, resched:0, new:0, existing:0, tasks:0, transfers:0, hours:{}, cancelReasons:{}, reschedReasons:{}, actionsByType:{} };
+  const sum = { total: entries.length, cancel:0, resched:0, new:0, existing:0, tasks:0, transfers:0, hours:{}, cancelReasons:{}, reschedReasons:{}, actionsByType:{}, apptTypes:{} };
   const inRange = (h)=>h>=8&&h<=17;
   const normReason=(r)=>String(r||'').trim().replace(/[\/]+/g,' ').replace(/\s+/g,' ').trim();
   entries.forEach(e=>{
     const d=new Date(e.time); const h=d.getHours(); if(inRange(h)) sum.hours[h]=(sum.hours[h]||0)+1;
     const ptype=(e.patient?.type||'').toLowerCase(); if(ptype==='new') sum.new++; else if(ptype==='existing') sum.existing++;
+    const appt=String(e.appointment?.type||'').trim(); if(appt) sum.apptTypes[appt]=(sum.apptTypes[appt]||0)+1;
     const ch=(e.appointment?.change||'').toLowerCase(); if(ch==='cancellation'){ sum.cancel++; const r=normReason(e.appointment?.reason); if(r) sum.cancelReasons[r]=(sum.cancelReasons[r]||0)+1; }
     if(ch==='reschedule'){ sum.resched++; const r=normReason(e.appointment?.reason); if(r) sum.reschedReasons[r]=(sum.reschedReasons[r]||0)+1; }
     const actions=e.actions||{}; Object.entries(actions).forEach(([k,v])=>{ if(!sum.actionsByType[k]) sum.actionsByType[k]={task:0,transfer:0}; if(v.task){sum.actionsByType[k].task++; sum.tasks++;} if(v.transfer){sum.actionsByType[k].transfer++; sum.transfers++;} });
@@ -163,6 +164,16 @@ function updateKpisAndCharts(){
     }
   } catch{}
   drawBarChart('chartNewExisting', { New: sum.new, Existing: sum.existing }, { palette:['#10b981','#3b82f6'] });
+  const apptEntries = Object.entries(sum.apptTypes || {}).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
+  const topApptEntries = apptEntries.slice(0,12);
+  const apptOrder = topApptEntries.map(([k])=>k);
+  const apptMap = Object.fromEntries(topApptEntries);
+  const apptPalette=['#4f46e5','#6366f1','#8b5cf6','#a855f7','#ec4899','#f472b6','#facc15','#f97316','#ef4444','#14b8a6','#0ea5e9','#10b981'];
+  if (CURRENT_VIEW==='monthly'){
+    drawBarChart('chartApptTypes', toPercentMap(apptMap), { palette: apptPalette, order: apptOrder, maxValue:100, formatValue:(v)=>`${Math.round(v)}%` });
+  } else {
+    drawBarChart('chartApptTypes', apptMap, { palette: apptPalette, order: apptOrder });
+  }
   const cancelPalette=['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899'];
   const reschedPalette=['#1d4ed8','#0ea5e9','#14b8a6','#10b981','#84cc16','#eab308','#f59e0b','#f97316','#ef4444','#a855f7'];
   const prettyReason=(key)=>{ const map={ 'illness family emergency':'Illness/Family Emergency','work school conflict':'Work/School Conflict','no longer needed':'No longer needed','insurance':'Insurance','referral':'Referral','pooo r s':'POOO r/s' }; if(map[key]) return map[key]; return String(key||'').replace(/\b\w/g,c=>c.toUpperCase()); };

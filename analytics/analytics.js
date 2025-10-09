@@ -57,7 +57,7 @@ function renderTable(){
     const tr = document.createElement('tr');
     tr.className = 'empty';
     const td = document.createElement('td');
-    td.colSpan = 9;
+    td.colSpan = 10;
     td.textContent = 'No submissions yet';
     tr.appendChild(td);
     tbody.appendChild(tr);
@@ -83,6 +83,7 @@ function renderTable(){
     tr.appendChild(td(e.patient?.type || ''));
     tr.appendChild(td(e.appointment?.scheduled ? 'Yes' : 'No'));
     tr.appendChild(td(e.appointment?.change || ''));
+    tr.appendChild(td(e.appointment?.type || ''));
     tr.appendChild(td(e.appointment?.reason || ''));
     tr.appendChild(td(e.appointment?.otherText || ''));
     tr.appendChild(td(summarizeActions(e.actions, 'task')));
@@ -156,7 +157,8 @@ function summarize(entries){
     hours: {}, // hour string -> count
     cancelReasons: {},
     reschedReasons: {},
-    actionsByType: {} // key -> { task, transfer }
+    actionsByType: {}, // key -> { task, transfer }
+    apptTypes: {}
   };
   const inRange = (h) => h>=8 && h<=17;
   const normReason = (r) => String(r||'').trim().replace(/[\/]+/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
@@ -166,6 +168,8 @@ function summarize(entries){
     if (inRange(h)) sum.hours[h] = (sum.hours[h]||0)+1;
     const ptype = (e.patient?.type||'').toLowerCase();
     if (ptype === 'new') sum.new++; else if (ptype === 'existing') sum.existing++;
+    const apptType = String(e.appointment?.type||'').trim();
+    if (apptType) sum.apptTypes[apptType] = (sum.apptTypes[apptType] || 0) + 1;
     const ch = (e.appointment?.change||'').toLowerCase();
     if (ch === 'cancellation') { sum.cancel++; const r=normReason(e.appointment?.reason); if (r) sum.cancelReasons[r]=(sum.cancelReasons[r]||0)+1; }
     if (ch === 'reschedule') { sum.resched++; const r=normReason(e.appointment?.reason); if (r) sum.reschedReasons[r]=(sum.reschedReasons[r]||0)+1; }
@@ -361,6 +365,16 @@ function updateKpisAndCharts(){
   // For Monthly view, show percentages of total calls; Daily stays as counts
   const totalCalls = entries.length || 1;
   const toPercentMap = (m) => Object.fromEntries(Object.entries(m).map(([k,v]) => [k, (v/totalCalls)*100]));
+  const apptEntries = Object.entries(sum.apptTypes || {}).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
+  const topApptEntries = apptEntries.slice(0,12);
+  const apptOrder = topApptEntries.map(([k])=>k);
+  const apptMap = Object.fromEntries(topApptEntries);
+  const apptPalette = ['#4f46e5','#6366f1','#8b5cf6','#a855f7','#ec4899','#f472b6','#facc15','#f97316','#ef4444','#14b8a6','#0ea5e9','#10b981'];
+  if (CURRENT_VIEW === 'monthly') {
+    drawBarChart('chartApptTypes', toPercentMap(apptMap), { palette: apptPalette, order: apptOrder, maxValue:100, formatValue:(v)=>`${Math.round(v)}%` });
+  } else {
+    drawBarChart('chartApptTypes', apptMap, { palette: apptPalette, order: apptOrder });
+  }
   if (CURRENT_VIEW === 'monthly') {
     drawBarChart('chartCancelReasons', toPercentMap(sum.cancelReasons), {
       palette: cancelPalette,

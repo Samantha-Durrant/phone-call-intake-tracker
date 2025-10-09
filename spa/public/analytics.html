@@ -37,7 +37,7 @@
       .panel.wide{ grid-column: 1 / -1 }
       .panel .body{ padding:8px }
       .panel.table-panel .body{ padding:0; overflow:auto }
-      .panel.table-panel table{ min-width:720px }
+      .panel.table-panel table{ min-width:820px }
       tbody tr:nth-child(even){ background:#f9fafb }
       @media (min-width: 1024px){ .kpi-grid{ grid-template-columns: repeat(6,minmax(140px,1fr)); } }
       @media (max-width: 980px){ .wrap{ grid-template-columns: 1fr; } }
@@ -80,6 +80,7 @@
         <div class="panel wide"><h2>Time Distribution (8am–5pm)</h2><div class="body"><canvas id="chartHours" class="chart"></canvas></div></div>
         <div class="panel wide" id="panelWeekdays"><h2>Weekday Distribution (Mon–Fri)</h2><div class="body"><canvas id="chartWeekdays" class="chart"></canvas></div></div>
         <div class="panel"><h2>New vs Existing</h2><div class="body"><canvas id="chartNewExisting" class="chart"></canvas></div></div>
+        <div class="panel"><h2>Appointment Types</h2><div class="body"><canvas id="chartApptTypes" class="chart"></canvas></div></div>
         <div class="panel"><h2>Cancel Reasons</h2><div class="body"><canvas id="chartCancelReasons" class="chart"></canvas></div></div>
         <div class="panel"><h2>Reschedule Reasons</h2><div class="body"><canvas id="chartReschedReasons" class="chart"></canvas></div></div>
         <div class="panel"><h2>Tasks by Type</h2><div class="body"><canvas id="chartTasksByType" class="chart"></canvas></div></div>
@@ -97,6 +98,7 @@
                 <th>Type</th>
                 <th>Scheduled</th>
                 <th>Change</th>
+                <th>Appt Type</th>
                 <th>Reason</th>
                 <th>Other</th>
                 <th>Tasks</th>
@@ -104,7 +106,7 @@
               </tr>
             </thead>
             <tbody id="analyticsBody">
-              <tr class="empty"><td colspan="9">No submissions yet</td></tr>
+              <tr class="empty"><td colspan="10">No submissions yet</td></tr>
             </tbody>
           </table>
         </div>
