@@ -8,6 +8,22 @@ const LEDGER_KEY = 'screenpop_ledger_v1';
 let CURRENT_VIEW = 'daily';
 let SELECTED_MONTH = null; // 'YYYY-MM'
 
+const normalizeAppt = (name) => String(name || '').trim().toLowerCase();
+const MEDICAL_APPOINTMENTS = new Set([
+  'fse','new patient','follow up','spot check','cyst injection','cyst excision','biopsy','hairloss','rash','isotretinoin','video visit isotretinoin','video visit','suture removal ma','wart treatment','numbing major','filler major','botox','cosmetic procedure','prp','pdt','kybella'
+].map(normalizeAppt));
+const COSMETIC_APPOINTMENTS = new Set([
+  'cosmetic consult','dermaplane','standard hydrafacial','acne hydrafacial','deluxe hydrafacial','emsculpt','emsella','vanquish','laser pro-frac','barehr','lase hair removal (lhr)','bbl heroic','laser bbl','acne bbl','moxi','halo','visia','visia numbing','ipad numbing','ipad','microneedling','microlaser peel','chemical peel','yag','skintyte','sclerotherapy','prp','ultherapy','cosmetic follow-up','diva'
+].map(normalizeAppt));
+
+function categorizeAppointment(name){
+  const norm = normalizeAppt(name);
+  if (!norm) return 'Other';
+  if (MEDICAL_APPOINTMENTS.has(norm)) return 'Medical';
+  if (COSMETIC_APPOINTMENTS.has(norm)) return 'Cosmetic';
+  return 'Other';
+}
+
 function loadEntries(){ try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } }
 function saveEntries(entries){ try { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); } catch {} }
 function loadLedger(){ try { return JSON.parse(localStorage.getItem(LEDGER_KEY) || '[]'); } catch { return []; } }
@@ -94,13 +110,20 @@ function exportCsv(){
 }
 
 function summarize(entries){
-  const sum = { total: entries.length, cancel:0, resched:0, new:0, existing:0, tasks:0, transfers:0, hours:{}, cancelReasons:{}, reschedReasons:{}, actionsByType:{}, apptTypes:{} };
+  const sum = { total: entries.length, cancel:0, resched:0, new:0, existing:0, tasks:0, transfers:0, hours:{}, cancelReasons:{}, reschedReasons:{}, actionsByType:{}, apptTypes:{}, apptGroups:{ Medical:0, Cosmetic:0, Other:0 } };
   const inRange = (h)=>h>=8&&h<=17;
   const normReason=(r)=>String(r||'').trim().replace(/[\/]+/g,' ').replace(/\s+/g,' ').trim();
   entries.forEach(e=>{
     const d=new Date(e.time); const h=d.getHours(); if(inRange(h)) sum.hours[h]=(sum.hours[h]||0)+1;
     const ptype=(e.patient?.type||'').toLowerCase(); if(ptype==='new') sum.new++; else if(ptype==='existing') sum.existing++;
-    const appt=String(e.appointment?.type||'').trim(); if(appt) sum.apptTypes[appt]=(sum.apptTypes[appt]||0)+1;
+    const appt=String(e.appointment?.type||'').trim();
+    if(appt) {
+      sum.apptTypes[appt]=(sum.apptTypes[appt]||0)+1;
+      const group = categorizeAppointment(appt);
+      sum.apptGroups[group] = (sum.apptGroups[group]||0) + 1;
+    } else {
+      sum.apptGroups.Other = (sum.apptGroups.Other||0) + 1;
+    }
     const ch=(e.appointment?.change||'').toLowerCase(); if(ch==='cancellation'){ sum.cancel++; const r=normReason(e.appointment?.reason); if(r) sum.cancelReasons[r]=(sum.cancelReasons[r]||0)+1; }
     if(ch==='reschedule'){ sum.resched++; const r=normReason(e.appointment?.reason); if(r) sum.reschedReasons[r]=(sum.reschedReasons[r]||0)+1; }
     const actions=e.actions||{}; Object.entries(actions).forEach(([k,v])=>{ if(!sum.actionsByType[k]) sum.actionsByType[k]={task:0,transfer:0}; if(v.task){sum.actionsByType[k].task++; sum.tasks++;} if(v.transfer){sum.actionsByType[k].transfer++; sum.transfers++;} });
@@ -164,6 +187,14 @@ function updateKpisAndCharts(){
     }
   } catch{}
   drawBarChart('chartNewExisting', { New: sum.new, Existing: sum.existing }, { palette:['#10b981','#3b82f6'] });
+  const groupOrder = ['Medical','Cosmetic','Other'];
+  const groupMap = Object.fromEntries(groupOrder.map(k => [k, (sum.apptGroups || {})[k] || 0]));
+  const groupPalette = ['#0ea5e9','#f472b6','#9ca3af'];
+  if (CURRENT_VIEW === 'monthly'){
+    drawBarChart('chartApptGroups', toPercentMap(groupMap), { palette: groupPalette, order: groupOrder, maxValue:100, formatValue:(v)=>`${Math.round(v)}%` });
+  } else {
+    drawBarChart('chartApptGroups', groupMap, { palette: groupPalette, order: groupOrder });
+  }
   const apptEntries = Object.entries(sum.apptTypes || {}).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
   let topApptEntries = apptEntries.slice(0,12);
   const otherCount = apptEntries.slice(12).reduce((acc,[,v])=>acc + (Number(v)||0), 0);

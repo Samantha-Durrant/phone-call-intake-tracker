@@ -8,6 +8,22 @@ const LEDGER_KEY = 'screenpop_ledger_v1';
 let CURRENT_VIEW = 'daily';
 let SELECTED_MONTH = null; // 'YYYY-MM'
 
+const normalizeAppt = (name) => String(name || '').trim().toLowerCase();
+const MEDICAL_APPOINTMENTS = new Set([
+  'fse','new patient','follow up','spot check','cyst injection','cyst excision','biopsy','hairloss','rash','isotretinoin','video visit isotretinoin','video visit','suture removal ma','wart treatment','numbing major','filler major','botox','cosmetic procedure','prp','pdt','kybella'
+].map(normalizeAppt));
+const COSMETIC_APPOINTMENTS = new Set([
+  'cosmetic consult','dermaplane','standard hydrafacial','acne hydrafacial','deluxe hydrafacial','emsculpt','emsella','vanquish','laser pro-frac','barehr','lase hair removal (lhr)','bbl heroic','laser bbl','acne bbl','moxi','halo','visia','visia numbing','ipad numbing','ipad','microneedling','microlaser peel','chemical peel','yag','skintyte','sclerotherapy','prp','ultherapy','cosmetic follow-up','diva'
+].map(normalizeAppt));
+
+function categorizeAppointment(name){
+  const norm = normalizeAppt(name);
+  if (!norm) return 'Other';
+  if (MEDICAL_APPOINTMENTS.has(norm)) return 'Medical';
+  if (COSMETIC_APPOINTMENTS.has(norm)) return 'Cosmetic';
+  return 'Other';
+}
+
 function loadEntries(){
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
 }
@@ -158,7 +174,8 @@ function summarize(entries){
     cancelReasons: {},
     reschedReasons: {},
     actionsByType: {}, // key -> { task, transfer }
-    apptTypes: {}
+    apptTypes: {},
+    apptGroups: { Medical:0, Cosmetic:0, Other:0 }
   };
   const inRange = (h) => h>=8 && h<=17;
   const normReason = (r) => String(r||'').trim().replace(/[\/]+/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
@@ -169,7 +186,13 @@ function summarize(entries){
     const ptype = (e.patient?.type||'').toLowerCase();
     if (ptype === 'new') sum.new++; else if (ptype === 'existing') sum.existing++;
     const apptType = String(e.appointment?.type||'').trim();
-    if (apptType) sum.apptTypes[apptType] = (sum.apptTypes[apptType] || 0) + 1;
+    if (apptType) {
+      sum.apptTypes[apptType] = (sum.apptTypes[apptType] || 0) + 1;
+      const group = categorizeAppointment(apptType);
+      sum.apptGroups[group] = (sum.apptGroups[group] || 0) + 1;
+    } else {
+      sum.apptGroups.Other = (sum.apptGroups.Other || 0) + 1;
+    }
     const ch = (e.appointment?.change||'').toLowerCase();
     if (ch === 'cancellation') { sum.cancel++; const r=normReason(e.appointment?.reason); if (r) sum.cancelReasons[r]=(sum.cancelReasons[r]||0)+1; }
     if (ch === 'reschedule') { sum.resched++; const r=normReason(e.appointment?.reason); if (r) sum.reschedReasons[r]=(sum.reschedReasons[r]||0)+1; }
@@ -347,6 +370,14 @@ function updateKpisAndCharts(){
   } catch {}
   // Use distinct colors for New vs Existing
   drawBarChart('chartNewExisting', { New: sum.new, Existing: sum.existing }, { palette:['#10b981','#3b82f6'] });
+  const groupOrder = ['Medical','Cosmetic','Other'];
+  const groupMap = Object.fromEntries(groupOrder.map(k => [k, (sum.apptGroups || {})[k] || 0]));
+  const groupPalette = ['#0ea5e9','#f472b6','#9ca3af'];
+  if (CURRENT_VIEW === 'monthly') {
+    drawBarChart('chartApptGroups', toPercentMap(groupMap), { palette: groupPalette, order: groupOrder, maxValue:100, formatValue:(v)=>`${Math.round(v)}%` });
+  } else {
+    drawBarChart('chartApptGroups', groupMap, { palette: groupPalette, order: groupOrder });
+  }
   const cancelPalette = ['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899'];
   const reschedPalette = ['#1d4ed8','#0ea5e9','#14b8a6','#10b981','#84cc16','#eab308','#f59e0b','#f97316','#ef4444','#a855f7'];
   const prettyReason = (key) => {
