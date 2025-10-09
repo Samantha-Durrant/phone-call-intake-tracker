@@ -18,7 +18,18 @@
   function setPatientType(type){ const g = qs('.pt-type'); if(!g) return; qsa('.seg',g).forEach(b=>b.classList.toggle('active', b.getAttribute('data-ptype')===type)); }
   function setBadge(){ const b = qs('#callBadge'); if(!b) return; b.classList.toggle('active', inCall); b.innerHTML = `<i class="fa-solid fa-phone"></i> In‑Call: ${inCall?'Yes':'No'}`; }
   function resetReason(){ const sel=qs('#reasonSelect'); if(sel) sel.value=''; const wrap=qs('#otherReasonWrap'); if(wrap) wrap.classList.add('hidden'); }
-  function clearExtras(){ qsa('.reasons .mini-btn').forEach(b=>b.classList.remove('pressed')); const c=qs('#confirmCheck'); if(c) c.checked=false; resetReason(); }
+  function clearExtras(){ qsa('.reasons .mini-btn').forEach(b=>b.classList.remove('pressed')); const c=qs('#confirmCheck'); if(c) c.checked=false; window.ScreenpopAPI?.clearNoAppointmentReasons(); resetReason(); }
+  function markQuestionOnly(){ window.ScreenpopAPI?.setNoAppointmentReasons(['Question Only']); }
+  function applyManualDefaults(){
+    inCall = false;
+    changeHappened = false;
+    derivedScheduled = false;
+    lastChange = 'none';
+    setBadge();
+    setPatientType('existing');
+    clearExtras();
+    window.ScreenpopAPI?.applyAppointment({ scheduled:true, change:'none' });
+  }
 
   function applyUI(){
     // Apply current derived state to the screenpop UI, never auto-filling reasons
@@ -34,14 +45,17 @@
   // Map scenario name to an in-call CRM change (if any)
   async function runScenario(key){
     const nonAppt = new Set(['ma_call','results_call','provider_question','refill_request','billing_question','new_ma_call','new_results_call','new_provider_question','new_refill_request','new_billing_question','true_new_blank']);
+    let markAsQuestionOnly = false;
     if (!inCall) {
       // For non-appointment scenarios, still default to NO scheduled and NO change even if not in-call
       if (nonAppt.has(key)) {
         changeHappened = false; derivedScheduled = false; lastChange = 'none';
         applyUI();
+        markAsQuestionOnly = true;
       } else {
         pulse('Start Call to track changes');
       }
+      if (markAsQuestionOnly) markQuestionOnly();
       return;
     }
     switch(key){
@@ -72,10 +86,12 @@
         changeHappened = false;
         derivedScheduled = false;
         lastChange = 'none';
+        markAsQuestionOnly = true;
         break;
     }
     // Apply to UI per rules
     applyUI();
+    if (markAsQuestionOnly) markQuestionOnly();
   }
 
   function pulse(text){ const s=qs('#statusMsg'); if(!s) return; s.textContent=text; s.style.transition='none'; s.style.opacity='0.3'; requestAnimationFrame(()=>{ s.style.transition='opacity .25s ease'; s.style.opacity='1'; setTimeout(()=>s.textContent='v2 — only in‑call changes affect Scheduled', 1200); }); }
@@ -100,6 +116,7 @@
     runBtn.addEventListener('click', async ()=>{
       // Auto-populate for existing vs new basic flows
       const key = select.value;
+      if (!key) { applyManualDefaults(); return; }
       if (key.startsWith('new_')) { await incoming(NEW_PHONE); setPatientType('new'); }
       else if (key.startsWith('true_new')) { setPatientType('new'); }
       else { await incoming(DEFAULT_PHONE); setPatientType('existing'); }
@@ -107,5 +124,6 @@
     });
     select.addEventListener('change', ()=>runBtn.click());
     resetBtn.addEventListener('click', resetAll);
+    applyManualDefaults();
   });
 })();

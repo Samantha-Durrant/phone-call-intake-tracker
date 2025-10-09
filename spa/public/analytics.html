@@ -16,6 +16,12 @@
       .panel h2{ margin:0; padding:10px 12px; font-size:14px; border-bottom:1px solid var(--line); background:#f9fafb }
       .panel .body{ flex:1; overflow:auto }
       table{ width:100%; border-collapse:collapse; font-size:13px }
+      .chart-with-legend{ display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap }
+      .chart-with-legend canvas{ flex:1 1 260px }
+      .chart-legend{ display:flex; flex-direction:column; gap:8px; min-width:160px; font-size:12px }
+      .chart-legend .legend-item{ display:flex; align-items:center; gap:8px; cursor:default }
+      .chart-legend .legend-item:hover{ opacity:.8 }
+      .chart-legend .swatch{ width:12px; height:12px; border-radius:3px }
       .toolbar{ display:flex; gap:8px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line); background:#fff; flex-wrap:wrap }
       button{ height:32px; padding:0 10px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer; font-weight:600 }
       button.primary{ background:var(--brand); border-color:var(--brand); color:#fff }
@@ -38,9 +44,8 @@
       .panel .body{ padding:8px }
       .panel.table-panel .body{ padding:0; overflow:auto }
       .panel.table-panel table{ min-width:860px }
-      #chartApptMedical,#chartApptCosmetic{ height:240px }
       .appt-lists{ display:flex; gap:24px; flex-wrap:wrap }
-      .appt-column{ flex:1 1 320px; min-width:280px; display:flex; flex-direction:column; gap:12px }
+      .appt-column{ flex:1 1 360px; min-width:320px; display:flex; flex-direction:column; gap:12px }
       .appt-column h3{ margin:0; font-size:15px }
       .appt-list{ list-style:none; padding:0; margin:0; border:1px solid var(--line); border-radius:12px; background:#fff; max-height:360px; overflow:auto }
       .appt-list li{ display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid var(--line); font-size:13px }
@@ -92,7 +97,9 @@
       <div class="charts">
         <div class="panel wide"><h2>Time Distribution (8am–5pm)</h2><div class="body"><canvas id="chartHours" class="chart"></canvas></div></div>
         <div class="panel wide" id="panelWeekdays"><h2>Weekday Distribution (Mon–Fri)</h2><div class="body"><canvas id="chartWeekdays" class="chart"></canvas></div></div>
-        <div class="panel"><h2>New vs Existing</h2><div class="body"><canvas id="chartNewExisting" class="chart"></canvas></div></div>
+        <div class="panel"><h2>Scheduling by Office</h2><div class="body chart-with-legend"><canvas id="chartNewExisting" class="chart"></canvas><div id="chartNewExistingLegend" class="chart-legend"></div></div></div>
+        <div class="panel"><h2>Confirmation Status</h2><div class="body"><canvas id="chartConfirmations" class="chart"></canvas></div></div>
+        <div class="panel"><h2>Office Mix</h2><div class="body"><canvas id="chartOffices" class="chart"></canvas></div></div>
         <div class="panel"><h2>Cancel Reasons</h2><div class="body"><canvas id="chartCancelReasons" class="chart"></canvas></div></div>
         <div class="panel"><h2>Reschedule Reasons</h2><div class="body"><canvas id="chartReschedReasons" class="chart"></canvas></div></div>
         <div class="panel"><h2>Tasks by Type</h2><div class="body"><canvas id="chartTasksByType" class="chart"></canvas></div></div>
@@ -129,14 +136,16 @@
                 <th>Scheduled</th>
                 <th>Change</th>
                 <th>Appt Type</th>
+                <th>Office</th>
                 <th>Reason</th>
+                <th>Confirmed</th>
                 <th>Other</th>
                 <th>Tasks</th>
                 <th>Transfers</th>
               </tr>
             </thead>
             <tbody id="analyticsBody">
-              <tr class="empty"><td colspan="10">No submissions yet</td></tr>
+              <tr class="empty"><td colspan="12">No submissions yet</td></tr>
             </tbody>
           </table>
         </div>

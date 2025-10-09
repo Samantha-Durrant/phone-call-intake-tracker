@@ -7,6 +7,46 @@ const SUBMIT_PREFIX = 'screenpop_submit_';
 const LEDGER_KEY = 'screenpop_ledger_v1';
 let CURRENT_VIEW = 'daily';
 let SELECTED_MONTH = null; // 'YYYY-MM'
+const OFFICE_KEYS = ['Ann Arbor','Plymouth','Wixom'];
+const OFFICE_LOOKUP = OFFICE_KEYS.reduce((acc,label)=>{ acc[label.toLowerCase()] = label; return acc; }, {});
+function canonicalOffice(name){
+  const key = String(name || '').trim().toLowerCase();
+  if (!key) return '';
+  return OFFICE_LOOKUP[key] || '';
+}
+
+function prettyReasonLabel(reason){
+  const raw = String(reason || '').trim();
+  if (!raw) return '';
+  const key = raw.toLowerCase().replace(/[\/]+/g,' ').replace(/\s+/g,' ').trim();
+  const map = {
+    'illness family emergency':'Illness/Family Emergency',
+    'work school conflict':'Work/School Conflict',
+    'no longer needed':'No longer needed',
+    'insurance':'Insurance',
+    'referral':'Referral',
+    'pooo r s':'POOO r/s'
+  };
+  return map[key] || raw;
+}
+
+function normalizeTypeAndOffice(appt){
+  let type = String(appt?.type || '').trim();
+  let office = canonicalOffice(appt?.office);
+  const typeAsOffice = canonicalOffice(type);
+  if (typeAsOffice) {
+    if (!office) office = typeAsOffice;
+    if (office === typeAsOffice) type = '';
+  }
+  return { apptType: type, office };
+}
+
+const SCHEDULING_SERIES = [
+  { key:'existingScheduled', label:'Existing · Scheduled', color:'#2563eb' },
+  { key:'existingNot', label:'Existing · Not Scheduled', color:'#93c5fd' },
+  { key:'newScheduled', label:'New · Scheduled', color:'#10b981' },
+  { key:'newNot', label:'New · Not Scheduled', color:'#a7f3d0' }
+];
 
 const normalizeAppt = (name) => String(name || '').trim().toLowerCase();
 const MEDICAL_APPOINTMENTS = new Set([
@@ -34,7 +74,6 @@ function buildTopEntries(map, limit=12){
 }
 
 function renderAppointmentLists(sum){
-  const total = Math.max(1, Number(sum.total)||1);
   const medList = document.getElementById('listApptMedical');
   const cosList = document.getElementById('listApptCosmetic');
   const render = (el, data) => {
@@ -44,6 +83,7 @@ function renderAppointmentLists(sum){
     if (!entries.length){
       const empty = document.createElement('li'); empty.className='appt-empty'; empty.textContent='No appointments captured yet'; el.appendChild(empty); return;
     }
+    const total = entries.reduce((acc,[,cnt]) => acc + (Number(cnt)||0), 0) || 1;
     entries.forEach(([label,count]) => {
       const li = document.createElement('li');
       const name = document.createElement('span'); name.className='appt-label'; name.textContent = label;
@@ -108,7 +148,7 @@ function renderTable(){
     const tr = document.createElement('tr');
     tr.className = 'empty';
     const td = document.createElement('td');
-    td.colSpan = 10;
+    td.colSpan = 12;
     td.textContent = 'No submissions yet';
     tr.appendChild(td);
     tbody.appendChild(tr);
@@ -134,8 +174,17 @@ function renderTable(){
     tr.appendChild(td(e.patient?.type || ''));
     tr.appendChild(td(e.appointment?.scheduled ? 'Yes' : 'No'));
     tr.appendChild(td(e.appointment?.change || ''));
-    tr.appendChild(td(e.appointment?.type || ''));
-    tr.appendChild(td(e.appointment?.reason || ''));
+    const { apptType, office } = normalizeTypeAndOffice(e.appointment);
+    const reasonText = prettyReasonLabel(e.appointment?.reason);
+    const noApptList = Array.isArray(e.appointment?.noAppointmentReasons) ? e.appointment.noAppointmentReasons.map(prettyReasonLabel).filter(Boolean) : [];
+    const reasonParts = [];
+    if (reasonText) reasonParts.push(reasonText);
+    if (noApptList.length) reasonParts.push(`No Appt: ${noApptList.join(', ')}`);
+    tr.appendChild(td(apptType || 'Unspecified'));
+    tr.appendChild(td(office || 'Unspecified'));
+    tr.appendChild(td(reasonParts.join(' · ')));
+    const confirmed = e.appointment?.confirmed ? 'Yes' : 'No';
+    tr.appendChild(td(confirmed));
     tr.appendChild(td(e.appointment?.otherText || ''));
     tr.appendChild(td(summarizeActions(e.actions, 'task')));
     tr.appendChild(td(summarizeActions(e.actions, 'transfer')));
@@ -160,13 +209,15 @@ function applyMrnFilter(){
 
 function exportCsv(){
   const entries = getActiveEntries();
-  const cols = ['time','agent','callId','ani','patient.mrn','patient.name','patient.type','appointment.scheduled','appointment.change','appointment.reason','appointment.otherText','appointment.type','appointment.confirmed','actions'];
+  const cols = ['time','agent','callId','ani','patient.mrn','patient.name','patient.type','appointment.scheduled','appointment.change','appointment.type','appointment.office','appointment.reason','appointment.noAppointmentReasons','appointment.questionOnly','appointment.otherText','appointment.confirmed','actions'];
   const header = cols.join(',');
   const lines = [header];
   for (const e of entries){
     const actions = e.actions ? Object.entries(e.actions)
       .map(([k,v])=>{ const parts=[]; if (v.task) parts.push('task'); if (v.transfer) parts.push('transfer'); return parts.length ? `${k}:${parts.join('+')}` : null; })
       .filter(Boolean).join('; ') : '';
+    const norm = normalizeTypeAndOffice(e.appointment);
+    const noApptCsv = Array.isArray(e.appointment?.noAppointmentReasons) ? e.appointment.noAppointmentReasons.map(prettyReasonLabel).join('|') : '';
     const row = [
       fmtDate(e.time),
       e.agent||'',
@@ -177,9 +228,12 @@ function exportCsv(){
       e.patient?.type||'',
       (e.appointment?.scheduled ? 'Yes' : 'No'),
       e.appointment?.change||'',
-      e.appointment?.reason||'',
+      norm.apptType || '',
+      norm.office || 'Unspecified',
+      prettyReasonLabel(e.appointment?.reason)||'',
+      noApptCsv,
+      e.appointment?.questionOnly ? 'Yes' : 'No',
       e.appointment?.otherText||'',
-      e.appointment?.type||'',
       e.appointment?.confirmed ? 'Yes' : 'No',
       actions
     ]
@@ -203,34 +257,76 @@ function summarize(entries){
     resched: 0,
     new: 0,
     existing: 0,
+    newScheduled: 0,
+    existingScheduled: 0,
     tasks: 0,
     transfers: 0,
-    hours: {}, // hour string -> count
+    hours: {},
     cancelReasons: {},
     reschedReasons: {},
-    actionsByType: {}, // key -> { task, transfer }
+    actionsByType: {},
     apptTypes: {},
-    apptGroups: { Medical:{}, Cosmetic:{}, Other:{} }
+    apptGroups: { Medical:{}, Cosmetic:{}, Other:{} },
+    offices: OFFICE_KEYS.reduce((acc,k)=>{ acc[k]=0; return acc; }, {}),
+    officeBreakdown: {},
+    confirmations: { Confirmed:0, 'Not Confirmed':0 },
+    questionOnly: 0,
+    questionOnlyByType: { new:0, existing:0 }
   };
   const inRange = (h) => h>=8 && h<=17;
-  const normReason = (r) => String(r||'').trim().replace(/[\/]+/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
+  const normReason = (r) => String(r||'').trim().replace(/[\/]+/g,' ').replace(/\s+/g,' ').trim();
   entries.forEach(e => {
     const d = new Date(e.time);
     const h = d.getHours();
     if (inRange(h)) sum.hours[h] = (sum.hours[h]||0)+1;
     const ptype = (e.patient?.type||'').toLowerCase();
-    if (ptype === 'new') sum.new++; else if (ptype === 'existing') sum.existing++;
-    const apptType = String(e.appointment?.type||'').trim();
+    const questionOnly = !!e.appointment?.questionOnly;
+    if (ptype === 'new') {
+      sum.new++;
+      if (questionOnly) {
+        sum.questionOnly++;
+        sum.questionOnlyByType.new = (sum.questionOnlyByType.new || 0) + 1;
+      }
+      if (e.appointment?.scheduled) sum.newScheduled = (sum.newScheduled||0) + 1;
+    } else if (ptype === 'existing') {
+      sum.existing++;
+      if (questionOnly) {
+        sum.questionOnly++;
+        sum.questionOnlyByType.existing = (sum.questionOnlyByType.existing || 0) + 1;
+      }
+      if (e.appointment?.scheduled) sum.existingScheduled = (sum.existingScheduled||0) + 1;
+    }
+    const { apptType, office } = normalizeTypeAndOffice(e.appointment);
+    if (office) {
+      sum.offices[office] = (sum.offices[office] || 0) + 1;
+      if (e.appointment) e.appointment.office = office;
+    }
     if (apptType) {
       sum.apptTypes[apptType] = (sum.apptTypes[apptType] || 0) + 1;
       const group = categorizeAppointment(apptType);
       const bucket = sum.apptGroups[group] || (sum.apptGroups[group] = {});
       bucket[apptType] = (bucket[apptType] || 0) + 1;
-    } else {
-      sum.apptTypes['Unspecified'] = (sum.apptTypes['Unspecified'] || 0) + 1;
-      const bucket = sum.apptGroups.Other;
-      bucket['Unspecified'] = (bucket['Unspecified'] || 0) + 1;
     }
+    const officeKey = office || 'Unspecified';
+    const officeBucket = sum.officeBreakdown[officeKey] || { existingScheduled:0, existingNot:0, newScheduled:0, newNot:0, questionOnlyExisting:0, questionOnlyNew:0 };
+    if (ptype === 'new') {
+      if (e.appointment?.scheduled) {
+        officeBucket.newScheduled++;
+      } else if (questionOnly) {
+        officeBucket.questionOnlyNew++;
+      } else {
+        officeBucket.newNot++;
+      }
+    } else if (ptype === 'existing') {
+      if (e.appointment?.scheduled) {
+        officeBucket.existingScheduled++;
+      } else if (questionOnly) {
+        officeBucket.questionOnlyExisting++;
+      } else {
+        officeBucket.existingNot++;
+      }
+    }
+    sum.officeBreakdown[officeKey] = officeBucket;
     const ch = (e.appointment?.change||'').toLowerCase();
     if (ch === 'cancellation') { sum.cancel++; const r=normReason(e.appointment?.reason); if (r) sum.cancelReasons[r]=(sum.cancelReasons[r]||0)+1; }
     if (ch === 'reschedule') { sum.resched++; const r=normReason(e.appointment?.reason); if (r) sum.reschedReasons[r]=(sum.reschedReasons[r]||0)+1; }
@@ -240,6 +336,10 @@ function summarize(entries){
       if (v.task) { sum.actionsByType[k].task++; sum.tasks++; }
       if (v.transfer) { sum.actionsByType[k].transfer++; sum.transfers++; }
     });
+    const confirmed = !!e.appointment?.confirmed;
+    const confirmLabel = confirmed ? 'Confirmed' : 'Not Confirmed';
+    sum.confirmations[confirmLabel] = (sum.confirmations[confirmLabel] || 0) + 1;
+    if (e.appointment) e.appointment.confirmed = confirmed;
   });
   return sum;
 }
@@ -356,6 +456,96 @@ function drawStackedTwo(canvasId, dataMap, { labels=['Tasks','Transfers'], color
   });
 }
 
+function drawStackedMulti(canvasId, dataMap, { series=[], order=null, maxValue=null, formatValue=null }={}){
+  const el = document.getElementById(canvasId);
+  if (!el) return;
+  const ctx = el.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = el.getBoundingClientRect();
+  const cssW = Math.max(10, el.clientWidth || rect.width || (el.parentElement?.clientWidth||0));
+  const cssH = Math.max(10, el.clientHeight || rect.height);
+  el.width = Math.round(cssW * dpr);
+  el.height = Math.round(cssH * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const width = cssW; const height = cssH;
+  ctx.clearRect(0,0,width,height);
+  const keys = (Array.isArray(order) && order.length) ? order.filter(k => k && Object.prototype.hasOwnProperty.call(dataMap, k)) : Object.keys(dataMap);
+  if (!keys.length || !Array.isArray(series) || !series.length){ ctx.fillStyle='#9ca3af'; ctx.fillText('No data',8,20); return; }
+  const totals = keys.map(key => {
+    const bucket = dataMap[key] || {};
+    return series.reduce((acc,s) => acc + (Number(bucket[s.key])||0), 0);
+  });
+  const computedMax = (typeof maxValue === 'number') ? (maxValue || 1) : Math.max(1, ...totals);
+  const pad = 28; const gap = 12; const barW = Math.max(20, (width - pad*2 - gap*(keys.length-1)) / Math.max(keys.length,1));
+  ctx.font = '12px system-ui'; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  const wrapLabel = (text, maxWidth) => {
+    const tokens = String(text||'').split(/\s+/);
+    const lines=[]; let line='';
+    tokens.forEach(tok=>{
+      const tentative = line ? line + ' ' + tok : tok;
+      if (ctx.measureText(tentative).width <= maxWidth) {
+        line = tentative;
+      } else {
+        if (line) lines.push(line);
+        line = tok;
+      }
+    });
+    if (line) lines.push(line);
+    return lines.length ? lines : [String(text||'')];
+  };
+  const wrapped = keys.map(k => wrapLabel(k, barW));
+  const maxLines = Math.max(1, ...wrapped.map(lines => lines.length));
+  const labelArea = maxLines * 14 + 12;
+  keys.forEach((key, idx) => {
+    const bucket = dataMap[key] || {};
+    const x = pad + idx * (barW + gap);
+    const chartTop = 6; const chartBottom = height - labelArea - 4; const avail = Math.max(16, chartBottom - chartTop);
+    let y = chartBottom;
+    series.forEach(entry => {
+      const value = Number(bucket[entry.key]) || 0;
+      const h = Math.round((value / computedMax) * (avail - 20));
+      if (h > 0) {
+        ctx.fillStyle = entry.color || '#4b5563';
+        const segmentY = y - h;
+        ctx.fillRect(x, segmentY, barW, h);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#111827';
+        const labelText = formatValue ? formatValue(value, entry) : String(value);
+        ctx.fillText(labelText, x + barW/2, Math.max(chartTop+10, segmentY - 4));
+        ctx.textAlign = 'left';
+        y = segmentY;
+      }
+    });
+    ctx.fillStyle = '#374151';
+    const lines = wrapped[idx];
+    ctx.textAlign = 'center';
+    lines.forEach((line, li) => {
+      const ly = chartBottom + 14*(li+1);
+      ctx.fillText(line, x + barW/2, ly);
+    });
+    ctx.textAlign = 'left';
+  });
+}
+
+function renderLegend(containerId, series){
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  series.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'legend-item';
+    row.title = item.label;
+    const swatch = document.createElement('span');
+    swatch.className = 'swatch';
+    swatch.style.background = item.color || '#4b5563';
+    row.appendChild(swatch);
+    const label = document.createElement('span');
+    label.textContent = item.label;
+    row.appendChild(label);
+    container.appendChild(row);
+  });
+}
+
 function updateKpisAndCharts(){
   const entries = getActiveEntries();
   const sum = summarize(entries);
@@ -407,7 +597,19 @@ function updateKpisAndCharts(){
     }
   } catch {}
   // Use distinct colors for New vs Existing
-  drawBarChart('chartNewExisting', { New: sum.new, Existing: sum.existing }, { palette:['#10b981','#3b82f6'] });
+  const officeOrder = [...new Set([...OFFICE_KEYS, ...Object.keys(sum.officeBreakdown || {})])];
+  const officeData = {};
+  officeOrder.forEach(name => {
+    const bucket = sum.officeBreakdown?.[name] || {};
+    officeData[name] = {
+      existingScheduled: Number(bucket.existingScheduled || 0),
+      existingNot: Number(bucket.existingNot || 0),
+      newScheduled: Number(bucket.newScheduled || 0),
+      newNot: Number(bucket.newNot || 0)
+    };
+  });
+  drawStackedMulti('chartNewExisting', officeData, { series: SCHEDULING_SERIES, order: officeOrder });
+  renderLegend('chartNewExistingLegend', SCHEDULING_SERIES);
   renderAppointmentLists(sum);
   const cancelPalette = ['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899'];
   const reschedPalette = ['#1d4ed8','#0ea5e9','#14b8a6','#10b981','#84cc16','#eab308','#f59e0b','#f97316','#ef4444','#a855f7'];
@@ -427,6 +629,22 @@ function updateKpisAndCharts(){
   // For Monthly view, show percentages of total calls; Daily stays as counts
   const totalCalls = entries.length || 1;
   const toPercentMap = (m) => Object.fromEntries(Object.entries(m).map(([k,v]) => [k, (v/totalCalls)*100]));
+  const confirmedCount = Number(sum.confirmations?.Confirmed || 0);
+  const confirmData = { Confirmed: confirmedCount };
+  const confirmPalette = ['#10b981'];
+  const confirmOrder = ['Confirmed'];
+  if (CURRENT_VIEW === 'monthly') {
+    drawBarChart('chartConfirmations', toPercentMap(confirmData), { palette: confirmPalette, order: confirmOrder, maxValue:100, formatValue:(v)=>`${Math.round(v)}%` });
+  } else {
+    drawBarChart('chartConfirmations', confirmData, { palette: confirmPalette, order: confirmOrder });
+  }
+  const officeCounts = { ...OFFICE_KEYS.reduce((acc,k)=>{ acc[k]=0; return acc; }, {}), ...(sum.offices||{}) };
+  const officePalette = ['#0ea5e9','#3b82f6','#6366f1','#94a3b8'];
+  if (CURRENT_VIEW === 'monthly') {
+    drawBarChart('chartOffices', toPercentMap(officeCounts), { palette: officePalette, order: OFFICE_KEYS, maxValue:100, formatValue:(v)=>`${Math.round(v)}%` });
+  } else {
+    drawBarChart('chartOffices', officeCounts, { palette: officePalette, order: OFFICE_KEYS });
+  }
   if (CURRENT_VIEW === 'monthly') {
     drawBarChart('chartCancelReasons', toPercentMap(sum.cancelReasons), {
       palette: cancelPalette,

@@ -5,6 +5,7 @@
   let programmaticChange = false; // used to avoid auto-populating reasons on automated updates
   let callerPhone = null; // preserves the caller's phone even when switching subject
   let lastCallFor = 'self';
+  let appointmentOffice = '';
   let appointmentTypeOverride = '';
   function formatPhone(p){
     try {
@@ -52,6 +53,8 @@
       callerPhone = phone;
       // reset appointment type when a new call is received unless a host overrides immediately after
       appointmentTypeOverride = '';
+      applyOffice('');
+      clearNoApptReasonSelection();
       // Only set patient phone automatically when Call For = self
       if (currentValue('callfor') !== 'proxy') setPhone(phone);
       setCallerBadge();
@@ -88,6 +91,10 @@
         const nextType = update.apptType ?? update.appointmentType ?? '';
         appointmentTypeOverride = nextType || '';
       }
+      if (Object.prototype.hasOwnProperty.call(update, 'office') || Object.prototype.hasOwnProperty.call(update, 'location')) {
+        const nextOffice = update.office ?? update.location ?? update.officeName ?? '';
+        applyOffice(nextOffice);
+      }
       handleVisibility();
       // Reason handling: support single or multiple reasons passed from integrations
       const providedReasons = incomingReasonsArray(update);
@@ -106,10 +113,32 @@
           clearReasonSelection();
         }
       }
+      const noApptReasonsFromUpdate = incomingNoApptReasonsArray(update);
+      const hasNoApptField = Object.prototype.hasOwnProperty.call(update, 'noAppointmentReasons') || Object.prototype.hasOwnProperty.call(update, 'noAppointmentReason');
+      if (noApptReasonsFromUpdate.length) {
+        setNoApptReasonSelection(noApptReasonsFromUpdate);
+      } else if (hasNoApptField) {
+        clearNoApptReasonSelection();
+      }
       programmaticChange = false;
     },
     setAppointmentType(type){
       appointmentTypeOverride = type || '';
+    },
+    setAppointmentOffice(office){
+      applyOffice(office);
+    },
+    setNoAppointmentReasons(reasons){
+      const list = Array.isArray(reasons) ? reasons : (reasons ? [reasons] : []);
+      if (list.length && currentValue('scheduled') !== 'no') {
+        setSegment('scheduled', 'no');
+      }
+      setNoApptReasonSelection(list);
+      handleVisibility();
+    },
+    clearNoAppointmentReasons(){
+      clearNoApptReasonSelection();
+      handleVisibility();
     }
   };
 
@@ -127,7 +156,10 @@
   const reasonBlock = qs('#reasonBlock');
   const reasonToggleList = qs('#reasonToggleList');
   const otherReasonWrap = qs('#otherReasonWrap');
+  const officeSelect = qs('#officeSelect');
   const otherReasonInput = qs('#otherReason');
+  const noApptReasonSection = qs('#noApptReasonSection');
+  const noApptReasonList = qs('#noApptReasonList');
   const clearBtn = qs('#clearBtn');
   const doneBtn = qs('#doneBtn');
   const statusMsg = qs('#statusMsg');
@@ -142,8 +174,30 @@
     'POOO r/s',
     'Other'
   ];
+  const NO_APPT_REASON_OPTIONS = [
+    'Question Only',
+    'Location',
+    'Availability',
+    'Urgency',
+    'Referral',
+    'Insurance',
+    'Other'
+  ];
+  const OFFICE_OPTIONS = ['Ann Arbor','Plymouth','Wixom'];
+  function normalizeOfficeValue(value){
+    const key = String(value || '').trim().toLowerCase();
+    if (!key) return '';
+    const match = OFFICE_OPTIONS.find(label => label.toLowerCase() === key);
+    return match || '';
+  }
+  function applyOffice(value){
+    appointmentOffice = normalizeOfficeValue(value);
+    if (officeSelect) officeSelect.value = appointmentOffice || '';
+  }
   const reasonButtons = new Map();
   const selectedReasons = new Set();
+  const noApptReasonButtons = new Map();
+  const selectedNoApptReasons = new Set();
 
   function ensureReasonOption(reason){
     const label = String(reason || '').trim();
@@ -217,6 +271,13 @@
     return [];
   }
 
+  function incomingNoApptReasonsArray(update){
+    if (!update) return [];
+    if (Array.isArray(update.noAppointmentReasons)) return normalizeReasonList(update.noAppointmentReasons);
+    if (typeof update.noAppointmentReason !== 'undefined') return normalizeReasonList(update.noAppointmentReason);
+    return [];
+  }
+
   function normalizeReasonList(value){
     const list = Array.isArray(value) ? value : [value];
     return list.map(reason => String(reason || '').trim()).filter(Boolean);
@@ -224,7 +285,16 @@
 
   REASON_OPTIONS.forEach(ensureReasonOption);
   syncOtherVisibility();
+  NO_APPT_REASON_OPTIONS.forEach(ensureNoApptReasonOption);
+  refreshNoApptReasonButtonsState();
+  if (noApptReasonSection) noApptReasonSection.setAttribute('aria-hidden','true');
   if (reasonBlock) reasonBlock.setAttribute('aria-hidden','true');
+  if (officeSelect) {
+    applyOffice(officeSelect.value || '');
+    officeSelect.addEventListener('change', () => {
+      applyOffice(officeSelect.value || '');
+    });
+  }
 
   // Patient type segmented control
   function setPatientType(type){
@@ -278,6 +348,7 @@
   function handleVisibility(){
     const change = currentValue('change');
     const callFor = currentValue('callfor') || 'self';
+    const scheduled = currentValue('scheduled') || 'yes';
     // Show reason only for cancellation or reschedule
     if((change === 'cancellation' || change === 'reschedule') && reasonBlock){
       reasonBlock.classList.remove('hidden');
@@ -304,6 +375,14 @@
       }
     }
     setCallerBadge();
+    if (noApptReasonSection) {
+      const showNoApptReasons = scheduled === 'no' && change === 'none';
+      noApptReasonSection.classList.toggle('hidden', !showNoApptReasons);
+      noApptReasonSection.setAttribute('aria-hidden', showNoApptReasons ? 'false' : 'true');
+      if (!showNoApptReasons) {
+        clearNoApptReasonSelection();
+      }
+    }
   }
 
   // Household chooser helpers
@@ -389,11 +468,17 @@
       reasonBlock.classList.add('hidden');
       reasonBlock.setAttribute('aria-hidden','true');
     }
+    clearNoApptReasonSelection();
+    if (noApptReasonSection) {
+      noApptReasonSection.classList.add('hidden');
+      noApptReasonSection.setAttribute('aria-hidden','true');
+    }
     // reset mini buttons and checkbox
     qsa('.reasons .mini-btn').forEach(b => b.classList.remove('pressed'));
     const confirm = qs('#confirmCheck');
     if(confirm) confirm.checked = false;
     appointmentTypeOverride = '';
+    applyOffice('');
     pulse('Cleared');
     setCallerBadge();
   });
@@ -552,17 +637,73 @@
     }
   } catch {}
 
+  function ensureNoApptReasonOption(reason){
+    const label = String(reason || '').trim();
+    if (!label || !noApptReasonList) return null;
+    if (noApptReasonButtons.has(label)) return noApptReasonButtons.get(label);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'reason-toggle';
+    btn.setAttribute('data-reason', label);
+    btn.setAttribute('aria-pressed', 'false');
+    btn.textContent = label;
+    btn.addEventListener('click', () => toggleNoApptReason(label));
+    noApptReasonList.appendChild(btn);
+    noApptReasonButtons.set(label, btn);
+    return btn;
+  }
+
+  function refreshNoApptReasonButtonsState(){
+    noApptReasonButtons.forEach((btn, label) => {
+      const selected = selectedNoApptReasons.has(label);
+      btn.classList.toggle('is-selected', selected);
+      btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+  }
+
+  function toggleNoApptReason(reason){
+    const btn = ensureNoApptReasonOption(reason);
+    if (!btn) return;
+    if (selectedNoApptReasons.has(reason)) {
+      selectedNoApptReasons.delete(reason);
+    } else {
+      selectedNoApptReasons.add(reason);
+    }
+    refreshNoApptReasonButtonsState();
+  }
+
+  function setNoApptReasonSelection(reasons = []){
+    selectedNoApptReasons.clear();
+    const list = Array.isArray(reasons) ? reasons : [reasons];
+    list.map(reason => String(reason || '').trim()).filter(Boolean).forEach(reason => {
+      const btn = ensureNoApptReasonOption(reason);
+      if (btn) selectedNoApptReasons.add(reason);
+    });
+    refreshNoApptReasonButtonsState();
+  }
+
+  function clearNoApptReasonSelection(){
+    setNoApptReasonSelection([]);
+  }
+
+  function getNoApptReasons(){
+    return Array.from(selectedNoApptReasons);
+  }
+
   function buildPayload(){
     const reasons = getSelectedReasons();
     const reason = reasons[0] || '';
     const includesOther = reasons.includes('Other');
     const otherText = includesOther ? (otherReasonInput?.value || '') : '';
+    const noApptReasons = getNoApptReasons();
+    const questionOnly = selectedNoApptReasons.has('Question Only');
     const ptActive = qs('.pt-type .seg.active');
     const patientType = ptActive ? ptActive.getAttribute('data-ptype') : '';
     const confirmed = !!qs('#confirmCheck')?.checked;
     const actions = harvestActions();
     const meta = getCallMeta();
     const apptType = appointmentTypeOverride || meta.apptType || '';
+    const office = appointmentOffice || normalizeOfficeValue(meta.office || meta.location) || '';
     return {
       patient: {
         name: qs('#patientName')?.value || '',
@@ -577,9 +718,12 @@
         change: currentValue('change') || 'none',
         reason,
         reasons,
+        noAppointmentReasons: noApptReasons,
+        questionOnly,
         otherText,
         confirmed,
-        type: apptType
+        type: apptType,
+        office
       },
       actions
     };
@@ -605,7 +749,8 @@
       const agent = url.searchParams.get('agent') || '';
       const callId = url.searchParams.get('callId') || '';
       const apptType = url.searchParams.get('apptType') || url.searchParams.get('appt') || '';
-      return { ani, agent, callId, apptType };
+      const office = url.searchParams.get('office') || url.searchParams.get('location') || '';
+      return { ani, agent, callId, apptType, office };
     } catch { return {}; }
   }
 

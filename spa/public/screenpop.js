@@ -5,6 +5,7 @@
   let programmaticChange = false; // used to avoid auto-populating reasons on automated updates
   let callerPhone = null; // preserves the caller's phone even when switching subject
   let lastCallFor = 'self';
+  let appointmentOffice = '';
   let appointmentTypeOverride = '';
   function formatPhone(p){
     try {
@@ -50,7 +51,10 @@
     async handleIncomingCall(phone){
       if (!phone) return;
       callerPhone = phone;
+      // reset appointment type when a new call is received unless a host overrides immediately after
       appointmentTypeOverride = '';
+      applyOffice('');
+      clearNoApptReasonSelection();
       // Only set patient phone automatically when Call For = self
       if (currentValue('callfor') !== 'proxy') setPhone(phone);
       setCallerBadge();
@@ -87,6 +91,10 @@
         const nextType = update.apptType ?? update.appointmentType ?? '';
         appointmentTypeOverride = nextType || '';
       }
+      if (Object.prototype.hasOwnProperty.call(update, 'office') || Object.prototype.hasOwnProperty.call(update, 'location')) {
+        const nextOffice = update.office ?? update.location ?? update.officeName ?? '';
+        applyOffice(nextOffice);
+      }
       handleVisibility();
       // Reason handling: support single or multiple reasons passed from integrations
       const providedReasons = incomingReasonsArray(update);
@@ -105,10 +113,32 @@
           clearReasonSelection();
         }
       }
+      const noApptReasonsFromUpdate = incomingNoApptReasonsArray(update);
+      const hasNoApptField = Object.prototype.hasOwnProperty.call(update, 'noAppointmentReasons') || Object.prototype.hasOwnProperty.call(update, 'noAppointmentReason');
+      if (noApptReasonsFromUpdate.length) {
+        setNoApptReasonSelection(noApptReasonsFromUpdate);
+      } else if (hasNoApptField) {
+        clearNoApptReasonSelection();
+      }
       programmaticChange = false;
     },
     setAppointmentType(type){
       appointmentTypeOverride = type || '';
+    },
+    setAppointmentOffice(office){
+      applyOffice(office);
+    },
+    setNoAppointmentReasons(reasons){
+      const list = Array.isArray(reasons) ? reasons : (reasons ? [reasons] : []);
+      if (list.length && currentValue('scheduled') !== 'no') {
+        setSegment('scheduled', 'no');
+      }
+      setNoApptReasonSelection(list);
+      handleVisibility();
+    },
+    clearNoAppointmentReasons(){
+      clearNoApptReasonSelection();
+      handleVisibility();
     }
   };
 
@@ -126,11 +156,14 @@
   const reasonBlock = qs('#reasonBlock');
   const reasonToggleList = qs('#reasonToggleList');
   const otherReasonWrap = qs('#otherReasonWrap');
+  const officeSelect = qs('#officeSelect');
   const otherReasonInput = qs('#otherReason');
+  const noApptReasonSection = qs('#noApptReasonSection');
+  const noApptReasonList = qs('#noApptReasonList');
   const clearBtn = qs('#clearBtn');
   const doneBtn = qs('#doneBtn');
   const statusMsg = qs('#statusMsg');
-  const ptType = qs('.pt-type');
+  const ptTypeGroup = qs('.pt-type');
 
   const REASON_OPTIONS = [
     'No longer needed',
@@ -141,8 +174,30 @@
     'POOO r/s',
     'Other'
   ];
+  const NO_APPT_REASON_OPTIONS = [
+    'Question Only',
+    'Location',
+    'Availability',
+    'Urgency',
+    'Referral',
+    'Insurance',
+    'Other'
+  ];
+  const OFFICE_OPTIONS = ['Ann Arbor','Plymouth','Wixom'];
+  function normalizeOfficeValue(value){
+    const key = String(value || '').trim().toLowerCase();
+    if (!key) return '';
+    const match = OFFICE_OPTIONS.find(label => label.toLowerCase() === key);
+    return match || '';
+  }
+  function applyOffice(value){
+    appointmentOffice = normalizeOfficeValue(value);
+    if (officeSelect) officeSelect.value = appointmentOffice || '';
+  }
   const reasonButtons = new Map();
   const selectedReasons = new Set();
+  const noApptReasonButtons = new Map();
+  const selectedNoApptReasons = new Set();
 
   function ensureReasonOption(reason){
     const label = String(reason || '').trim();
@@ -216,6 +271,13 @@
     return [];
   }
 
+  function incomingNoApptReasonsArray(update){
+    if (!update) return [];
+    if (Array.isArray(update.noAppointmentReasons)) return normalizeReasonList(update.noAppointmentReasons);
+    if (typeof update.noAppointmentReason !== 'undefined') return normalizeReasonList(update.noAppointmentReason);
+    return [];
+  }
+
   function normalizeReasonList(value){
     const list = Array.isArray(value) ? value : [value];
     return list.map(reason => String(reason || '').trim()).filter(Boolean);
@@ -223,32 +285,51 @@
 
   REASON_OPTIONS.forEach(ensureReasonOption);
   syncOtherVisibility();
+  NO_APPT_REASON_OPTIONS.forEach(ensureNoApptReasonOption);
+  refreshNoApptReasonButtonsState();
+  if (noApptReasonSection) noApptReasonSection.setAttribute('aria-hidden','true');
   if (reasonBlock) reasonBlock.setAttribute('aria-hidden','true');
+  if (officeSelect) {
+    applyOffice(officeSelect.value || '');
+    officeSelect.addEventListener('change', () => {
+      applyOffice(officeSelect.value || '');
+    });
+  }
 
+  // Patient type segmented control
   function setPatientType(type){
-    if (!ptType) return;
-    qsa('.seg', ptType).forEach(b => b.classList.toggle('active', b.getAttribute('data-ptype')===type));
+    if (!ptTypeGroup) return;
+    qsa('.seg', ptTypeGroup).forEach(b => b.classList.toggle('active', b.getAttribute('data-ptype') === type));
+  }
+  function getPatientType(){
+    const active = ptTypeGroup ? qs('.seg.active', ptTypeGroup) : null;
+    return active ? active.getAttribute('data-ptype') : 'existing';
+  }
+  if (ptTypeGroup){
+    ptTypeGroup.addEventListener('click', (e) => {
+      const btn = e.target.closest('.seg');
+      if (!btn) return;
+      const isActive = btn.classList.contains('active');
+      // Allow toggling off to select the other explicitly or keep one always selected
+      qsa('.seg', ptTypeGroup).forEach(b => b.classList.remove('active'));
+      if (!isActive) btn.classList.add('active'); else btn.classList.add('active');
+    });
   }
 
-  function setPhone(p){
-    const el = qs('#patientPhone');
-    if (el) el.value = formatPhone(p);
-  }
-
+  function setPhone(phone){ const el = qs('#patientPhone'); if (el) el.value = phone; }
   function applyPatient(p){
-    try {
-      if (p.name) qs('#patientName').value = p.name;
-      if (p.phone) setPhone(p.phone);
-      if (p.mrn) qs('#patientMRN').value = p.mrn;
-      if (p.dob) qs('#patientDOB').value = normalizeDate(p.dob);
-      setPatientType(p.isExisting ? 'existing' : 'new');
-      pulse('Matched patient');
-    } catch {}
+    if (p.name) qs('#patientName').value = p.name;
+    if (p.phone) setPhone(p.phone);
+    if (p.mrn) qs('#patientMRN').value = p.mrn;
+    if (p.dob) qs('#patientDOB').value = normDate(p.dob);
+    if (typeof p.isExisting === 'boolean') setPatientType(p.isExisting ? 'existing' : 'new');
   }
 
-  function normalizeDate(d){
+  function normDate(d){
+    // Accept Date|string, return yyyy-mm-dd for input[type=date]
     try {
-      const dt = new Date(d);
+      if (!d) return '';
+      const dt = (d instanceof Date) ? d : new Date(d);
       const m = String(dt.getMonth()+1).padStart(2,'0');
       const day = String(dt.getDate()).padStart(2,'0');
       return `${dt.getFullYear()}-${m}-${day}`;
@@ -267,10 +348,12 @@
   function handleVisibility(){
     const change = currentValue('change');
     const callFor = currentValue('callfor') || 'self';
+    const scheduled = currentValue('scheduled') || 'yes';
     // Show reason only for cancellation or reschedule
     if((change === 'cancellation' || change === 'reschedule') && reasonBlock){
       reasonBlock.classList.remove('hidden');
       reasonBlock.setAttribute('aria-hidden','false');
+      // If this was a programmatic change (from CRM/logics) do not auto-populate; reset selections
       if (programmaticChange) {
         clearReasonSelection();
       }
@@ -292,143 +375,156 @@
       }
     }
     setCallerBadge();
+    if (noApptReasonSection) {
+      const showNoApptReasons = scheduled === 'no' && change === 'none';
+      noApptReasonSection.classList.toggle('hidden', !showNoApptReasons);
+      noApptReasonSection.setAttribute('aria-hidden', showNoApptReasons ? 'false' : 'true');
+      if (!showNoApptReasons) {
+        clearNoApptReasonSelection();
+      }
+    }
   }
 
+  // Household chooser helpers
   function showHousehold(list){
     const chooser = qs('#householdChooser');
-    const ul = qs('#householdList');
-    if (!chooser || !ul) return;
+    const container = qs('#householdList');
+    if (!chooser || !container) return;
+    container.innerHTML = '';
+    list.forEach(p => {
+      const row = document.createElement('div');
+      row.className = 'chooser-item';
+      row.innerHTML = `
+        <div>
+          <div>${p.name || 'Unknown'}</div>
+          <div class="meta">DOB: ${p.dob || '—'} · MRN: ${p.mrn || '—'}</div>
+        </div>
+        <button class="btn" data-action="use">Use</button>
+      `;
+      row.querySelector('[data-action="use"]').addEventListener('click', () => {
+        applyPatient(p);
+        chooser.classList.add('hidden');
+        chooser.setAttribute('aria-hidden','true');
+        pulse('Selected from matches');
+      });
+      container.appendChild(row);
+    });
     chooser.classList.remove('hidden');
     chooser.setAttribute('aria-hidden','false');
-    ul.innerHTML = '';
-    list.forEach(p => {
-      const li = document.createElement('div');
-      li.className = 'chooser-item';
-      li.innerHTML = `<div><strong>${p.name||'Unknown'}</strong><div class="meta">DOB: ${p.dob||'—'} · MRN: ${p.mrn||'—'} · ${formatPhone(p.phone)||'—'}</div></div><button class="mini-btn">Select</button>`;
-      li.querySelector('button').addEventListener('click', () => { applyPatient(p); hideHousehold(); });
-      ul.appendChild(li);
-    });
   }
-
   function hideHousehold(){
     const chooser = qs('#householdChooser');
     if (chooser){ chooser.classList.add('hidden'); chooser.setAttribute('aria-hidden','true'); }
   }
-
   function showNoMatch(){
     const banner = qs('#noMatchBanner');
     if (banner){ banner.classList.remove('hidden'); banner.setAttribute('aria-hidden','false'); }
+    const subjectWrap = qs('#subjectSearchWrap');
+    if (subjectWrap){ subjectWrap.classList.remove('hidden'); subjectWrap.setAttribute('aria-hidden','false'); }
   }
   function hideNoMatch(){
     const banner = qs('#noMatchBanner');
     if (banner){ banner.classList.add('hidden'); banner.setAttribute('aria-hidden','true'); }
   }
 
+  // Mini action buttons (Task/Transfer) with toggle behavior
+  // - Clicking an unselected button selects it and deselects its sibling
+  // - Clicking the already selected button deselects it (so none selected)
+  qsa('.reasons .mini-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('.reason-row');
+      const wasPressed = btn.classList.contains('pressed');
+      qsa('.mini-btn', row).forEach(b => b.classList.remove('pressed'));
+      if (!wasPressed) {
+        btn.classList.add('pressed');
+      }
+    });
+  });
+
+  // Make the entire Confirmation row toggle the checkbox when clicking empty space
+  const confirmInput = qs('#confirmCheck');
+  if (confirmInput) {
+    const confirmRow = confirmInput.closest('.reason-row');
+    confirmRow?.addEventListener('click', (e) => {
+      // Ignore direct clicks on interactive elements to preserve native behavior
+      if (e.target.closest('input,button,.mini-btn,.checkmark,label,select,textarea')) return;
+      confirmInput.checked = !confirmInput.checked;
+    });
+  }
+
+  // Clear
   clearBtn?.addEventListener('click', () => {
-    qsa('#patientName, #patientMRN, #patientDOB, #patientPhone, #otherReason').forEach(i => i.value = '');
-    setSegment('scheduled', 'yes');
-    setSegment('change', 'none');
+    qsa('input[type="text"], input[type="tel"], input[type="date"]').forEach(i => i.value='');
+    setPatientType('new');
+    // reset segments
+    qsa('.segmented').forEach(group => {
+      const first = qs('.seg', group);
+      qsa('.seg', group).forEach(b => b.classList.remove('active'));
+      first?.classList.add('active');
+    });
+    // reset reason area
     clearReasonSelection();
     if (reasonBlock) {
       reasonBlock.classList.add('hidden');
       reasonBlock.setAttribute('aria-hidden','true');
     }
-    handleVisibility();
+    clearNoApptReasonSelection();
+    if (noApptReasonSection) {
+      noApptReasonSection.classList.add('hidden');
+      noApptReasonSection.setAttribute('aria-hidden','true');
+    }
+    // reset mini buttons and checkbox
+    qsa('.reasons .mini-btn').forEach(b => b.classList.remove('pressed'));
+    const confirm = qs('#confirmCheck');
+    if(confirm) confirm.checked = false;
+    appointmentTypeOverride = '';
+    applyOffice('');
     pulse('Cleared');
     setCallerBadge();
-    appointmentTypeOverride = '';
   });
 
+  // Done
   doneBtn?.addEventListener('click', () => {
+    // Preserve existing callback contract when a reason is required
     const change = currentValue('change');
     if ((change === 'cancellation' || change === 'reschedule') && integration.onReasonSubmit) {
       const reasons = getSelectedReasons();
       const reason = reasons[0] || '';
       const includesOther = reasons.includes('Other');
       const otherText = includesOther ? (otherReasonInput?.value || '') : '';
-      try { integration.onReasonSubmit({ change, reason, reasons, otherText }); } catch (e) { console.warn('onReasonSubmit failed', e); }
+      try { integration.onReasonSubmit({ change, reason, reasons, otherText }); } catch(e) { console.warn('onReasonSubmit failed', e); }
     }
 
+    // Broadcast full payload to separate analytics listeners (no visual/UI changes)
     try {
-      const payload = collectPayload();
+      const payload = buildPayload();
       const meta = getCallMeta();
       const id = `sp_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
       const entry = { id, time: Date.now(), ...meta, ...payload };
+      // 1) Direct append to ledger and daily store (guarantees visibility regardless of listeners)
       try {
         const LEDGER_KEY = 'screenpop_ledger_v1';
         const DAILY_KEY = 'screenpop_daily_entries_v1';
+        // Ledger
         const ledger = JSON.parse(localStorage.getItem(LEDGER_KEY) || '[]');
         if (!Array.isArray(ledger) || !ledger.find(e => e && e.id === id)) {
           ledger.unshift(entry);
           localStorage.setItem(LEDGER_KEY, JSON.stringify(ledger));
         }
+        // Daily (kept for backward-compat with any older analytics viewers)
         const daily = JSON.parse(localStorage.getItem(DAILY_KEY) || '[]');
         if (!Array.isArray(daily) || !daily.find(e => e && e.id === id)) {
           daily.unshift(entry);
           localStorage.setItem(DAILY_KEY, JSON.stringify(daily));
         }
       } catch {}
+      // 2) Live update via BroadcastChannel
       try { const ch = new BroadcastChannel('screenpop-analytics'); ch.postMessage({ type:'submit', entry }); ch.close(); } catch {}
+      // 3) Storage event fallback (processed and removed by analytics)
       try { localStorage.setItem(`screenpop_submit_${id}`, JSON.stringify(entry)); } catch {}
     } catch {}
 
     pulse('Captured (UI only)');
-  });
-
-  function collectPayload(){
-    const ptActive = qs('.pt-type .seg.active');
-    const patientType = ptActive ? ptActive.getAttribute('data-ptype') : '';
-    const reasons = getSelectedReasons();
-    const reason = reasons[0] || '';
-    const includesOther = reasons.includes('Other');
-    const otherText = includesOther ? (otherReasonInput?.value || '') : '';
-    const confirmed = !!qs('#confirmCheck')?.checked;
-    const actions = harvestActions();
-    const meta = getCallMeta();
-    const apptType = appointmentTypeOverride || meta.apptType || '';
-    return {
-      patient: {
-        name: qs('#patientName')?.value || '',
-        phone: qs('#patientPhone')?.value || '',
-        mrn: qs('#patientMRN')?.value || '',
-        dob: qs('#patientDOB')?.value || '',
-        type: patientType || (typeof meta.isExisting === 'boolean' ? (meta.isExisting ? 'existing' : 'new') : '')
-      },
-      callFor: currentValue('callfor') || 'self',
-      appointment: {
-        scheduled: currentValue('scheduled') === 'yes',
-        change: currentValue('change') || 'none',
-        reason,
-        reasons,
-        otherText,
-        confirmed,
-        type: apptType
-      },
-      actions
-    };
-  }
-
-  function harvestActions(){
-    const out = {};
-    qsa('.reasons .reason-row').forEach(row => {
-      const label = row.querySelector('.reason-label')?.textContent?.trim().toLowerCase() || '';
-      if (!label) return;
-      const key = label.replace(/\s+/g,'_');
-      const task = !!row.querySelector('.mini-btn[data-action="task"].pressed');
-      const transfer = !!row.querySelector('.mini-btn[data-action="transfer"].pressed');
-      out[key] = { task, transfer };
-    });
-    return out;
-  }
-
-  // Mini action buttons (Task/Transfer) toggle behavior
-  qsa('.reasons .mini-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const row = btn.closest('.reason-row');
-      const wasPressed = btn.classList.contains('pressed');
-      qsa('.mini-btn', row).forEach(b => b.classList.remove('pressed'));
-      if (!wasPressed) btn.classList.add('pressed');
-    });
   });
 
   function pulse(text){
@@ -541,6 +637,111 @@
     }
   } catch {}
 
+  function ensureNoApptReasonOption(reason){
+    const label = String(reason || '').trim();
+    if (!label || !noApptReasonList) return null;
+    if (noApptReasonButtons.has(label)) return noApptReasonButtons.get(label);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'reason-toggle';
+    btn.setAttribute('data-reason', label);
+    btn.setAttribute('aria-pressed', 'false');
+    btn.textContent = label;
+    btn.addEventListener('click', () => toggleNoApptReason(label));
+    noApptReasonList.appendChild(btn);
+    noApptReasonButtons.set(label, btn);
+    return btn;
+  }
+
+  function refreshNoApptReasonButtonsState(){
+    noApptReasonButtons.forEach((btn, label) => {
+      const selected = selectedNoApptReasons.has(label);
+      btn.classList.toggle('is-selected', selected);
+      btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+  }
+
+  function toggleNoApptReason(reason){
+    const btn = ensureNoApptReasonOption(reason);
+    if (!btn) return;
+    if (selectedNoApptReasons.has(reason)) {
+      selectedNoApptReasons.delete(reason);
+    } else {
+      selectedNoApptReasons.add(reason);
+    }
+    refreshNoApptReasonButtonsState();
+  }
+
+  function setNoApptReasonSelection(reasons = []){
+    selectedNoApptReasons.clear();
+    const list = Array.isArray(reasons) ? reasons : [reasons];
+    list.map(reason => String(reason || '').trim()).filter(Boolean).forEach(reason => {
+      const btn = ensureNoApptReasonOption(reason);
+      if (btn) selectedNoApptReasons.add(reason);
+    });
+    refreshNoApptReasonButtonsState();
+  }
+
+  function clearNoApptReasonSelection(){
+    setNoApptReasonSelection([]);
+  }
+
+  function getNoApptReasons(){
+    return Array.from(selectedNoApptReasons);
+  }
+
+  function buildPayload(){
+    const reasons = getSelectedReasons();
+    const reason = reasons[0] || '';
+    const includesOther = reasons.includes('Other');
+    const otherText = includesOther ? (otherReasonInput?.value || '') : '';
+    const noApptReasons = getNoApptReasons();
+    const questionOnly = selectedNoApptReasons.has('Question Only');
+    const ptActive = qs('.pt-type .seg.active');
+    const patientType = ptActive ? ptActive.getAttribute('data-ptype') : '';
+    const confirmed = !!qs('#confirmCheck')?.checked;
+    const actions = harvestActions();
+    const meta = getCallMeta();
+    const apptType = appointmentTypeOverride || meta.apptType || '';
+    const office = appointmentOffice || normalizeOfficeValue(meta.office || meta.location) || '';
+    return {
+      patient: {
+        name: qs('#patientName')?.value || '',
+        phone: qs('#patientPhone')?.value || '',
+        mrn: qs('#patientMRN')?.value || '',
+        dob: qs('#patientDOB')?.value || '',
+        type: patientType || (typeof meta.isExisting === 'boolean' ? (meta.isExisting ? 'existing' : 'new') : '')
+      },
+      callFor: currentValue('callfor') || 'self',
+      appointment: {
+        scheduled: currentValue('scheduled') === 'yes',
+        change: currentValue('change') || 'none',
+        reason,
+        reasons,
+        noAppointmentReasons: noApptReasons,
+        questionOnly,
+        otherText,
+        confirmed,
+        type: apptType,
+        office
+      },
+      actions
+    };
+  }
+
+  function harvestActions(){
+    const out = {};
+    qsa('.reasons .reason-row').forEach(row => {
+      const label = row.querySelector('.reason-label')?.textContent?.trim().toLowerCase() || '';
+      if (!label) return;
+      const key = label.replace(/\s+/g,'_');
+      const task = !!row.querySelector('.mini-btn[data-action="task"].pressed');
+      const transfer = !!row.querySelector('.mini-btn[data-action="transfer"].pressed');
+      out[key] = { task, transfer };
+    });
+    return out;
+  }
+
   function getCallMeta(){
     try {
       const url = new URL(window.location.href);
@@ -548,9 +749,11 @@
       const agent = url.searchParams.get('agent') || '';
       const callId = url.searchParams.get('callId') || '';
       const apptType = url.searchParams.get('apptType') || url.searchParams.get('appt') || '';
-      return { ani, agent, callId, apptType };
+      const office = url.searchParams.get('office') || url.searchParams.get('location') || '';
+      return { ani, agent, callId, apptType, office };
     } catch { return {}; }
   }
+
   // Allow parent window to drive this UI via postMessage
   window.addEventListener('message', async (e) => {
     const msg = e.data || {};

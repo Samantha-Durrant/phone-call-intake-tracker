@@ -162,19 +162,28 @@
           </div>
         </div>
 
-        <div class="row">
-          <span class="label">Change</span>
-          <div class="segmented" role="group" aria-label="Change Type">
-            <button type="button" class="seg active" data-value="none" data-group="change">None</button>
-            <button type="button" class="seg" data-value="cancellation" data-group="change">Cancellation</button>
-            <button type="button" class="seg" data-value="reschedule" data-group="change">Reschedule</button>
-          </div>
+      <div class="row">
+        <span class="label">Change</span>
+        <div class="segmented" role="group" aria-label="Change Type">
+          <button type="button" class="seg active" data-value="none" data-group="change">None</button>
+          <button type="button" class="seg" data-value="cancellation" data-group="change">Cancellation</button>
+          <button type="button" class="seg" data-value="reschedule" data-group="change">Reschedule</button>
         </div>
+      </div>
+      <label class="field">
+        <span class="label">Office</span>
+        <select id="officeSelect" aria-label="Office location">
+          <option value="">Select office...</option>
+          <option>Ann Arbor</option>
+          <option>Plymouth</option>
+          <option>Wixom</option>
+        </select>
+      </label>
 
-        <div id="reasonBlock" class="reason hidden">
-          <div class="field">
-            <span class="label">Reasons</span>
-            <div id="reasonToggleList" class="reason-toggle-list" role="group" aria-label="Reasons for appointment change"></div>
+      <div id="reasonBlock" class="reason hidden">
+        <div class="field">
+          <span class="label">Reasons</span>
+          <div id="reasonToggleList" class="reason-toggle-list" role="group" aria-label="Reasons for appointment change"></div>
           </div>
           <label id="otherReasonWrap" class="field hidden">
             <span class="label">Other (details)</span>

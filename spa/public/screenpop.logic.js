@@ -30,7 +30,7 @@
     }
   }
 
-  function applyDerived({ scheduled, change, reason, reasons, otherText, apptType }){
+  function applyDerived({ scheduled, change, reason, reasons, otherText, apptType, office }){
     const update = {};
     if (typeof scheduled === 'boolean') update.scheduled = scheduled;
     if (change) update.change = change;
@@ -42,6 +42,7 @@
     }
     if (otherText) update.otherText = otherText;
     if (typeof apptType === 'string') update.apptType = apptType;
+    if (typeof office === 'string') update.office = office;
     if (Object.keys(update).length) {
       window.ScreenpopAPI?.applyAppointment(update);
       STATE.lastAppliedAt = now();
@@ -73,7 +74,8 @@
         reason: snapshot.lastChange?.reason,
         reasons: snapshot.lastChange?.reasons,
         otherText: snapshot.lastChange?.otherText,
-        apptType: snapshot.lastChange?.apptType ?? snapshot.lastChange?.appointmentType ?? snapshot.lastChange?.typeName
+        apptType: snapshot.lastChange?.apptType ?? snapshot.lastChange?.appointmentType ?? snapshot.lastChange?.typeName,
+        office: snapshot.lastChange?.office ?? snapshot.office ?? snapshot.location
       });
     },
     // Event-only updates: { type, appointments?, remainingScheduled?, reason?, reasons?, otherText?, occurredAt?, sessionId? }
@@ -96,7 +98,8 @@
         reason: evt.reason,
         reasons: evt.reasons,
         otherText: evt.otherText,
-        apptType: evt.apptType ?? evt.appointmentType ?? evt.typeName
+        apptType: evt.apptType ?? evt.appointmentType ?? evt.typeName,
+        office: evt.office ?? evt.location
       });
     }
   };

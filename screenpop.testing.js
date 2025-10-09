@@ -26,6 +26,16 @@
         sessionId: SESSION_ID
       });
     },
+    existing_schedule: async () => {
+      await handleIncoming(DEFAULT_PHONE);
+      ScreenpopLogic.processCrmEvent({
+        type: 'confirm',
+        appointments: [{ status: 'scheduled' }],
+        occurredAt: Date.now(),
+        sessionId: SESSION_ID
+      });
+      window.ScreenpopAPI.applyAppointment({ scheduled: true, change: 'none' });
+    },
     confirm: async () => {
       await handleIncoming(DEFAULT_PHONE);
       ScreenpopLogic.processCrmEvent({
@@ -36,11 +46,11 @@
       });
     },
     // Non-appointment reasons should default to NO scheduled and NO change
-    ma_call: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
-    results_call: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
-    provider_question: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
-    refill_request: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
-    billing_question: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
+    ma_call: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); markQuestionOnly(); },
+    results_call: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); markQuestionOnly(); },
+    provider_question: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); markQuestionOnly(); },
+    refill_request: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); markQuestionOnly(); },
+    billing_question: async () => { await handleIncoming(DEFAULT_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); markQuestionOnly(); },
 
     // New patient scenarios (use a phone not present in mock)
     new_cancel: async () => {
@@ -55,22 +65,27 @@
       await handleIncoming(NEW_PHONE);
       ScreenpopLogic.processCrmEvent({ type:'confirm', appointments:[{status:'confirmed'}], occurredAt: Date.now(), sessionId: SESSION_ID });
     },
-    new_ma_call: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
-    new_results_call: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
-    new_provider_question: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
-    new_refill_request: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
-    new_billing_question: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
+    new_schedule: async () => {
+      await handleIncoming(NEW_PHONE);
+      ScreenpopLogic.processCrmEvent({ type:'confirm', appointments:[{status:'scheduled'}], occurredAt: Date.now(), sessionId: SESSION_ID });
+      window.ScreenpopAPI.applyAppointment({ scheduled: true, change: 'none' });
+    },
+    new_ma_call: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); markQuestionOnly(); },
+    new_results_call: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); markQuestionOnly(); },
+    new_provider_question: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); markQuestionOnly(); },
+    new_refill_request: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); markQuestionOnly(); },
+    new_billing_question: async () => { await handleIncoming(NEW_PHONE); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); markQuestionOnly(); },
 
     // True new patient: do not auto-populate any patient fields
     true_new_blank: async () => { await trueNew('none'); },
     true_new_cancel: async () => { await trueNew('cancellation'); },
     true_new_reschedule: async () => { await trueNew('reschedule'); },
     true_new_confirm: async () => { await trueNew('none'); },
-    true_new_ma_call: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
-    true_new_results_call: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
-    true_new_provider_question: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
-    true_new_refill_request: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
-    true_new_billing_question: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); },
+    true_new_ma_call: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); markQuestionOnly(); },
+    true_new_results_call: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); markQuestionOnly(); },
+    true_new_provider_question: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); markQuestionOnly(); },
+    true_new_refill_request: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); markQuestionOnly(); },
+    true_new_billing_question: async () => { await trueNew('none'); window.ScreenpopAPI.applyAppointment({ scheduled: false, change: 'none' }); markQuestionOnly(); },
 
     // Household: phone maps to multiple patients -> show chooser
     household_match: async () => {
@@ -102,6 +117,23 @@
   async function handleIncoming(phone){
     await window.ScreenpopAPI.handleIncomingCall(phone || DEFAULT_PHONE);
     applySelectedApptType();
+  }
+
+  function markQuestionOnly(){
+    window.ScreenpopAPI?.setNoAppointmentReasons(['Question Only']);
+  }
+
+  function setManualScenarioState(){
+    document.querySelectorAll('.seg[data-group="callfor"]').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-value') === 'self');
+    });
+    const subjectWrap = document.getElementById('subjectSearchWrap');
+    if (subjectWrap) {
+      subjectWrap.classList.add('hidden');
+      subjectWrap.setAttribute('aria-hidden','true');
+    }
+    window.ScreenpopAPI?.applyAppointment({ scheduled: true, change: 'none' });
+    window.ScreenpopAPI?.clearNoAppointmentReasons();
   }
 
   async function trueNew(change){
@@ -140,6 +172,10 @@
     const select = qs('#apptTypeSelect');
     if (select) select.value = '';
     window.ScreenpopAPI?.setAppointmentType('');
+    const office = qs('#officePicker');
+    if (office) office.value = '';
+    window.ScreenpopAPI?.setAppointmentOffice('');
+    window.ScreenpopAPI?.clearNoAppointmentReasons();
   }
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -150,16 +186,25 @@
     const runBtn = qs('#runScenario');
     const resetBtn = qs('#resetScenario');
     const apptSelect = qs('#apptTypeSelect');
+    const officePicker = qs('#officePicker');
     const run = async () => {
-      const key = select.value;
-      if (scenarios[key]) await scenarios[key]();
+      const key = select?.value || '';
+      if (!key) {
+        setManualScenarioState();
+      } else if (scenarios[key]) {
+        await scenarios[key]();
+      }
+      applySelectedApptType();
+      applySelectedOffice();
     };
     runBtn?.addEventListener('click', run);
     select?.addEventListener('change', run);
     resetBtn?.addEventListener('click', resetAll);
     apptSelect?.addEventListener('change', applySelectedApptType);
-    // Auto-run the first scenario on load for convenience
-    run();
+    officePicker?.addEventListener('change', applySelectedOffice);
+    setManualScenarioState();
+    applySelectedApptType();
+    applySelectedOffice();
   });
 
   function setPatientType(type){
@@ -170,6 +215,7 @@
 
   function clearReasonToggles(){
     qsa('.reason-toggle[aria-pressed="true"]').forEach(btn => btn.click());
+    window.ScreenpopAPI?.clearNoAppointmentReasons();
   }
 
   function applySelectedApptType(){
@@ -177,5 +223,11 @@
     if (!select) return;
     const value = select.value || '';
     window.ScreenpopAPI?.setAppointmentType(value);
+  }
+
+  function applySelectedOffice(){
+    const select = qs('#officePicker');
+    const value = select?.value || '';
+    window.ScreenpopAPI?.setAppointmentOffice(value);
   }
 })();

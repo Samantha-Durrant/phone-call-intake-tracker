@@ -126,6 +126,15 @@
           <button type="button" class="seg" data-value="reschedule" data-group="change">Reschedule</button>
         </div>
       </div>
+      <label class="field">
+        <span class="label">Office</span>
+        <select id="officeSelect" aria-label="Office location">
+          <option value="">Select office...</option>
+          <option>Ann Arbor</option>
+          <option>Plymouth</option>
+          <option>Wixom</option>
+        </select>
+      </label>
 
       <div id="reasonBlock" class="reason hidden">
         <div class="field">
@@ -136,6 +145,13 @@
           <span class="label">Other (details)</span>
           <input id="otherReason" type="text" placeholder="Enter details" />
         </label>
+      </div>
+
+      <div id="noApptReasonSection" class="reason hidden" aria-hidden="true">
+        <div class="field">
+          <span class="label">Why no appointment?</span>
+          <div id="noApptReasonList" class="reason-toggle-list" role="group" aria-label="Reasons no appointment scheduled"></div>
+        </div>
       </div>
     </section>
 
