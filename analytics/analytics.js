@@ -410,16 +410,16 @@ function summarize(entries){
       const rawReasons = Array.isArray(e.appointment?.noAppointmentReasons)
         ? e.appointment.noAppointmentReasons
         : (e.appointment?.noAppointmentReason ? [e.appointment.noAppointmentReason] : []);
-      const questionOnlyFlag = !!e.appointment?.questionOnly;
-      const reasons = rawReasons.map(reason => String(reason || '').trim()).filter(Boolean);
-      const analyticReasons = reasons.filter(reason => reason.toLowerCase() !== 'question only');
-      const hasBookingIntent = !questionOnlyFlag || analyticReasons.length > 0;
-      if (hasBookingIntent) {
-        const useReasons = (analyticReasons.length ? analyticReasons : (reasons.length ? reasons : ['Unspecified']));
+      const analyticReasons = rawReasons
+        .map(reason => String(reason || '').trim())
+        .filter(Boolean)
+        .filter(reason => reason.toLowerCase() !== 'question only');
+
+      if (analyticReasons.length) {
         const officeNoOutcome = officeMetrics.outcomes.noAppointment;
         officeNoOutcome.total = (officeNoOutcome.total || 0) + 1;
         officeNoOutcome.appointmentTypes[apptLabel] = (officeNoOutcome.appointmentTypes[apptLabel] || 0) + 1;
-        useReasons.forEach(reason => {
+        analyticReasons.forEach(reason => {
           const key = reason || 'Unspecified';
           sum.noApptReasons[key] = (sum.noApptReasons[key] || 0) + 1;
           const detail = sum.noApptReasonDetails[key] || (sum.noApptReasonDetails[key] = { total: 0, types: {} });
