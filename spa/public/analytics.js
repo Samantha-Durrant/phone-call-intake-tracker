@@ -305,15 +305,20 @@ function summarize(entries){
       const rawReasons = Array.isArray(e.appointment?.noAppointmentReasons)
         ? e.appointment.noAppointmentReasons
         : (e.appointment?.noAppointmentReason ? [e.appointment.noAppointmentReason] : []);
-      const reasons = rawReasons.length ? rawReasons : ['Unspecified'];
-      reasons.map(reason => String(reason || '').trim() || 'Unspecified').forEach(reasonLabel=>{
-        sum.noApptReasons[reasonLabel] = (sum.noApptReasons[reasonLabel]||0)+1;
-        const detail = sum.noApptReasonDetails[reasonLabel] || (sum.noApptReasonDetails[reasonLabel] = { total:0, types:{} });
-        detail.total += 1;
-        detail.types[apptLabel] = (detail.types[apptLabel]||0)+1;
-      });
-      const noApptBucket = sum.appointmentTypesByOutcome.noAppointment;
-      noApptBucket[apptLabel] = (noApptBucket[apptLabel]||0)+1;
+      const questionOnlyFlag = !!e.appointment?.questionOnly;
+      let reasons = rawReasons.map(reason => String(reason || '').trim()).filter(Boolean);
+      if (!reasons.length && questionOnlyFlag) reasons = ['Question Only'];
+      if (reasons.length){
+        reasons.forEach(reason => {
+          const key = reason || 'Unspecified';
+          sum.noApptReasons[key] = (sum.noApptReasons[key]||0)+1;
+          const detail = sum.noApptReasonDetails[key] || (sum.noApptReasonDetails[key] = { total:0, types:{} });
+          detail.total += 1;
+          detail.types[apptLabel] = (detail.types[apptLabel]||0)+1;
+        });
+        const noApptBucket = sum.appointmentTypesByOutcome.noAppointment;
+        noApptBucket[apptLabel] = (noApptBucket[apptLabel]||0)+1;
+      }
     }
     if(ch==='cancellation'){
       sum.cancel++;
