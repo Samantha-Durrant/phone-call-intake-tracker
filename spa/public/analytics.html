@@ -21,6 +21,14 @@
       .chart-legend{ display:flex; flex-direction:column; gap:8px; min-width:160px; font-size:12px }
       .chart-legend .legend-item{ display:flex; align-items:center; gap:8px; cursor:default }
       .chart-legend .legend-item:hover{ opacity:.8 }
+      .chart-legend .legend-item.has-details{ position:relative; align-items:flex-start; opacity:1 }
+      .chart-legend .legend-item.has-details .legend-detail-hint{ color:var(--muted); font-size:11px }
+      .chart-legend .legend-item.has-details[data-open] .legend-detail-hint{ color:var(--brand); font-weight:600 }
+      .chart-legend .legend-item.has-details .legend-details{ display:none; position:absolute; left:calc(100% + 10px); top:-4px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px 12px; box-shadow:0 10px 25px rgba(15,23,42,0.12); width:220px; max-width:260px; z-index:20 }
+      .chart-legend .legend-item.has-details .legend-details-title{ font-weight:600; margin-bottom:6px; font-size:12px }
+      .chart-legend .legend-item.has-details .legend-details-list{ margin:0; padding-left:18px; list-style:disc; display:flex; flex-direction:column; gap:4px; font-size:12px }
+      .chart-legend .legend-item.has-details:hover .legend-details,
+      .chart-legend .legend-item.has-details[data-open] .legend-details{ display:block }
       .chart-legend .swatch{ width:12px; height:12px; border-radius:3px }
       .toolbar{ display:flex; gap:8px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line); background:#fff; flex-wrap:wrap }
       button{ height:32px; padding:0 10px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer; font-weight:600 }
