@@ -18,19 +18,19 @@ Compact, browser‑based screenpop UI for phone call intake at medical clinics. 
       <td><strong>Final Screenpop</strong></td>
       <td>Compact UI‑only screenpop</td>
       <td><a href="https://samantha-durrant.github.io/phone-call-intake-tracker/screenpop.html" target="_blank" rel="noopener">Open ▶</a></td>
-      <td><a href="https://samantha-durrant.github.io/phone-call-intake-tracker/screenpop.final-2025-10-03.html" target="_blank" rel="noopener">Snapshot ▶</a></td>
+      <td><a href="https://samantha-durrant.github.io/phone-call-intake-tracker/archive/screenpop.final-2025-10-03.html" target="_blank" rel="noopener">Snapshot ▶</a></td>
     </tr>
     <tr>
       <td><strong>Testing</strong></td>
       <td>Scenario dropdown, mock CRM, logic hooks</td>
       <td><a href="https://samantha-durrant.github.io/phone-call-intake-tracker/screenpop.testing.html" target="_blank" rel="noopener">Open ▶</a></td>
-      <td><a href="https://samantha-durrant.github.io/phone-call-intake-tracker/screenpop.testing.final-2025-10-03.html" target="_blank" rel="noopener">Snapshot ▶</a></td>
+      <td><a href="https://samantha-durrant.github.io/phone-call-intake-tracker/archive/screenpop.testing.final-2025-10-03.html" target="_blank" rel="noopener">Snapshot ▶</a></td>
     </tr>
     <tr>
       <td><strong>Testing v2</strong></td>
       <td>In‑call rules: only changes during call count</td>
-      <td><a href="https://samantha-durrant.github.io/phone-call-intake-tracker/screenpop.testing.v2.html" target="_blank" rel="noopener">Open ▶</a></td>
-      <td><a href="https://samantha-durrant.github.io/phone-call-intake-tracker/screenpop.testing.v2.final-2025-10-03.html" target="_blank" rel="noopener">Snapshot ▶</a></td>
+      <td><a href="https://samantha-durrant.github.io/phone-call-intake-tracker/archive/screenpop.testing.v2.html" target="_blank" rel="noopener">Open ▶</a></td>
+      <td><a href="https://samantha-durrant.github.io/phone-call-intake-tracker/archive/screenpop.testing.v2.final-2025-10-03.html" target="_blank" rel="noopener">Snapshot ▶</a></td>
     </tr>
   </tbody>
   <tfoot>
@@ -48,9 +48,9 @@ Develop a 3CX screen‑pop integration tool that automatically displays patient 
 
 Frozen HTMLs for sharing/testing outside the active iteration:
 
-- <a href="https://samantha-durrant.github.io/phone-call-intake-tracker/screenpop.final-2025-10-03.html" target="_blank" rel="noopener">screenpop.final‑2025‑10‑03.html</a>
-- <a href="https://samantha-durrant.github.io/phone-call-intake-tracker/screenpop.testing.final-2025-10-03.html" target="_blank" rel="noopener">screenpop.testing.final‑2025‑10‑03.html</a>
-- <a href="https://samantha-durrant.github.io/phone-call-intake-tracker/screenpop.testing.v2.final-2025-10-03.html" target="_blank" rel="noopener">screenpop.testing.v2.final‑2025‑10‑03.html</a>
+- <a href="https://samantha-durrant.github.io/phone-call-intake-tracker/archive/screenpop.final-2025-10-03.html" target="_blank" rel="noopener">screenpop.final‑2025‑10‑03.html</a>
+- <a href="https://samantha-durrant.github.io/phone-call-intake-tracker/archive/screenpop.testing.final-2025-10-03.html" target="_blank" rel="noopener">screenpop.testing.final‑2025‑10‑03.html</a>
+- <a href="https://samantha-durrant.github.io/phone-call-intake-tracker/archive/screenpop.testing.v2.final-2025-10-03.html" target="_blank" rel="noopener">screenpop.testing.v2.final‑2025‑10‑03.html</a>
 
 ## Feedback
 
@@ -79,12 +79,9 @@ Please share feedback using this form:
   - `screenpop.logic.js`
   - `screenpop.testing.js`
 
-- Testing v2 (in‑call rules)
-  - `screenpop.testing.v2.html`
-  - `screenpop.css`
-  - `screenpop.js`
-  - `screenpop.mock.js`
-  - `screenpop.testing.v2.js`
+- Testing v2 (archived historical build)
+  - `archive/screenpop.testing.v2.html`
+  - `archive/screenpop.testing.v2.js`
 
 ## Local Preview
 
