@@ -17,6 +17,7 @@ function canonicalOffice(name){
 }
 
 const PIE_PALETTE = ['#6366f1','#8b5cf6','#ec4899','#f473b7','#f59e0b','#facc15','#10b981','#14b8a6','#0ea5e9','#3b82f6','#a855f7','#ef4444'];
+const STACK_TYPE_COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ec4899','#a855f7','#94a3b8','#22d3ee'];
 
 const SCHEDULING_SERIES = [
   { key:'existingScheduled', label:'Existing · Scheduled', color:'#2563eb' },
@@ -618,6 +619,50 @@ function renderOutcomeList(listId, map){
   });
 }
 
+function buildReasonTypeStack(detailMap, { topN = 6, formatReason = (key)=>String(key||'') } = {}){
+  const totalsByType = {};
+  Object.values(detailMap || {}).forEach(detail=>{
+    Object.entries(detail?.types || {}).forEach(([type,count])=>{
+      const label = String(type || 'Unspecified');
+      const value = Number(count) || 0;
+      if (!value) return;
+      totalsByType[label] = (totalsByType[label]||0) + value;
+    });
+  });
+  const sortedTypes = Object.entries(totalsByType).filter(([,count])=>count>0).sort((a,b)=> (b[1]||0) - (a[1]||0));
+  if (!sortedTypes.length) return { dataMap:{}, series:[], order:[] };
+  const topTypeLabels = sortedTypes.slice(0, topN).map(([label])=>label);
+  const includeOther = sortedTypes.length > topN;
+  const seriesKeys = includeOther ? [...topTypeLabels, 'Other'] : [...topTypeLabels];
+  const series = seriesKeys.map((label, idx)=>({
+    key: label,
+    label,
+    color: STACK_TYPE_COLORS[idx % STACK_TYPE_COLORS.length]
+  }));
+  const order = Object.entries(detailMap || {}).map(([reasonKey, detail])=>({
+    label: formatReason(reasonKey),
+    total: Number(detail?.total) || 0
+  })).sort((a,b)=> (b.total||0) - (a.total||0)).map(item=>item.label);
+  const dataMap = {};
+  Object.entries(detailMap || {}).forEach(([reasonKey, detail])=>{
+    const label = formatReason(reasonKey);
+    const bucket = {};
+    seriesKeys.forEach(key => { bucket[key] = 0; });
+    Object.entries(detail?.types || {}).forEach(([type,count])=>{
+      const typeLabel = String(type || 'Unspecified');
+      const value = Number(count) || 0;
+      if (!value) return;
+      let target = typeLabel;
+      if (!topTypeLabels.includes(typeLabel)){
+        target = includeOther ? 'Other' : typeLabel;
+      }
+      bucket[target] = (bucket[target] || 0) + value;
+    });
+    dataMap[label] = bucket;
+  });
+  return { dataMap, series, order };
+}
+
 function renderAppointmentLists(sum){
   const medList = document.getElementById('listApptMedical');
   const cosList = document.getElementById('listApptCosmetic');
@@ -735,6 +780,16 @@ function updateKpisAndCharts(){
   }
   renderReasonDetails('cancelReasonDetails', sum.cancelReasonDetails, { labelForReason: prettyReason });
   renderReasonDetails('reschedReasonDetails', sum.reschedReasonDetails, { labelForReason: prettyReason });
+  const reschedTypeStack = buildReasonTypeStack(sum.reschedReasonDetails, { topN: 6, formatReason: prettyReason });
+  if (reschedTypeStack.series.length){
+    drawStackedMulti('chartReschedReasonTypes', reschedTypeStack.dataMap, {
+      series: reschedTypeStack.series,
+      order: reschedTypeStack.order,
+      formatValue: (value) => String(value)
+    });
+  } else {
+    drawStackedMulti('chartReschedReasonTypes', {}, { series: [] });
+  }
   const tasksByType={}; const transfersByType={};
   Object.entries(sum.actionsByType).forEach(([k,v])=>{ if(v.task) tasksByType[k]=(tasksByType[k]||0)+v.task; if(v.transfer) transfersByType[k]=(transfersByType[k]||0)+v.transfer; });
   const prettify=(key)=>{ const map={ ma_call:'MA Call', provider_question:'Provider Question', refill_request:'Refill Request', billing_question:'Billing Question', confirmation:'Confirmation', results:'Results' }; return map[key] || String(key).replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()); };
