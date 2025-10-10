@@ -509,6 +509,8 @@ function updateKpisAndCharts(){
   const cosPie = buildApptTypePieData(sum.apptGroups?.Cosmetic || {});
   drawPieChart('chartApptMedical', medPie, { legendId: 'chartApptMedicalLegend' });
   drawPieChart('chartApptCosmetic', cosPie, { legendId: 'chartApptCosmeticLegend' });
+  const otherPie = buildApptTypePieData(sum.apptGroups?.Other || {});
+  drawPieChart('chartApptOther', otherPie, { legendId: 'chartApptOtherLegend' });
   const cancelPalette=['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899'];
   const reschedPalette=['#1d4ed8','#0ea5e9','#14b8a6','#10b981','#84cc16','#eab308','#f59e0b','#f97316','#ef4444','#a855f7'];
   const prettyReason=(key)=>{ const map={ 'illness family emergency':'Illness/Family Emergency','work school conflict':'Work/School Conflict','no longer needed':'No longer needed','insurance':'Insurance','referral':'Referral','pooo r s':'POOO r/s' }; if(map[key]) return map[key]; return String(key||'').replace(/\b\w/g,c=>c.toUpperCase()); };
