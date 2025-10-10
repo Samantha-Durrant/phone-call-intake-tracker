@@ -1099,6 +1099,60 @@ function buildOfficeCategoryStack(byOffice, accessor){
   return { dataMap, series: officeSeries(offices.filter(o => included.has(o))), order };
 }
 
+function stackSeriesWithTotals(stack){
+  if (!stack) return { dataMap:{}, series:[], order:[], legendDetails:{} };
+  const dataMap = stack.dataMap || {};
+  const totals = {};
+  (stack.series || []).forEach(entry => { totals[entry.key] = 0; });
+  Object.values(dataMap).forEach(bucket => {
+    (stack.series || []).forEach(entry => {
+      const key = entry.key;
+      totals[key] = (totals[key] || 0) + (Number(bucket?.[key]) || 0);
+    });
+  });
+  const series = (stack.series || []).map(entry => ({
+    ...entry,
+    total: totals[entry.key] || 0
+  }));
+  return { ...stack, series };
+}
+
+function scaleStackValues(stack, scaler){
+  if (!stack) return { dataMap:{}, series:[], order:[], legendDetails:{} };
+  const dataMap = {};
+  const series = stack.series || [];
+  const order = stack.order || Object.keys(stack.dataMap || {});
+  order.forEach(label => {
+    const bucket = stack.dataMap?.[label] || {};
+    const scaled = {};
+    series.forEach(entry => {
+      const baseValue = Number(bucket[entry.key]) || 0;
+      scaled[entry.key] = scaler(baseValue, { label, series: entry });
+    });
+    dataMap[label] = scaled;
+  });
+  return { ...stack, dataMap, series };
+}
+
+function remapStackLabels(stack, formatter){
+  if (!stack || typeof formatter !== 'function') return stack;
+  const dataMap = {};
+  Object.entries(stack.dataMap || {}).forEach(([label, bucket])=>{
+    const nextLabel = formatter(label);
+    if (!dataMap[nextLabel]) dataMap[nextLabel] = {};
+    Object.entries(bucket || {}).forEach(([seriesKey, value])=>{
+      dataMap[nextLabel][seriesKey] = (dataMap[nextLabel][seriesKey] || 0) + (Number(value)||0);
+    });
+  });
+  const orderSource = stack.order && stack.order.length ? stack.order : Object.keys(stack.dataMap || {});
+  const order = [];
+  orderSource.forEach(label => {
+    const nextLabel = formatter(label);
+    if (!order.includes(nextLabel) && dataMap[nextLabel]) order.push(nextLabel);
+  });
+  return { ...stack, dataMap, order };
+}
+
 const outcomeTabsEl = document.getElementById('outcomeTabs');
 const outcomeFunnelEl = document.getElementById('outcomeFunnel');
 const outcomeMessageEl = document.getElementById('outcomeMessage');
@@ -1149,7 +1203,7 @@ function renderOutcomeView(outcomeKey){
     order: stack.order,
     formatValue: (value) => String(value)
   });
-  renderStackLegend('chartOutcomeTypesLegend', stack.series, stack.legendDetails);
+  renderStackLegend('chartOutcomeTypesLegend', stack.series, stack.legendDetails || {});
 
   const reasonMap = target.reasonMap || {};
   const reasonOptions = {
@@ -1209,7 +1263,6 @@ function updateKpisAndCharts(){
   document.getElementById('kpiActions').textContent = `${sum.tasks} / ${sum.transfers}`;
 
   // Hours 8..17 (counts for Daily; averages for Monthly)
-  const hoursMap = {}; for (let h=8; h<=17; h++) hoursMap[String(h)] = sum.hours[h]||0;
   const hoursOrder = Array.from({length:10}, (_,i)=> String(8+i));
   const hourLabels = {};
   for (let h=8; h<=17; h++){
@@ -1217,13 +1270,38 @@ function updateKpisAndCharts(){
     const ampm = h < 12 ? 'am' : 'pm';
     hourLabels[String(h)] = `${hour12}:00 ${ampm}`;
   }
-  if (CURRENT_VIEW === 'monthly'){
-    const {y,m} = parseYearMonth(SELECTED_MONTH || monthKey(Date.now()));
-    const denom = daysInMonth(y,m) || 1;
-    const avgHours = Object.fromEntries(Object.entries(hoursMap).map(([k,v]) => [k, (Number(v)||0)/denom]));
-    drawBarChart('chartHours', avgHours, { order: hoursOrder, labelMap: hourLabels, color:'#4f46e5', formatValue: (v)=> (v>=10?Math.round(v):v.toFixed(1)) });
+  const isAllOffices = SELECTED_OFFICE === 'all';
+  if (isAllOffices){
+    let hourStack = buildOfficeHoursStack(sum.byOffice, hoursOrder);
+    hourStack = remapStackLabels(hourStack, (key) => hourLabels[key] || key);
+    if (CURRENT_VIEW === 'monthly'){
+      const {y,m} = parseYearMonth(SELECTED_MONTH || monthKey(Date.now()));
+      const denom = daysInMonth(y,m) || 1;
+      hourStack = scaleStackValues(hourStack, (value) => value / denom);
+    }
+    hourStack = stackSeriesWithTotals(hourStack);
+    const formatHourValue = (value) => {
+      if (!value) return '';
+      if (CURRENT_VIEW === 'monthly') return value >= 10 ? String(Math.round(value)) : value.toFixed(1);
+      return String(Math.round(value));
+    };
+    drawStackedMulti('chartHours', hourStack.dataMap, {
+      series: hourStack.series,
+      order: hourStack.order,
+      formatValue: formatHourValue
+    });
+    renderLegend('chartHoursLegend', hourStack.series);
   } else {
-    drawBarChart('chartHours', hoursMap, { order: hoursOrder, labelMap: hourLabels, color:'#4f46e5' });
+    const hoursMap = {}; for (let h=8; h<=17; h++) hoursMap[String(h)] = sum.hours[h]||0;
+    if (CURRENT_VIEW === 'monthly'){
+      const {y,m} = parseYearMonth(SELECTED_MONTH || monthKey(Date.now()));
+      const denom = daysInMonth(y,m) || 1;
+      const avgHours = Object.fromEntries(Object.entries(hoursMap).map(([k,v]) => [k, (Number(v)||0)/denom]));
+      drawBarChart('chartHours', avgHours, { order: hoursOrder, labelMap: hourLabels, color:'#4f46e5', formatValue: (v)=> (v>=10?Math.round(v):v.toFixed(1)) });
+    } else {
+      drawBarChart('chartHours', hoursMap, { order: hoursOrder, labelMap: hourLabels, color:'#4f46e5' });
+    }
+    renderLegend('chartHoursLegend', []);
   }
   // Weekday counts (Mon-Fri) — shown only on Monthly tab
   try {
@@ -1283,14 +1361,42 @@ function updateKpisAndCharts(){
   // For Monthly view, show percentages of total calls; Daily stays as counts
   const totalCalls = entries.length || 1;
   const toPercentMap = (m) => Object.fromEntries(Object.entries(m).map(([k,v]) => [k, (v/totalCalls)*100]));
-  const confirmedCount = Number(sum.confirmations?.Confirmed || 0);
-  const confirmData = { Confirmed: confirmedCount };
-  const confirmPalette = ['#10b981'];
-  const confirmOrder = ['Confirmed'];
-  if (CURRENT_VIEW === 'monthly') {
-    drawBarChart('chartConfirmations', toPercentMap(confirmData), { palette: confirmPalette, order: confirmOrder, maxValue:100, formatValue:(v)=>`${Math.round(v)}%` });
+  if (isAllOffices){
+    let confirmStack = buildOfficeConfirmationStack(sum.byOffice);
+    const formatConfirmValue = (value) => {
+      if (!value) return '';
+      if (CURRENT_VIEW === 'monthly') return `${Math.round(value)}%`;
+      return String(Math.round(value));
+    };
+    if (CURRENT_VIEW === 'monthly') {
+      confirmStack = scaleStackValues(confirmStack, (value) => (totalCalls ? (value / totalCalls) * 100 : 0));
+      confirmStack = stackSeriesWithTotals(confirmStack);
+      drawStackedMulti('chartConfirmations', confirmStack.dataMap, {
+        series: confirmStack.series,
+        order: confirmStack.order,
+        maxValue: 100,
+        formatValue: formatConfirmValue
+      });
+    } else {
+      confirmStack = stackSeriesWithTotals(confirmStack);
+      drawStackedMulti('chartConfirmations', confirmStack.dataMap, {
+        series: confirmStack.series,
+        order: confirmStack.order,
+        formatValue: formatConfirmValue
+      });
+    }
+    renderLegend('chartConfirmationsLegend', confirmStack.series);
   } else {
-    drawBarChart('chartConfirmations', confirmData, { palette: confirmPalette, order: confirmOrder });
+    const confirmedCount = Number(sum.confirmations?.Confirmed || 0);
+    const confirmData = { Confirmed: confirmedCount };
+    const confirmPalette = ['#10b981'];
+    const confirmOrder = ['Confirmed'];
+    if (CURRENT_VIEW === 'monthly') {
+      drawBarChart('chartConfirmations', toPercentMap(confirmData), { palette: confirmPalette, order: confirmOrder, maxValue:100, formatValue:(v)=>`${Math.round(v)}%` });
+    } else {
+      drawBarChart('chartConfirmations', confirmData, { palette: confirmPalette, order: confirmOrder });
+    }
+    renderLegend('chartConfirmationsLegend', []);
   }
   const officeCounts = { ...OFFICE_KEYS.reduce((acc,k)=>{ acc[k]=0; return acc; }, {}), ...(sum.offices||{}) };
   const officePalette = ['#0ea5e9','#3b82f6','#6366f1','#94a3b8'];
@@ -1299,13 +1405,39 @@ function updateKpisAndCharts(){
   } else {
     drawBarChart('chartOffices', officeCounts, { palette: officePalette, order: OFFICE_KEYS });
   }
-  if (CURRENT_VIEW === 'monthly') {
-    drawBarChart('chartCancelReasons', toPercentMap(sum.cancelReasons), {
-      palette: cancelPalette,
-      labelMap: buildReasonLabelMap(sum.cancelReasons),
-      maxValue: 100,
-      formatValue: (v) => `${Math.round(v)}%`
+  if (isAllOffices){
+    let cancelStack = buildOfficeReasonStack(sum.byOffice, 'cancelled');
+    cancelStack = remapStackLabels(cancelStack, prettyReason);
+    const formatCancelValue = (value) => {
+      if (!value) return '';
+      if (CURRENT_VIEW === 'monthly') return `${Math.round(value)}%`;
+      return String(Math.round(value));
+    };
+    if (CURRENT_VIEW === 'monthly') {
+      cancelStack = scaleStackValues(cancelStack, (value) => (totalCalls ? (value / totalCalls) * 100 : 0));
+    }
+    cancelStack = stackSeriesWithTotals(cancelStack);
+    drawStackedMulti('chartCancelReasons', cancelStack.dataMap, {
+      series: cancelStack.series,
+      order: cancelStack.order,
+      maxValue: CURRENT_VIEW === 'monthly' ? 100 : null,
+      formatValue: formatCancelValue
     });
+    renderLegend('chartCancelReasonsLegend', cancelStack.series);
+  } else {
+    if (CURRENT_VIEW === 'monthly') {
+      drawBarChart('chartCancelReasons', toPercentMap(sum.cancelReasons), {
+        palette: cancelPalette,
+        labelMap: buildReasonLabelMap(sum.cancelReasons),
+        maxValue: 100,
+        formatValue: (v) => `${Math.round(v)}%`
+      });
+    } else {
+      drawBarChart('chartCancelReasons', sum.cancelReasons, { palette: cancelPalette, labelMap: buildReasonLabelMap(sum.cancelReasons) });
+    }
+    renderLegend('chartCancelReasonsLegend', []);
+  }
+  if (CURRENT_VIEW === 'monthly') {
     drawBarChart('chartReschedReasons', toPercentMap(sum.reschedReasons), {
       palette: reschedPalette,
       labelMap: buildReasonLabelMap(sum.reschedReasons),
@@ -1313,7 +1445,6 @@ function updateKpisAndCharts(){
       formatValue: (v) => `${Math.round(v)}%`
     });
   } else {
-    drawBarChart('chartCancelReasons', sum.cancelReasons, { palette: cancelPalette, labelMap: buildReasonLabelMap(sum.cancelReasons) });
     drawBarChart('chartReschedReasons', sum.reschedReasons, { palette: reschedPalette, labelMap: buildReasonLabelMap(sum.reschedReasons) });
   }
   renderReasonDetails('cancelReasonDetails', sum.cancelReasonDetails, { labelForReason: prettyReason });
@@ -1324,12 +1455,25 @@ function updateKpisAndCharts(){
   const cancelTypeStack = buildReasonTypeStack(sum.cancelReasonDetails, { topN: 6, formatReason: prettyReason });
   const noApptStack = buildReasonTypeStack(sum.noApptReasonDetails, { topN: 6, formatReason: (key)=>key });
   const noApptPalette = ['#f97316','#f59e0b','#fbbf24','#84cc16','#22c55e'];
+  const officeOutcomeStacks = {
+    scheduled: stackSeriesWithTotals(buildOfficeTypeStack(sum.byOffice, 'scheduled')),
+    rescheduled: stackSeriesWithTotals(remapStackLabels(buildOfficeReasonStack(sum.byOffice, 'rescheduled'), prettyReason)),
+    cancelled: stackSeriesWithTotals(remapStackLabels(buildOfficeReasonStack(sum.byOffice, 'cancelled'), prettyReason)),
+    no_appointment: stackSeriesWithTotals(remapStackLabels(buildOfficeReasonStack(sum.byOffice, 'noAppointment'), (key)=>key))
+  };
+  const selectOutcomeStack = (aggregateStack, key) => {
+    if (isAllOffices) {
+      const stack = officeOutcomeStacks[key] || { dataMap:{}, series:[], order:[], legendDetails:{} };
+      return { ...stack, legendDetails:{} };
+    }
+    return aggregateStack;
+  };
   OUTCOME_DATA = {
     scheduled: {
       key: 'scheduled',
       label: OUTCOME_LABELS.scheduled,
       total: totalScheduled,
-      stack: scheduledStack,
+      stack: selectOutcomeStack(scheduledStack, 'scheduled'),
       reasonMap: {},
       reasonLabelMap: {},
       reasonPalette: null,
@@ -1340,7 +1484,7 @@ function updateKpisAndCharts(){
       key: 'rescheduled',
       label: OUTCOME_LABELS.rescheduled,
       total: sum.resched,
-      stack: reschedTypeStack,
+      stack: selectOutcomeStack(reschedTypeStack, 'rescheduled'),
       reasonMap: sum.reschedReasons,
       reasonLabelMap: buildReasonLabelMap(sum.reschedReasons),
       reasonPalette: reschedPalette,
@@ -1351,7 +1495,7 @@ function updateKpisAndCharts(){
       key: 'cancelled',
       label: OUTCOME_LABELS.cancelled,
       total: sum.cancel,
-      stack: cancelTypeStack,
+      stack: selectOutcomeStack(cancelTypeStack, 'cancelled'),
       reasonMap: sum.cancelReasons,
       reasonLabelMap: buildReasonLabelMap(sum.cancelReasons),
       reasonPalette: cancelPalette,
@@ -1362,7 +1506,7 @@ function updateKpisAndCharts(){
       key: 'no_appointment',
       label: OUTCOME_LABELS.no_appointment,
       total: totalFromMap(sum.appointmentTypesByOutcome.noAppointment),
-      stack: noApptStack,
+      stack: selectOutcomeStack(noApptStack, 'no_appointment'),
       reasonMap: sum.noApptReasons,
       reasonLabelMap: {},
       reasonPalette: noApptPalette,
@@ -1400,22 +1544,56 @@ function updateKpisAndCharts(){
 
   const tasksPalette = ['#10b981','#34d399','#059669','#16a34a','#22c55e','#065f46','#5eead4','#0ea5e9','#3b82f6','#a855f7'];
   const transfersPalette = ['#f59e0b','#f97316','#ef4444','#eab308','#84cc16','#dc2626','#fb7185','#f472b6','#f43f5e','#d946ef'];
-  if (CURRENT_VIEW === 'monthly') {
-    drawBarChart('chartTasksByType', toPercentMap(tasksByType), {
-      palette: tasksPalette,
-      labelMap: buildLabelMap(tasksByType),
-      maxValue: 100,
-      formatValue: (v) => `${Math.round(v)}%`
+  if (isAllOffices){
+    const buildStackFor = (accessor) => {
+      let stack = buildOfficeCategoryStack(sum.byOffice, accessor);
+      stack = remapStackLabels(stack, prettify);
+      if (CURRENT_VIEW === 'monthly') {
+        stack = scaleStackValues(stack, (value) => (totalCalls ? (value / totalCalls) * 100 : 0));
+      }
+      return stackSeriesWithTotals(stack);
+    };
+    const taskStack = buildStackFor(bucket => bucket.tasksByType);
+    const transferStack = buildStackFor(bucket => bucket.transfersByType);
+    const formatTaskValue = (value) => {
+      if (!value) return '';
+      if (CURRENT_VIEW === 'monthly') return `${Math.round(value)}%`;
+      return String(Math.round(value));
+    };
+    drawStackedMulti('chartTasksByType', taskStack.dataMap, {
+      series: taskStack.series,
+      order: taskStack.order,
+      maxValue: CURRENT_VIEW === 'monthly' ? 100 : null,
+      formatValue: formatTaskValue
     });
-    drawBarChart('chartTransfersByType', toPercentMap(transfersByType), {
-      palette: transfersPalette,
-      labelMap: buildLabelMap(transfersByType),
-      maxValue: 100,
-      formatValue: (v) => `${Math.round(v)}%`
+    drawStackedMulti('chartTransfersByType', transferStack.dataMap, {
+      series: transferStack.series,
+      order: transferStack.order,
+      maxValue: CURRENT_VIEW === 'monthly' ? 100 : null,
+      formatValue: formatTaskValue
     });
+    renderLegend('chartTasksByTypeLegend', taskStack.series);
+    renderLegend('chartTransfersByTypeLegend', transferStack.series);
   } else {
-    drawBarChart('chartTasksByType', tasksByType, { palette: tasksPalette, labelMap: buildLabelMap(tasksByType) });
-    drawBarChart('chartTransfersByType', transfersByType, { palette: transfersPalette, labelMap: buildLabelMap(transfersByType) });
+    if (CURRENT_VIEW === 'monthly') {
+      drawBarChart('chartTasksByType', toPercentMap(tasksByType), {
+        palette: tasksPalette,
+        labelMap: buildLabelMap(tasksByType),
+        maxValue: 100,
+        formatValue: (v) => `${Math.round(v)}%`
+      });
+      drawBarChart('chartTransfersByType', toPercentMap(transfersByType), {
+        palette: transfersPalette,
+        labelMap: buildLabelMap(transfersByType),
+        maxValue: 100,
+        formatValue: (v) => `${Math.round(v)}%`
+      });
+    } else {
+      drawBarChart('chartTasksByType', tasksByType, { palette: tasksPalette, labelMap: buildLabelMap(tasksByType) });
+      drawBarChart('chartTransfersByType', transfersByType, { palette: transfersPalette, labelMap: buildLabelMap(transfersByType) });
+    }
+    renderLegend('chartTasksByTypeLegend', []);
+    renderLegend('chartTransfersByTypeLegend', []);
   }
 }
 
