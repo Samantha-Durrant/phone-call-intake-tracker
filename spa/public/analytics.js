@@ -547,6 +547,65 @@ function renderLegend(containerId, series){
   });
 }
 
+function renderStackLegend(containerId, series, legendDetails = {}){
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  if (!Array.isArray(series) || !series.length){
+    const empty = document.createElement('div');
+    empty.className = 'muted';
+    empty.textContent = 'No appointment types yet';
+    container.appendChild(empty);
+    return;
+  }
+  series.forEach(item=>{
+    const row=document.createElement('div');
+    row.className='legend-item';
+    row.title=item.label;
+    const swatch=document.createElement('span');
+    swatch.className='swatch';
+    swatch.style.background=item.color||'#4b5563';
+    row.appendChild(swatch);
+    const label=document.createElement('span');
+    const totalText=typeof item.total==='number'?` — ${item.total}`:'';
+    label.textContent=`${item.label}${totalText}`;
+    row.appendChild(label);
+    const details=legendDetails[item.label] || legendDetails[item.key];
+    if(Array.isArray(details) && details.length){
+      row.classList.add('has-details');
+      row.setAttribute('tabindex','0');
+      const hint=document.createElement('span');
+      hint.className='legend-detail-hint';
+      hint.textContent='view details';
+      label.appendChild(document.createTextNode(' · '));
+      label.appendChild(hint);
+      const detailBox=document.createElement('div');
+      detailBox.className='legend-details';
+      const title=document.createElement('div');
+      title.className='legend-details-title';
+      title.textContent='Includes:';
+      detailBox.appendChild(title);
+      const list=document.createElement('ul');
+      list.className='legend-details-list';
+      details.forEach(detail=>{
+        const li=document.createElement('li');
+        const pct=typeof detail.pct==='number'?` (${detail.pct}% of Other)`:'';
+        li.textContent=`${detail.label} — ${detail.count}${pct}`;
+        list.appendChild(li);
+      });
+      detailBox.appendChild(list);
+      row.appendChild(detailBox);
+      const setOpen=(open)=>{ if(open) row.setAttribute('data-open','true'); else row.removeAttribute('data-open'); };
+      row.addEventListener('mouseenter',()=>setOpen(true));
+      row.addEventListener('mouseleave',()=>setOpen(false));
+      row.addEventListener('focus',()=>setOpen(true));
+      row.addEventListener('blur',()=>setOpen(false));
+      row.addEventListener('keydown',(evt)=>{ if(evt.key==='Escape'){ setOpen(false); row.blur(); } });
+    }
+    container.appendChild(row);
+  });
+}
+
 function renderReasonDetails(containerId, detailMap, { labelForReason = (key)=>String(key||'') } = {}){
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -629,15 +688,18 @@ function buildReasonTypeStack(detailMap, { topN = 6, formatReason = (key)=>Strin
       totalsByType[label] = (totalsByType[label]||0) + value;
     });
   });
-  const sortedTypes = Object.entries(totalsByType).filter(([,count])=>count>0).sort((a,b)=> (b[1]||0) - (a[1]||0));
-  if (!sortedTypes.length) return { dataMap:{}, series:[], order:[] };
+  const sortedTypes = Object.entries(totalsByType).filter(([,count])=>count>0).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
+  if (!sortedTypes.length) return { dataMap:{}, series:[], order:[], legendDetails:{} };
   const topTypeLabels = sortedTypes.slice(0, topN).map(([label])=>label);
   const includeOther = sortedTypes.length > topN;
+  const otherEntries = includeOther ? sortedTypes.slice(topN) : [];
+  const otherTotal = otherEntries.reduce((acc,[,count])=> acc + (Number(count)||0), 0);
   const seriesKeys = includeOther ? [...topTypeLabels, 'Other'] : [...topTypeLabels];
   const series = seriesKeys.map((label, idx)=>({
     key: label,
     label,
-    color: STACK_TYPE_COLORS[idx % STACK_TYPE_COLORS.length]
+    color: STACK_TYPE_COLORS[idx % STACK_TYPE_COLORS.length],
+    total: label === 'Other' ? otherTotal : (totalsByType[label] || 0)
   }));
   const order = Object.entries(detailMap || {}).map(([reasonKey, detail])=>({
     label: formatReason(reasonKey),
@@ -660,7 +722,14 @@ function buildReasonTypeStack(detailMap, { topN = 6, formatReason = (key)=>Strin
     });
     dataMap[label] = bucket;
   });
-  return { dataMap, series, order };
+  const legendDetails = {};
+  if (includeOther && otherEntries.length){
+    legendDetails.Other = otherEntries.map(([label,count])=>{
+      const pct = otherTotal ? Math.round((Number(count)||0)/otherTotal*100) : 0;
+      return { label, count: Number(count)||0, pct };
+    });
+  }
+  return { dataMap, series, order, legendDetails };
 }
 
 function renderAppointmentLists(sum){
@@ -787,11 +856,10 @@ function updateKpisAndCharts(){
       order: reschedTypeStack.order,
       formatValue: (value) => String(value)
     });
-    renderLegend('chartReschedReasonTypesLegend', reschedTypeStack.series);
+    renderStackLegend('chartReschedReasonTypesLegend', reschedTypeStack.series, reschedTypeStack.legendDetails);
   } else {
     drawStackedMulti('chartReschedReasonTypes', {}, { series: [] });
-    const legend = document.getElementById('chartReschedReasonTypesLegend');
-    if(legend) legend.innerHTML = '<div class=\"muted\">No appointment types yet</div>';
+    renderStackLegend('chartReschedReasonTypesLegend', []);
   }
   const tasksByType={}; const transfersByType={};
   Object.entries(sum.actionsByType).forEach(([k,v])=>{ if(v.task) tasksByType[k]=(tasksByType[k]||0)+v.task; if(v.transfer) transfersByType[k]=(transfersByType[k]||0)+v.transfer; });
