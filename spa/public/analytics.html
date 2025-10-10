@@ -65,6 +65,22 @@
       .appt-label{ flex:1; padding-right:12px }
       .appt-count{ font-weight:600 }
       .appt-empty{ padding:12px; color:var(--muted); font-style:italic }
+      .reason-details{ display:flex; flex-direction:column; gap:8px; margin-top:8px }
+      .reason-detail{ border:1px solid var(--line); border-radius:10px; background:#fff; padding:10px 12px }
+      .reason-detail-title{ font-weight:600; font-size:13px; margin-bottom:6px; color:#111827 }
+      .reason-detail-list{ margin:0; padding-left:18px; display:flex; flex-direction:column; gap:4px; font-size:12px; color:#374151 }
+      .reason-detail-empty{ padding:8px 0; font-size:12px }
+      .change-breakdown{ display:flex; gap:24px; flex-wrap:wrap }
+      .change-column{ flex:1 1 240px; min-width:220px; display:flex; flex-direction:column; gap:8px }
+      .change-column h3{ margin:0; font-size:15px }
+      .change-list{ list-style:none; margin:0; padding:0; border:1px solid var(--line); border-radius:12px; background:#fff; max-height:260px; overflow:auto }
+      .change-list li{ display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid var(--line); font-size:13px }
+      .change-list li:last-child{ border-bottom:none }
+      .change-label{ flex:1; padding-right:12px }
+      .change-meta{ display:flex; gap:8px; align-items:center; white-space:nowrap }
+      .change-count{ font-weight:600 }
+      .change-percent{ color:var(--muted); font-size:12px }
+      .change-empty{ padding:10px 12px; color:var(--muted); font-style:italic }
       table thead th:nth-child(6), table tbody td:nth-child(6){ min-width:160px }
       tbody tr:nth-child(even){ background:#f9fafb }
       @media (min-width: 1024px){ .kpi-grid{ grid-template-columns: repeat(6,minmax(140px,1fr)); } }
@@ -122,8 +138,28 @@
         <div class="panel allow-overflow"><h2>Cosmetic Appointment Mix</h2><div class="body chart-with-legend"><canvas id="chartApptCosmetic" class="chart"></canvas><div id="chartApptCosmeticLegend" class="chart-legend"></div></div></div>
         <div class="panel allow-overflow"><h2>Other Appointment Mix</h2><div class="body chart-with-legend"><canvas id="chartApptOther" class="chart"></canvas><div id="chartApptOtherLegend" class="chart-legend"></div></div></div>
         <div class="panel"><h2>Office Mix</h2><div class="body"><canvas id="chartOffices" class="chart"></canvas></div></div>
-        <div class="panel"><h2>Cancel Reasons</h2><div class="body"><canvas id="chartCancelReasons" class="chart"></canvas></div></div>
-        <div class="panel"><h2>Reschedule Reasons</h2><div class="body"><canvas id="chartReschedReasons" class="chart"></canvas></div></div>
+        <div class="panel"><h2>Cancel Reasons</h2><div class="body"><canvas id="chartCancelReasons" class="chart"></canvas><div id="cancelReasonDetails" class="reason-details"></div></div></div>
+        <div class="panel"><h2>Reschedule Reasons</h2><div class="body"><canvas id="chartReschedReasons" class="chart"></canvas><div id="reschedReasonDetails" class="reason-details"></div></div></div>
+        <div class="panel allow-overflow"><h2>Appointment Types by Outcome</h2><div class="body change-breakdown">
+          <div class="change-column">
+            <h3>Scheduled</h3>
+            <ol id="listScheduledTypes" class="change-list">
+              <li class="change-empty">No data yet</li>
+            </ol>
+          </div>
+          <div class="change-column">
+            <h3>Rescheduled</h3>
+            <ol id="listRescheduledTypes" class="change-list">
+              <li class="change-empty">No data yet</li>
+            </ol>
+          </div>
+          <div class="change-column">
+            <h3>Cancelled</h3>
+            <ol id="listCancelledTypes" class="change-list">
+              <li class="change-empty">No data yet</li>
+            </ol>
+          </div>
+        </div></div>
         <div class="panel"><h2>Tasks by Type</h2><div class="body"><canvas id="chartTasksByType" class="chart"></canvas></div></div>
         <div class="panel"><h2>Transfers by Type</h2><div class="body"><canvas id="chartTransfersByType" class="chart"></canvas></div></div>
       </div>

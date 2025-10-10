@@ -217,6 +217,7 @@ function renderTable(){
     tr.appendChild(td(e.appointment?.scheduled ? 'Yes' : 'No'));
     tr.appendChild(td(e.appointment?.change || ''));
     const { apptType, office } = normalizeTypeAndOffice(e.appointment);
+    const apptLabel = apptType || 'Unspecified';
     const reasonText = prettyReasonLabel(e.appointment?.reason);
     const noApptList = Array.isArray(e.appointment?.noAppointmentReasons) ? e.appointment.noAppointmentReasons.map(prettyReasonLabel).filter(Boolean) : [];
     const reasonParts = [];
@@ -305,7 +306,9 @@ function summarize(entries){
     transfers: 0,
     hours: {},
     cancelReasons: {},
+    cancelReasonDetails: {},
     reschedReasons: {},
+    reschedReasonDetails: {},
     actionsByType: {},
     apptTypes: {},
     apptGroups: { Medical:{}, Cosmetic:{}, Other:{} },
@@ -313,7 +316,12 @@ function summarize(entries){
     officeBreakdown: {},
     confirmations: { Confirmed:0, 'Not Confirmed':0 },
     questionOnly: 0,
-    questionOnlyByType: { new:0, existing:0 }
+    questionOnlyByType: { new:0, existing:0 },
+    appointmentTypesByOutcome: {
+      scheduled: {},
+      reschedule: {},
+      cancellation: {}
+    }
   };
   const inRange = (h) => h>=8 && h<=17;
   const normReason = (r) => String(r||'').trim().replace(/[\/]+/g,' ').replace(/\s+/g,' ').trim();
@@ -339,6 +347,7 @@ function summarize(entries){
       if (e.appointment?.scheduled) sum.existingScheduled = (sum.existingScheduled||0) + 1;
     }
     const { apptType, office } = normalizeTypeAndOffice(e.appointment);
+    const apptLabel = apptType || 'Unspecified';
     if (office) {
       sum.offices[office] = (sum.offices[office] || 0) + 1;
       if (e.appointment) e.appointment.office = office;
@@ -369,9 +378,30 @@ function summarize(entries){
       }
     }
     sum.officeBreakdown[officeKey] = officeBucket;
-    const ch = (e.appointment?.change||'').toLowerCase();
-    if (ch === 'cancellation') { sum.cancel++; const r=normReason(e.appointment?.reason); if (r) sum.cancelReasons[r]=(sum.cancelReasons[r]||0)+1; }
-    if (ch === 'reschedule') { sum.resched++; const r=normReason(e.appointment?.reason); if (r) sum.reschedReasons[r]=(sum.reschedReasons[r]||0)+1; }
+    const ch = (e.appointment?.change||'none').toLowerCase();
+    if (e.appointment?.scheduled && ch === 'none') {
+      const scheduledBucket = sum.appointmentTypesByOutcome.scheduled;
+      scheduledBucket[apptLabel] = (scheduledBucket[apptLabel] || 0) + 1;
+    }
+    if (ch === 'cancellation') {
+      sum.cancel++;
+      const reasonKey = normReason(e.appointment?.reason) || 'unspecified';
+      sum.cancelReasons[reasonKey] = (sum.cancelReasons[reasonKey] || 0) + 1;
+      const detail = sum.cancelReasonDetails[reasonKey] || (sum.cancelReasonDetails[reasonKey] = { total: 0, types: {} });
+      detail.total += 1;
+      detail.types[apptLabel] = (detail.types[apptLabel] || 0) + 1;
+      const cancelBucket = sum.appointmentTypesByOutcome.cancellation;
+      cancelBucket[apptLabel] = (cancelBucket[apptLabel] || 0) + 1;
+    } else if (ch === 'reschedule') {
+      sum.resched++;
+      const reasonKey = normReason(e.appointment?.reason) || 'unspecified';
+      sum.reschedReasons[reasonKey] = (sum.reschedReasons[reasonKey] || 0) + 1;
+      const detail = sum.reschedReasonDetails[reasonKey] || (sum.reschedReasonDetails[reasonKey] = { total: 0, types: {} });
+      detail.total += 1;
+      detail.types[apptLabel] = (detail.types[apptLabel] || 0) + 1;
+      const reschedBucket = sum.appointmentTypesByOutcome.reschedule;
+      reschedBucket[apptLabel] = (reschedBucket[apptLabel] || 0) + 1;
+    }
     const actions = e.actions || {};
     Object.entries(actions).forEach(([k,v])=>{
       if (!sum.actionsByType[k]) sum.actionsByType[k] = { task:0, transfer:0 };
@@ -700,6 +730,78 @@ function renderLegend(containerId, series){
   });
 }
 
+function renderReasonDetails(containerId, detailMap, { labelForReason = (key) => String(key||'') } = {}){
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  const entries = Object.entries(detailMap || {}).filter(([,detail]) => detail && detail.total).sort((a,b)=> (b[1].total||0) - (a[1].total||0));
+  if (!entries.length){
+    const empty = document.createElement('div');
+    empty.className = 'reason-detail-empty muted';
+    empty.textContent = 'No change reasons captured yet';
+    container.appendChild(empty);
+    return;
+  }
+  entries.forEach(([reasonKey, detail])=>{
+    const section = document.createElement('div');
+    section.className = 'reason-detail';
+    const title = document.createElement('div');
+    title.className = 'reason-detail-title';
+    title.textContent = `${labelForReason(reasonKey)} — ${detail.total}`;
+    section.appendChild(title);
+    const list = document.createElement('ul');
+    list.className = 'reason-detail-list';
+    const typeEntries = Object.entries(detail.types || {}).filter(([,count]) => Number(count)||0).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
+    const total = detail.total || 1;
+    typeEntries.slice(0,8).forEach(([label,count])=>{
+      const li = document.createElement('li');
+      const pct = Math.round((Number(count)||0) / total * 100);
+      li.textContent = `${label} — ${count} (${pct}%)`;
+      list.appendChild(li);
+    });
+    section.appendChild(list);
+    container.appendChild(section);
+  });
+}
+
+function renderOutcomeLists(data = {}){
+  renderOutcomeList('listScheduledTypes', data.scheduled);
+  renderOutcomeList('listRescheduledTypes', data.reschedule);
+  renderOutcomeList('listCancelledTypes', data.cancellation);
+}
+
+function renderOutcomeList(listId, map){
+  const el = document.getElementById(listId);
+  if (!el) return;
+  el.innerHTML = '';
+  const entries = Object.entries(map || {}).filter(([,count]) => Number(count)||0).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
+  if (!entries.length){
+    const empty = document.createElement('li');
+    empty.className = 'change-empty';
+    empty.textContent = 'No data yet';
+    el.appendChild(empty);
+    return;
+  }
+  const total = entries.reduce((acc,[,count])=> acc + (Number(count)||0), 0) || 1;
+  entries.forEach(([label,count])=>{
+    const li = document.createElement('li');
+    const name = document.createElement('span');
+    name.className = 'change-label';
+    name.textContent = label;
+    const meta = document.createElement('span');
+    meta.className = 'change-meta';
+    const cnt = document.createElement('span');
+    cnt.className = 'change-count';
+    cnt.textContent = String(count);
+    const pct = document.createElement('span');
+    pct.className = 'change-percent';
+    pct.textContent = `${Math.round((Number(count)||0)/total*100)}%`;
+    meta.append(cnt, pct);
+    li.append(name, meta);
+    el.appendChild(li);
+  });
+}
+
 function updateKpisAndCharts(){
   const allEntries = getActiveEntries();
   const entries = filterEntriesBySelectedOffice(allEntries);
@@ -783,7 +885,8 @@ function updateKpisAndCharts(){
       'no longer needed':'No longer needed',
       'insurance':'Insurance',
       'referral':'Referral',
-      'pooo r s':'POOO r/s'
+      'pooo r s':'POOO r/s',
+      'unspecified':'Unspecified'
     };
     if (map[key]) return map[key];
     return String(key||'').replace(/\b\w/g, c => c.toUpperCase());
@@ -825,6 +928,8 @@ function updateKpisAndCharts(){
     drawBarChart('chartCancelReasons', sum.cancelReasons, { palette: cancelPalette, labelMap: buildReasonLabelMap(sum.cancelReasons) });
     drawBarChart('chartReschedReasons', sum.reschedReasons, { palette: reschedPalette, labelMap: buildReasonLabelMap(sum.reschedReasons) });
   }
+  renderReasonDetails('cancelReasonDetails', sum.cancelReasonDetails, { labelForReason: prettyReason });
+  renderReasonDetails('reschedReasonDetails', sum.reschedReasonDetails, { labelForReason: prettyReason });
 
   // Split tasks / transfers by type with distinct colors and proper labels
   const tasksByType = {}; const transfersByType = {};
@@ -866,6 +971,7 @@ function updateKpisAndCharts(){
     drawBarChart('chartTasksByType', tasksByType, { palette: tasksPalette, labelMap: buildLabelMap(tasksByType) });
     drawBarChart('chartTransfersByType', transfersByType, { palette: transfersPalette, labelMap: buildLabelMap(transfersByType) });
   }
+  renderOutcomeLists(sum.appointmentTypesByOutcome);
 }
 
 // De-duplication and pending import
