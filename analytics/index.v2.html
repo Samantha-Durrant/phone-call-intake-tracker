@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Screenpop Analytics (Stacked)</title>
+    <meta name="color-scheme" content="light dark" />
+    <style>
+      :root{ --line:#e5e7eb; --muted:#6b7280; --brand:#4f46e5; }
+      *{ box-sizing:border-box }
+      html,body{ height:100% }
+      body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#f5f7fb; color:#111827; }
+      header{ display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:linear-gradient(180deg,#f9fafb,#f3f4f6); border-bottom:1px solid var(--line) }
+      .wrap{ display:grid; grid-template-columns: 1fr; gap:12px; padding:12px; min-height:calc(100% - 56px) }
+      .panel{ background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; display:flex; flex-direction:column }
+      .panel h2{ margin:0; padding:10px 12px; font-size:14px; border-bottom:1px solid var(--line); background:#f9fafb }
+      .panel .body{ flex:1; overflow:auto; padding:8px }
+      button{ height:32px; padding:0 10px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer; font-weight:600 }
+      button.primary{ background:var(--brand); border-color:var(--brand); color:#fff }
+      .tab-toggle{ display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#fff }
+      .tab-toggle button{ border:none; border-right:1px solid var(--line); background:transparent; padding:6px 12px; font-weight:600; cursor:pointer; color:#111827 }
+      .tab-toggle button:last-child{ border-right:none }
+      .tab-toggle button.active{ background:#eef2ff; color:#1f2937 }
+      table{ width:100%; border-collapse:collapse; font-size:13px }
+      .chart-with-legend{ display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap }
+      .chart-with-legend canvas{ flex:1 1 260px }
+      .chart-legend{ display:flex; flex-direction:column; gap:8px; min-width:160px; font-size:12px }
+      .chart-legend .legend-item{ display:flex; align-items:center; gap:8px; cursor:default; position:relative }
+      .chart-legend .legend-item:hover{ opacity:.8 }
+      .chart-legend .legend-item.has-details{ align-items:flex-start; opacity:1 }
+      .chart-legend .legend-item.has-details .legend-detail-hint{ color:var(--muted); font-size:11px }
+      .chart-legend .legend-item.has-details[data-open] .legend-detail-hint{ color:var(--brand); font-weight:600 }
+      .chart-legend .legend-item.has-details .legend-details{ display:none; position:absolute; left:calc(100% + 10px); top:-4px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px 12px; box-shadow:0 10px 25px rgba(15,23,42,0.12); width:220px; max-width:260px; z-index:20 }
+      .chart-legend .legend-item.has-details:hover .legend-details,
+      .chart-legend .legend-item.has-details[data-open] .legend-details{ display:block }
+      .chart-legend .legend-details-title{ font-weight:600; margin-bottom:6px; font-size:12px }
+      .chart-legend .legend-details-list{ margin:0; padding-left:18px; list-style:disc; display:flex; flex-direction:column; gap:4px; font-size:12px }
+      .chart-legend .swatch{ width:12px; height:12px; border-radius:3px }
+      canvas.chart{ width:100%; height:200px; display:block }
+      th, td{ text-align:left; padding:8px; border-bottom:1px solid var(--line); vertical-align:top }
+      th{ position:sticky; top:0; background:#f9fafb; z-index:1 }
+      .muted{ color:var(--muted) }
+      .empty{ padding:16px; color:var(--muted) }
+      .kpi-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap:8px; padding:8px; border-bottom:1px solid var(--line); background:#fff }
+      .kpi{ background:#f9fafb; border:1px solid var(--line); border-radius:10px; padding:8px 10px }
+      .kpi .label{ color:var(--muted); font-size:12px }
+      .kpi .value{ font-weight:700; font-size:18px }
+      .charts{ display:grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap:16px; align-items:stretch }
+      .panel.wide{ grid-column: 1 / -1 }
+      .panel.table-panel .body{ padding:0; overflow:auto }
+      .panel.table-panel table{ min-width:860px }
+      .outcome-panel{ position:relative }
+      .outcome-header{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; padding:4px 8px 12px }
+      .outcome-tabs{ display:inline-flex; gap:6px; border-radius:999px; background:#eef2ff; padding:4px; }
+      .outcome-tab{ border:none; background:transparent; padding:6px 14px; border-radius:999px; font-weight:600; color:#4b5563; cursor:pointer }
+      .outcome-tab.active{ background:#4f46e5; color:#fff; box-shadow:0 4px 12px rgba(79,70,229,0.25) }
+      .outcome-funnel{ display:flex; gap:10px; flex-wrap:wrap }
+      .funnel-card{ min-width:120px; padding:8px 12px; border:1px solid var(--line); border-radius:14px; display:flex; flex-direction:column; background:#fff }
+      .funnel-card.active{ border-color:#4f46e5; background:#eef2ff }
+      .funnel-card .label{ font-size:12px; color:var(--muted) }
+      .funnel-card .value{ font-size:18px; font-weight:700; color:#111827 }
+      .outcome-body{ display:flex; gap:16px; flex-wrap:wrap }
+      .outcome-left, .outcome-right{ flex:1 1 320px; min-width:280px }
+      #chartOutcomeTypesLegend{ margin-top:8px }
+      .outcome-message{ font-size:13px; color:var(--muted); padding:8px 0 }
+      #outcomeReasonDetails{ margin-top:12px }
+      .secondary-panels{ display:grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap:16px; }
+      .stack-info{ font-size:12px; color:#6b7280; margin-top:6px }
+      .appt-lists{ display:flex; gap:24px; flex-wrap:wrap }
+      .appt-column{ flex:1 1 320px; min-width:280px; display:flex; flex-direction:column; gap:12px }
+      .appt-column h3{ margin:0; font-size:15px }
+      .appt-list{ list-style:none; padding:0; margin:0; border:1px solid var(--line); border-radius:12px; background:#fff; max-height:360px; overflow:auto }
+      .appt-list li{ display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid var(--line); font-size:13px }
+      .appt-meta{ display:flex; align-items:center; gap:8px; white-space:nowrap }
+      .appt-percent{ color:var(--muted); font-size:12px }
+      .appt-list li:last-child{ border-bottom:none }
+      .appt-label{ flex:1; padding-right:12px }
+      .appt-count{ font-weight:600 }
+      .appt-empty{ padding:12px; color:var(--muted); font-style:italic }
+      tbody tr:nth-child(even){ background:#f9fafb }
+      @media (max-width: 980px){ .wrap{ grid-template-columns: 1fr; height:auto } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>Screenpop Analytics (Stacked)</strong>
+      <div class="muted">Updates on “Done” from any screenpop tab</div>
+    </header>
+    <div class="wrap">
+      <div class="panel" style="padding-bottom:0">
+        <div class="toolbar" style="justify-content:space-between">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button id="exportCsvBtn">Export CSV</button>
+            <button id="clearBtn">Clear</button>
+            <input id="mrnSearch" type="text" placeholder="Search MRN" style="height:32px;padding:0 10px;border:1px solid var(--line);border-radius:8px" />
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div role="tablist" aria-label="Range" class="tab-toggle">
+              <button id="tabDaily" role="tab" data-view="daily" aria-selected="true" class="active" type="button">Daily</button>
+              <button id="tabMonthly" role="tab" data-view="monthly" aria-selected="false" type="button">Monthly</button>
+            </div>
+            <span id="dailyDateLabel" class="muted"></span>
+            <input id="monthPicker" type="month" style="display:none;height:32px;padding:0 8px;border:1px solid var(--line);border-radius:8px" />
+            <button id="rolloverNow" title="TEST ONLY — roll daily into monthly" style="display:none;height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer">Rollover Now</button>
+            <div class="muted" id="countBadge"></div>
+          </div>
+        </div>
+        <div class="kpi-grid">
+          <div class="kpi"><div class="label">Total Calls</div><div class="value" id="kpiTotal">0</div></div>
+          <div class="kpi"><div class="label">Cancellations</div><div class="value" id="kpiCancel">0</div></div>
+          <div class="kpi"><div class="label">Reschedules</div><div class="value" id="kpiResched">0</div></div>
+          <div class="kpi"><div class="label">New</div><div class="value" id="kpiNew">0</div></div>
+          <div class="kpi"><div class="label">Existing</div><div class="value" id="kpiExisting">0</div></div>
+          <div class="kpi"><div class="label">Tasks / Transfers</div><div class="value" id="kpiActions">0 / 0</div></div>
+        </div>
+      </div>
+
+      <div class="panel wide outcome-panel">
+        <h2>Outcome Overview</h2>
+        <div class="body">
+          <div class="outcome-header">
+            <div class="outcome-tabs" id="outcomeTabs" role="tablist" aria-label="Appointment outcomes">
+              <button type="button" class="outcome-tab active" data-outcome="scheduled" role="tab" aria-selected="true">Scheduled</button>
+              <button type="button" class="outcome-tab" data-outcome="rescheduled" role="tab" aria-selected="false">Rescheduled</button>
+              <button type="button" class="outcome-tab" data-outcome="cancelled" role="tab" aria-selected="false">Cancelled</button>
+              <button type="button" class="outcome-tab" data-outcome="no_appointment" role="tab" aria-selected="false">No Appointment</button>
+            </div>
+            <div class="outcome-funnel" id="outcomeFunnel" aria-live="polite">
+              <div class="funnel-card" data-outcome="scheduled">
+                <span class="label">Scheduled</span>
+                <span class="value" id="funnelScheduled">0</span>
+              </div>
+              <div class="funnel-card" data-outcome="rescheduled">
+                <span class="label">Rescheduled</span>
+                <span class="value" id="funnelRescheduled">0</span>
+              </div>
+              <div class="funnel-card" data-outcome="cancelled">
+                <span class="label">Cancelled</span>
+                <span class="value" id="funnelCancelled">0</span>
+              </div>
+              <div class="funnel-card" data-outcome="no_appointment">
+                <span class="label">No Appointment</span>
+                <span class="value" id="funnelNoAppt">0</span>
+              </div>
+            </div>
+          </div>
+          <div class="outcome-body">
+            <div class="outcome-left">
+              <canvas id="chartOutcomeTypes" class="chart" aria-label="Appointment type distribution"></canvas>
+              <div id="chartOutcomeTypesLegend" class="chart-legend"></div>
+              <div id="outcomeTypeInfo" class="stack-info"></div>
+            </div>
+            <div class="outcome-right">
+              <canvas id="chartOutcomeReasons" class="chart" aria-label="Outcome reasons"></canvas>
+              <div id="outcomeReasonDetails" class="reason-details"></div>
+              <div id="outcomeMessage" class="outcome-message" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel wide"><h2>Time Distribution (8am–5pm)</h2><div class="body"><canvas id="chartHours" class="chart"></canvas><div id="chartHoursLegend" class="chart-legend"></div></div></div>
+      <div class="panel wide" id="panelWeekdays"><h2>Weekday Distribution (Mon–Fri)</h2><div class="body"><canvas id="chartWeekdays" class="chart"></canvas></div></div>
+      <div class="panel allow-overflow"><h2>Scheduling by Office</h2><div class="body chart-with-legend"><canvas id="chartNewExisting" class="chart"></canvas><div id="chartNewExistingLegend" class="chart-legend"></div></div></div>
+      <div class="panel"><h2>Confirmation Status</h2><div class="body"><canvas id="chartConfirmations" class="chart"></canvas><div id="chartConfirmationsLegend" class="chart-legend"></div></div></div>
+      <div class="panel allow-overflow"><h2>Cancel Reasons</h2><div class="body"><canvas id="chartCancelReasons" class="chart"></canvas><div id="chartCancelReasonsLegend" class="chart-legend"></div></div></div>
+      <div class="panel allow-overflow"><h2>Reschedule Reasons</h2><div class="body"><canvas id="chartReschedReasons" class="chart"></canvas><div id="chartReschedReasonsLegend" class="chart-legend"></div></div></div>
+      <div class="panel"><h2>Tasks by Type</h2><div class="body"><canvas id="chartTasksByType" class="chart"></canvas><div id="chartTasksByTypeLegend" class="chart-legend"></div></div></div>
+      <div class="panel"><h2>Transfers by Type</h2><div class="body"><canvas id="chartTransfersByType" class="chart"></canvas><div id="chartTransfersByTypeLegend" class="chart-legend"></div></div></div>
+
+      <div class="panel wide">
+        <h2>Appointment Types</h2>
+        <div class="body appt-lists">
+          <div class="appt-column">
+            <h3>Medical</h3>
+            <ol id="listApptMedical" class="appt-list">
+              <li class="appt-empty">No medical appointments yet</li>
+            </ol>
+          </div>
+          <div class="appt-column">
+            <h3>Cosmetic</h3>
+            <ol id="listApptCosmetic" class="appt-list">
+              <li class="appt-empty">No cosmetic appointments yet</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel table-panel">
+        <h2>Submissions</h2>
+        <div class="body">
+          <table id="analyticsTable" aria-label="Screenpop submissions">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>MRN</th>
+                <th>Type</th>
+                <th>Scheduled</th>
+                <th>Change</th>
+                <th>Appt Type</th>
+                <th>Office</th>
+                <th>Reason</th>
+                <th>Confirmed</th>
+                <th>Other</th>
+                <th>Tasks</th>
+                <th>Transfers</th>
+              </tr>
+            </thead>
+            <tbody id="analyticsBody">
+              <tr class="empty"><td colspan="12">No submissions yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script src="./analytics.js" type="module"></script>
+  </body>
+</html>
