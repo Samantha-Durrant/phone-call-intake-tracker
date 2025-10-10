@@ -411,13 +411,15 @@ function summarize(entries){
         ? e.appointment.noAppointmentReasons
         : (e.appointment?.noAppointmentReason ? [e.appointment.noAppointmentReason] : []);
       const questionOnlyFlag = !!e.appointment?.questionOnly;
-      let reasons = rawReasons.map(reason => String(reason || '').trim()).filter(Boolean);
-      if (!reasons.length && questionOnlyFlag) reasons = ['Question Only'];
-      if (reasons.length) {
+      const reasons = rawReasons.map(reason => String(reason || '').trim()).filter(Boolean);
+      const analyticReasons = reasons.filter(reason => reason.toLowerCase() !== 'question only');
+      const hasBookingIntent = !questionOnlyFlag || analyticReasons.length > 0;
+      if (hasBookingIntent) {
+        const useReasons = (analyticReasons.length ? analyticReasons : (reasons.length ? reasons : ['Unspecified']));
         const officeNoOutcome = officeMetrics.outcomes.noAppointment;
         officeNoOutcome.total = (officeNoOutcome.total || 0) + 1;
         officeNoOutcome.appointmentTypes[apptLabel] = (officeNoOutcome.appointmentTypes[apptLabel] || 0) + 1;
-        reasons.forEach(reason => {
+        useReasons.forEach(reason => {
           const key = reason || 'Unspecified';
           sum.noApptReasons[key] = (sum.noApptReasons[key] || 0) + 1;
           const detail = sum.noApptReasonDetails[key] || (sum.noApptReasonDetails[key] = { total: 0, types: {} });
