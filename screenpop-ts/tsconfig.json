@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.node.json",
+  "compilerOptions": {
+    "composite": true,
+    "baseUrl": ".",
+    "paths": {
+      "@screenpop/*": ["src/*"]
+    }
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "./tsconfig.node.json" }
+  ]
+}
