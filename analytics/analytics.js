@@ -7,6 +7,7 @@ const SUBMIT_PREFIX = 'screenpop_submit_';
 const LEDGER_KEY = 'screenpop_ledger_v1';
 let CURRENT_VIEW = 'daily';
 let SELECTED_MONTH = null; // 'YYYY-MM'
+let SELECTED_OFFICE = 'all';
 const OFFICE_KEYS = ['Ann Arbor','Plymouth','Wixom'];
 const OFFICE_LOOKUP = OFFICE_KEYS.reduce((acc,label)=>{ acc[label.toLowerCase()] = label; return acc; }, {});
 function canonicalOffice(name){
@@ -159,15 +160,31 @@ function getActiveEntries(){
   return all.filter(e => monthKey(e.time) === mk);
 }
 
+function matchesSelectedOffice(entry){
+  if (SELECTED_OFFICE === 'all') return true;
+  const { office } = normalizeTypeAndOffice(entry.appointment);
+  if (entry?.appointment && office) entry.appointment.office = office;
+  return office === SELECTED_OFFICE;
+}
+
+function filterEntriesBySelectedOffice(entries){
+  if (SELECTED_OFFICE === 'all') return entries;
+  return entries.filter(matchesSelectedOffice);
+}
+
+function getScopedEntries(){
+  return filterEntriesBySelectedOffice(getActiveEntries());
+}
+
 function updateCountBadge(){
   const badge = document.getElementById('countBadge');
-  const entries = getActiveEntries();
+  const entries = getScopedEntries();
   badge.textContent = `${entries.length} submission${entries.length===1?'':'s'}`;
 }
 
 function renderTable(){
   const tbody = document.getElementById('analyticsBody');
-  const entries = getActiveEntries();
+  const entries = getScopedEntries();
   tbody.innerHTML = '';
   if (!entries.length){
     const tr = document.createElement('tr');
@@ -233,7 +250,7 @@ function applyMrnFilter(){
 }
 
 function exportCsv(){
-  const entries = getActiveEntries();
+  const entries = getScopedEntries();
   const cols = ['time','agent','callId','ani','patient.mrn','patient.name','patient.type','appointment.scheduled','appointment.change','appointment.type','appointment.office','appointment.reason','appointment.noAppointmentReasons','appointment.questionOnly','appointment.otherText','appointment.confirmed','actions'];
   const header = cols.join(',');
   const lines = [header];
@@ -684,12 +701,14 @@ function renderLegend(containerId, series){
 }
 
 function updateKpisAndCharts(){
-  const entries = getActiveEntries();
-  const sum = summarize(entries);
+  const allEntries = getActiveEntries();
+  const entries = filterEntriesBySelectedOffice(allEntries);
+  const sumAll = summarize(allEntries);
+  const sum = (SELECTED_OFFICE === 'all') ? sumAll : summarize(entries);
   try {
     const url = new URL(window.location.href);
     if (url.searchParams.get('debug') === '1') {
-      console.log('[Analytics] view:', CURRENT_VIEW, 'entries:', entries.length, { reschedReasons: sum.reschedReasons, cancelReasons: sum.cancelReasons, actionsByType: sum.actionsByType });
+      console.log('[Analytics] view:', CURRENT_VIEW, 'office:', SELECTED_OFFICE, 'entries:', entries.length, { reschedReasons: sum.reschedReasons, cancelReasons: sum.cancelReasons, actionsByType: sum.actionsByType });
     }
   } catch {}
   document.getElementById('kpiTotal').textContent = String(sum.total);
@@ -734,10 +753,13 @@ function updateKpisAndCharts(){
     }
   } catch {}
   // Use distinct colors for New vs Existing
-  const officeOrder = [...new Set([...OFFICE_KEYS, ...Object.keys(sum.officeBreakdown || {})])];
+  const breakdownSource = (SELECTED_OFFICE === 'all') ? sumAll : sum;
+  const officeOrder = (SELECTED_OFFICE === 'all')
+    ? [...new Set([...OFFICE_KEYS, ...Object.keys(breakdownSource.officeBreakdown || {})])]
+    : [SELECTED_OFFICE];
   const officeData = {};
   officeOrder.forEach(name => {
-    const bucket = sum.officeBreakdown?.[name] || {};
+    const bucket = breakdownSource.officeBreakdown?.[name] || {};
     officeData[name] = {
       existingScheduled: Number(bucket.existingScheduled || 0),
       existingNot: Number(bucket.existingNot || 0),
@@ -920,6 +942,37 @@ const tabMonthly = document.getElementById('tabMonthly');
 const monthPicker = document.getElementById('monthPicker');
 const dailyDateLabel = document.getElementById('dailyDateLabel');
 const tabButtons = [tabDaily, tabMonthly].filter(Boolean);
+const officeToggle = document.getElementById('officeFilter');
+const officeButtons = officeToggle ? Array.from(officeToggle.querySelectorAll('button[data-office]')) : [];
+
+function applyOfficeState(selected){
+  officeButtons.forEach(btn => {
+    const value = btn?.dataset?.office || 'all';
+    const isActive = value === selected;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+}
+
+function setOffice(value){
+  const next = value || 'all';
+  if (SELECTED_OFFICE === next) return;
+  SELECTED_OFFICE = next;
+  applyOfficeState(SELECTED_OFFICE);
+  renderTable();
+  updateKpisAndCharts();
+}
+
+if (officeButtons.length){
+  officeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const value = btn?.dataset?.office || 'all';
+      setOffice(value);
+    });
+  });
+  applyOfficeState(SELECTED_OFFICE);
+}
+
 function applyTabState(view){
   tabButtons.forEach(btn => {
     const target = btn?.dataset?.view || (btn === tabMonthly ? 'monthly' : 'daily');

@@ -91,6 +91,15 @@
             </div>
             <span id="dailyDateLabel" class="muted"></span>
             <input id="monthPicker" type="month" style="display:none;height:32px;padding:0 8px;border:1px solid var(--line);border-radius:8px" />
+            <div style="display:flex;align-items:center;gap:6px">
+              <span class="muted" id="officeFilterLabel">Office:</span>
+              <div id="officeFilter" class="tab-toggle" role="tablist" aria-label="Office">
+                <button type="button" class="active" data-office="all" role="tab" aria-selected="true">All Offices</button>
+                <button type="button" data-office="Ann Arbor" role="tab" aria-selected="false">Ann Arbor</button>
+                <button type="button" data-office="Plymouth" role="tab" aria-selected="false">Plymouth</button>
+                <button type="button" data-office="Wixom" role="tab" aria-selected="false">Wixom</button>
+              </div>
+            </div>
             <button id="rolloverNow" title="TEST ONLY — roll daily into monthly" style="display:none;height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer">Rollover Now</button>
             <div class="muted" id="countBadge"></div>
           </div>

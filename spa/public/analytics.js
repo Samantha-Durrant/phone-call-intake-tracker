@@ -7,6 +7,7 @@ const SUBMIT_PREFIX = 'screenpop_submit_';
 const LEDGER_KEY = 'screenpop_ledger_v1';
 let CURRENT_VIEW = 'daily';
 let SELECTED_MONTH = null; // 'YYYY-MM'
+let SELECTED_OFFICE = 'all';
 const OFFICE_KEYS = ['Ann Arbor','Plymouth','Wixom'];
 const OFFICE_LOOKUP = OFFICE_KEYS.reduce((acc,label)=>{ acc[label.toLowerCase()] = label; return acc; }, {});
 function canonicalOffice(name){
@@ -97,18 +98,36 @@ function isSameDay(a,b){ const da=new Date(a), db=new Date(b); return da.getFull
 function todayStr(){ const d = new Date(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${m}-${day}`; }
 function monthKey(ts){ const d=new Date(ts); const m=String(d.getMonth()+1).padStart(2,'0'); return `${d.getFullYear()}-${m}`; }
 function rolloverIfNeeded(){}
-function getActiveEntries(){ const all=loadLedger(); if(CURRENT_VIEW==='daily') return all.filter(e=>isSameDay(e.time, Date.now())); const mk=SELECTED_MONTH||monthKey(Date.now()); return all.filter(e=>monthKey(e.time)===mk); }
+function getActiveEntries(){
+  const all = loadLedger();
+  if (CURRENT_VIEW === 'daily') return all.filter(e => isSameDay(e.time, Date.now()));
+  const mk = SELECTED_MONTH || monthKey(Date.now());
+  return all.filter(e => monthKey(e.time) === mk);
+}
+function matchesSelectedOffice(entry){
+  if (SELECTED_OFFICE === 'all') return true;
+  const { office } = normalizeTypeAndOffice(entry.appointment);
+  if (entry?.appointment && office) entry.appointment.office = office;
+  return office === SELECTED_OFFICE;
+}
+function filterEntriesBySelectedOffice(entries){
+  if (SELECTED_OFFICE === 'all') return entries;
+  return entries.filter(matchesSelectedOffice);
+}
+function getScopedEntries(){
+  return filterEntriesBySelectedOffice(getActiveEntries());
+}
 function loadSeen(){ try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || '[]')); } catch { return new Set(); } }
 function saveSeen(seen){ try { localStorage.setItem(SEEN_KEY, JSON.stringify(Array.from(seen))); } catch {} }
 function loadMrnIndex(){ try { return JSON.parse(localStorage.getItem(MRN_INDEX_KEY) || '{}'); } catch { return {}; } }
 function saveMrnIndex(idx){ try { localStorage.setItem(MRN_INDEX_KEY, JSON.stringify(idx)); } catch {} }
 
 function fmtDate(ts){ const d = new Date(ts); return d.toLocaleString(); }
-function updateCountBadge(){ const badge = document.getElementById('countBadge'); const entries = getActiveEntries(); badge.textContent = `${entries.length} submission${entries.length===1?'':'s'}`; }
+function updateCountBadge(){ const badge = document.getElementById('countBadge'); const entries = getScopedEntries(); badge.textContent = `${entries.length} submission${entries.length===1?'':'s'}`; }
 
 function renderTable(){
   const tbody = document.getElementById('analyticsBody');
-  const entries = getActiveEntries();
+  const entries = getScopedEntries();
   tbody.innerHTML = '';
   if (!entries.length){ const tr = document.createElement('tr'); tr.className='empty'; const td=document.createElement('td'); td.colSpan=12; td.textContent='No submissions yet'; tr.appendChild(td); tbody.appendChild(tr); updateCountBadge(); return; }
   const prettify=(key)=>{ const map={ ma_call:'MA Call', provider_question:'Provider Question', refill_request:'Refill Request', billing_question:'Billing Question', confirmation:'Confirmation', results:'Results' }; return map[key] || String(key||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()); };
@@ -153,7 +172,7 @@ function applyMrnFilter(){
 }
 
 function exportCsv(){
-  const entries = getActiveEntries();
+  const entries = getScopedEntries();
   const cols = ['time','agent','callId','ani','patient.mrn','patient.name','patient.type','appointment.scheduled','appointment.change','appointment.type','appointment.office','appointment.reason','appointment.noAppointmentReasons','appointment.questionOnly','appointment.otherText','appointment.confirmed','actions'];
   const header = cols.join(',');
   const lines = [header];
@@ -503,7 +522,10 @@ function renderAppointmentLists(sum){
 }
 
 function updateKpisAndCharts(){
-  const entries=getActiveEntries(); const sum=summarize(entries);
+  const allEntries = getActiveEntries();
+  const entries = filterEntriesBySelectedOffice(allEntries);
+  const sumAll = summarize(allEntries);
+  const sum = (SELECTED_OFFICE === 'all') ? sumAll : summarize(entries);
   document.getElementById('kpiTotal').textContent=String(sum.total);
   document.getElementById('kpiCancel').textContent=String(sum.cancel);
   document.getElementById('kpiResched').textContent=String(sum.resched);
@@ -536,10 +558,13 @@ function updateKpisAndCharts(){
       drawBarChart('chartWeekdays', wdAvg, { order: wdOrder, labelMap: wdLabels, palette: wdPalette, formatValue:(v)=>(v>=10?Math.round(v):v.toFixed(1)) });
     }
   } catch{}
-  const officeOrder = [...new Set([...OFFICE_KEYS, ...Object.keys(sum.officeBreakdown || {})])];
+  const breakdownSource = (SELECTED_OFFICE === 'all') ? sumAll : sum;
+  const officeOrder = (SELECTED_OFFICE === 'all')
+    ? [...new Set([...OFFICE_KEYS, ...Object.keys(breakdownSource.officeBreakdown || {})])]
+    : [SELECTED_OFFICE];
   const officeData = {};
   officeOrder.forEach(name => {
-    const bucket = sum.officeBreakdown?.[name] || {};
+    const bucket = breakdownSource.officeBreakdown?.[name] || {};
     officeData[name] = {
       existingScheduled: Number(bucket.existingScheduled || 0),
       existingNot: Number(bucket.existingNot || 0),
@@ -621,6 +646,33 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{ const all=lo
 const tabDaily=document.getElementById('tabDaily'); const tabMonthly=document.getElementById('tabMonthly');
 const monthPicker=document.getElementById('monthPicker'); const dailyDateLabel=document.getElementById('dailyDateLabel');
 const tabButtons=[tabDaily,tabMonthly].filter(Boolean);
+const officeToggle=document.getElementById('officeFilter');
+const officeButtons=officeToggle?Array.from(officeToggle.querySelectorAll('button[data-office]')):[];
+function applyOfficeState(selected){
+  officeButtons.forEach(btn=>{
+    const value=btn?.dataset?.office||'all';
+    const isActive=value===selected;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-selected', isActive?'true':'false');
+  });
+}
+function setOffice(value){
+  const next=value||'all';
+  if(SELECTED_OFFICE===next) return;
+  SELECTED_OFFICE=next;
+  applyOfficeState(SELECTED_OFFICE);
+  renderTable();
+  updateKpisAndCharts();
+}
+if(officeButtons.length){
+  officeButtons.forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const value=btn?.dataset?.office||'all';
+      setOffice(value);
+    });
+  });
+  applyOfficeState(SELECTED_OFFICE);
+}
 function applyTabState(view){
   tabButtons.forEach(btn=>{
     const target=btn?.dataset?.view||(btn===tabMonthly?'monthly':'daily');
