@@ -21,6 +21,8 @@
       .chart-legend{ display:flex; flex-direction:column; gap:8px; min-width:160px; font-size:12px }
       .chart-legend .legend-item{ display:flex; align-items:center; gap:8px; cursor:default }
       .chart-legend .legend-item:hover{ opacity:.8 }
+      .panel.allow-overflow{ overflow:visible }
+      .panel.allow-overflow .body{ overflow:visible }
       .chart-legend .legend-item.has-details{ position:relative; align-items:flex-start; opacity:1 }
       .chart-legend .legend-item.has-details .legend-detail-hint{ color:var(--muted); font-size:11px }
       .chart-legend .legend-item.has-details[data-open] .legend-detail-hint{ color:var(--brand); font-weight:600 }
@@ -105,11 +107,11 @@
       <div class="charts">
         <div class="panel wide"><h2>Time Distribution (8am–5pm)</h2><div class="body"><canvas id="chartHours" class="chart"></canvas></div></div>
         <div class="panel wide" id="panelWeekdays"><h2>Weekday Distribution (Mon–Fri)</h2><div class="body"><canvas id="chartWeekdays" class="chart"></canvas></div></div>
-        <div class="panel"><h2>Scheduling by Office</h2><div class="body chart-with-legend"><canvas id="chartNewExisting" class="chart"></canvas><div id="chartNewExistingLegend" class="chart-legend"></div></div></div>
+        <div class="panel allow-overflow"><h2>Scheduling by Office</h2><div class="body chart-with-legend"><canvas id="chartNewExisting" class="chart"></canvas><div id="chartNewExistingLegend" class="chart-legend"></div></div></div>
         <div class="panel"><h2>Confirmation Status</h2><div class="body"><canvas id="chartConfirmations" class="chart"></canvas></div></div>
-        <div class="panel"><h2>Medical Appointment Mix</h2><div class="body chart-with-legend"><canvas id="chartApptMedical" class="chart"></canvas><div id="chartApptMedicalLegend" class="chart-legend"></div></div></div>
-        <div class="panel"><h2>Cosmetic Appointment Mix</h2><div class="body chart-with-legend"><canvas id="chartApptCosmetic" class="chart"></canvas><div id="chartApptCosmeticLegend" class="chart-legend"></div></div></div>
-        <div class="panel"><h2>Other Appointment Mix</h2><div class="body chart-with-legend"><canvas id="chartApptOther" class="chart"></canvas><div id="chartApptOtherLegend" class="chart-legend"></div></div></div>
+        <div class="panel allow-overflow"><h2>Medical Appointment Mix</h2><div class="body chart-with-legend"><canvas id="chartApptMedical" class="chart"></canvas><div id="chartApptMedicalLegend" class="chart-legend"></div></div></div>
+        <div class="panel allow-overflow"><h2>Cosmetic Appointment Mix</h2><div class="body chart-with-legend"><canvas id="chartApptCosmetic" class="chart"></canvas><div id="chartApptCosmeticLegend" class="chart-legend"></div></div></div>
+        <div class="panel allow-overflow"><h2>Other Appointment Mix</h2><div class="body chart-with-legend"><canvas id="chartApptOther" class="chart"></canvas><div id="chartApptOtherLegend" class="chart-legend"></div></div></div>
         <div class="panel"><h2>Office Mix</h2><div class="body"><canvas id="chartOffices" class="chart"></canvas></div></div>
         <div class="panel"><h2>Cancel Reasons</h2><div class="body"><canvas id="chartCancelReasons" class="chart"></canvas></div></div>
         <div class="panel"><h2>Reschedule Reasons</h2><div class="body"><canvas id="chartReschedReasons" class="chart"></canvas></div></div>

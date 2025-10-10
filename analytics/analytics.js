@@ -73,12 +73,18 @@ function buildApptTypePieData(map){
     .sort((a,b)=>b.count - a.count);
   if (!entries.length) return [];
   const LIMIT = 7;
-  const top = entries.slice(0, LIMIT);
-  const remainder = entries.slice(LIMIT).reduce((acc,item)=>acc + (item.count||0), 0);
+  const top = entries.slice(0, LIMIT).map(item => ({ ...item }));
+  const remainderEntries = entries.slice(LIMIT);
+  const remainder = remainderEntries.reduce((acc,item)=>acc + (item.count||0), 0);
   if (remainder > 0){
     const existingOther = top.find(item => /^other\b/i.test(String(item.label||'')));
-    if (existingOther) existingOther.count += remainder;
-    else top.push({ label:'Other Types', count: remainder });
+    const detailList = remainderEntries.map(item => ({ label: item.label, count: item.count }));
+    if (existingOther) {
+      existingOther.count += remainder;
+      existingOther.details = [...(existingOther.details || []), ...detailList];
+    } else {
+      top.push({ label:'Other Types', count: remainder, details: detailList });
+    }
   }
   return top;
 }
@@ -431,6 +437,45 @@ function drawPieChart(canvasId, items, { legendId=null, palette=PIE_PALETTE } = 
       const pct = Math.round((item.count / total) * 100);
       label.textContent = `${item.label} — ${item.count} (${pct}%)`;
       row.append(sw, label);
+      if (Array.isArray(item.details) && item.details.length){
+        row.classList.add('has-details');
+        row.setAttribute('tabindex','0');
+        const hint = document.createElement('span');
+        hint.className = 'legend-detail-hint';
+        hint.textContent = 'view details';
+        label.appendChild(document.createTextNode(' · '));
+        label.appendChild(hint);
+        const detailBox = document.createElement('div');
+        detailBox.className = 'legend-details';
+        const title = document.createElement('div');
+        title.className = 'legend-details-title';
+        title.textContent = 'Includes:';
+        detailBox.appendChild(title);
+        const list = document.createElement('ul');
+        list.className = 'legend-details-list';
+        item.details.forEach(detail=>{
+          const li = document.createElement('li');
+          const detailPct = Math.round(((Number(detail.count)||0) / Math.max(1, Number(item.count)||0)) * 100);
+          li.textContent = `${detail.label} — ${detail.count} (${detailPct}% of Other)`;
+          list.appendChild(li);
+        });
+        detailBox.appendChild(list);
+        row.appendChild(detailBox);
+        const setOpen = (open)=>{
+          if (open) row.setAttribute('data-open','true');
+          else row.removeAttribute('data-open');
+        };
+        row.addEventListener('mouseenter', ()=>setOpen(true));
+        row.addEventListener('mouseleave', ()=>setOpen(false));
+        row.addEventListener('focus', ()=>setOpen(true));
+        row.addEventListener('blur', ()=>setOpen(false));
+        row.addEventListener('keydown',(evt)=>{
+          if (evt.key === 'Escape'){
+            setOpen(false);
+            row.blur();
+          }
+        });
+      }
       legend.appendChild(row);
     });
   }
