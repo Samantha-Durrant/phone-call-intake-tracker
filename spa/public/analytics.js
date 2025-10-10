@@ -18,6 +18,15 @@ function canonicalOffice(name){
 
 const PIE_PALETTE = ['#6366f1','#8b5cf6','#ec4899','#f473b7','#f59e0b','#facc15','#10b981','#14b8a6','#0ea5e9','#3b82f6','#a855f7','#ef4444'];
 const STACK_TYPE_COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ec4899','#a855f7','#94a3b8','#22d3ee'];
+const OUTCOME_KEYS = ['scheduled','rescheduled','cancelled','no_appointment'];
+const OUTCOME_LABELS = {
+  scheduled: 'Scheduled',
+  rescheduled: 'Rescheduled',
+  cancelled: 'Cancelled',
+  no_appointment: 'No Appointment'
+};
+let CURRENT_OUTCOME = 'scheduled';
+let OUTCOME_DATA = null;
 
 const SCHEDULING_SERIES = [
   { key:'existingScheduled', label:'Existing · Scheduled', color:'#2563eb' },
@@ -231,6 +240,8 @@ function summarize(entries){
     cancelReasonDetails:{},
     reschedReasons:{},
     reschedReasonDetails:{},
+    noApptReasons:{},
+    noApptReasonDetails:{},
     actionsByType:{},
     apptTypes:{},
     apptGroups:{ Medical:{}, Cosmetic:{}, Other:{} },
@@ -242,7 +253,8 @@ function summarize(entries){
     appointmentTypesByOutcome:{
       scheduled:{},
       reschedule:{},
-      cancellation:{}
+      cancellation:{},
+      noAppointment:{}
     }
   };
   const inRange = (h)=>h>=8&&h<=17;
@@ -288,6 +300,20 @@ function summarize(entries){
     if (e.appointment?.scheduled && ch === 'none'){
       const scheduledBucket = sum.appointmentTypesByOutcome.scheduled;
       scheduledBucket[apptLabel] = (scheduledBucket[apptLabel]||0)+1;
+    }
+    if(!e.appointment?.scheduled){
+      const rawReasons = Array.isArray(e.appointment?.noAppointmentReasons)
+        ? e.appointment.noAppointmentReasons
+        : (e.appointment?.noAppointmentReason ? [e.appointment.noAppointmentReason] : []);
+      const reasons = rawReasons.length ? rawReasons : ['Unspecified'];
+      reasons.map(reason => String(reason || '').trim() || 'Unspecified').forEach(reasonLabel=>{
+        sum.noApptReasons[reasonLabel] = (sum.noApptReasons[reasonLabel]||0)+1;
+        const detail = sum.noApptReasonDetails[reasonLabel] || (sum.noApptReasonDetails[reasonLabel] = { total:0, types:{} });
+        detail.total += 1;
+        detail.types[apptLabel] = (detail.types[apptLabel]||0)+1;
+      });
+      const noApptBucket = sum.appointmentTypesByOutcome.noAppointment;
+      noApptBucket[apptLabel] = (noApptBucket[apptLabel]||0)+1;
     }
     if(ch==='cancellation'){
       sum.cancel++;
@@ -640,44 +666,6 @@ function renderReasonDetails(containerId, detailMap, { labelForReason = (key)=>S
   });
 }
 
-function renderOutcomeLists(data = {}){
-  renderOutcomeList('listScheduledTypes', data.scheduled);
-  renderOutcomeList('listRescheduledTypes', data.reschedule);
-  renderOutcomeList('listCancelledTypes', data.cancellation);
-}
-
-function renderOutcomeList(listId, map){
-  const el = document.getElementById(listId);
-  if (!el) return;
-  el.innerHTML = '';
-  const entries = Object.entries(map || {}).filter(([,count])=>Number(count)||0).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
-  if (!entries.length){
-    const empty = document.createElement('li');
-    empty.className = 'change-empty';
-    empty.textContent = 'No data yet';
-    el.appendChild(empty);
-    return;
-  }
-  const total = entries.reduce((acc,[,count])=> acc + (Number(count)||0), 0) || 1;
-  entries.forEach(([label,count])=>{
-    const li = document.createElement('li');
-    const name = document.createElement('span');
-    name.className = 'change-label';
-    name.textContent = label;
-    const meta = document.createElement('span');
-    meta.className = 'change-meta';
-    const cnt = document.createElement('span');
-    cnt.className = 'change-count';
-    cnt.textContent = String(count);
-    const pct = document.createElement('span');
-    pct.className = 'change-percent';
-    pct.textContent = `${Math.round((Number(count)||0)/total*100)}%`;
-    meta.append(cnt, pct);
-    li.append(name, meta);
-    el.appendChild(li);
-  });
-}
-
 function buildReasonTypeStack(detailMap, { topN = 6, formatReason = (key)=>String(key||'') } = {}){
   const totalsByType = {};
   Object.values(detailMap || {}).forEach(detail=>{
@@ -730,6 +718,100 @@ function buildReasonTypeStack(detailMap, { topN = 6, formatReason = (key)=>Strin
     });
   }
   return { dataMap, series, order, legendDetails };
+}
+
+function totalFromMap(map){
+  return Object.values(map || {}).reduce((acc,val)=> acc + (Number(val)||0), 0);
+}
+
+const outcomeTabsEl = document.getElementById('outcomeTabs');
+const outcomeFunnelEl = document.getElementById('outcomeFunnel');
+const outcomeMessageEl = document.getElementById('outcomeMessage');
+
+function updateOutcomeFunnel(dataMap){
+  if (!outcomeFunnelEl) return;
+  const totals = {
+    scheduled: dataMap?.scheduled?.total || 0,
+    rescheduled: dataMap?.rescheduled?.total || 0,
+    cancelled: dataMap?.cancelled?.total || 0,
+    no_appointment: dataMap?.no_appointment?.total || 0
+  };
+  const ids = {
+    scheduled: 'funnelScheduled',
+    rescheduled: 'funnelRescheduled',
+    cancelled: 'funnelCancelled',
+    no_appointment: 'funnelNoAppt'
+  };
+  Object.entries(ids).forEach(([key,id])=>{
+    const el = document.getElementById(id);
+    if (el) el.textContent = String(totals[key] || 0);
+  });
+  if (outcomeFunnelEl){
+    outcomeFunnelEl.querySelectorAll('.funnel-card').forEach(card=>{
+      const key = card.dataset.outcome;
+      card.classList.toggle('active', key === CURRENT_OUTCOME);
+    });
+  }
+}
+
+function renderOutcomeView(outcomeKey){
+  if (!OUTCOME_DATA) return;
+  const target = OUTCOME_DATA[outcomeKey] || OUTCOME_DATA.scheduled;
+  if (!target) return;
+  CURRENT_OUTCOME = outcomeKey;
+  if (outcomeTabsEl){
+    outcomeTabsEl.querySelectorAll('.outcome-tab').forEach(btn=>{
+      const key = btn.dataset.outcome;
+      const isActive = key === CURRENT_OUTCOME;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+  }
+  updateOutcomeFunnel(OUTCOME_DATA);
+  const stack = target.stack || { dataMap:{}, series:[], order:[], legendDetails:{} };
+  drawStackedMulti('chartOutcomeTypes', stack.dataMap, {
+    series: stack.series,
+    order: stack.order,
+    formatValue: (value) => String(value)
+  });
+  renderStackLegend('chartOutcomeTypesLegend', stack.series, stack.legendDetails);
+  const reasonMap = target.reasonMap || {};
+  const reasonOptions = {
+    palette: target.reasonPalette || ['#4f46e5','#7c3aed','#0ea5e9','#f97316','#10b981'],
+    labelMap: target.reasonLabelMap || {}
+  };
+  drawBarChart('chartOutcomeReasons', reasonMap, reasonOptions);
+  renderReasonDetails('outcomeReasonDetails', target.detailMap || {}, { labelForReason: target.labelFormatter || ((key)=>key) });
+  if (outcomeMessageEl){
+    if ((target.total || 0) === 0){
+      outcomeMessageEl.textContent = `No records captured for ${OUTCOME_LABELS[outcomeKey] || outcomeKey}.`;
+    } else if (!Object.keys(reasonMap||{}).length){
+      outcomeMessageEl.textContent = 'No specific reasons captured yet for this outcome.';
+    } else {
+      outcomeMessageEl.textContent = '';
+    }
+  }
+}
+
+function setOutcome(outcomeKey){
+  renderOutcomeView(outcomeKey);
+}
+
+function initializeOutcomeTabs(){
+  if (outcomeTabsEl){
+    outcomeTabsEl.addEventListener('click', (evt)=>{
+      const btn = evt.target.closest('.outcome-tab');
+      if (!btn) return;
+      setOutcome(btn.dataset.outcome);
+    });
+  }
+  if (outcomeFunnelEl){
+    outcomeFunnelEl.querySelectorAll('.funnel-card').forEach(card=>{
+      card.addEventListener('click', ()=>{
+        setOutcome(card.dataset.outcome);
+      });
+    });
+  }
 }
 
 function renderAppointmentLists(sum){
@@ -848,19 +930,65 @@ function updateKpisAndCharts(){
     drawBarChart('chartReschedReasons', sum.reschedReasons, { palette: reschedPalette, labelMap: buildReasonLabelMap(sum.reschedReasons) });
   }
   renderReasonDetails('cancelReasonDetails', sum.cancelReasonDetails, { labelForReason: prettyReason });
-  renderReasonDetails('reschedReasonDetails', sum.reschedReasonDetails, { labelForReason: prettyReason });
+  const totalScheduled = totalFromMap(sum.appointmentTypesByOutcome.scheduled);
+  const scheduledDetailMap = totalScheduled ? { Scheduled: { total: totalScheduled, types: sum.appointmentTypesByOutcome.scheduled } } : {};
+  const scheduledStack = buildReasonTypeStack(scheduledDetailMap, { topN: 6, formatReason: (key)=>key });
   const reschedTypeStack = buildReasonTypeStack(sum.reschedReasonDetails, { topN: 6, formatReason: prettyReason });
-  if (reschedTypeStack.series.length){
-    drawStackedMulti('chartReschedReasonTypes', reschedTypeStack.dataMap, {
-      series: reschedTypeStack.series,
-      order: reschedTypeStack.order,
-      formatValue: (value) => String(value)
-    });
-    renderStackLegend('chartReschedReasonTypesLegend', reschedTypeStack.series, reschedTypeStack.legendDetails);
-  } else {
-    drawStackedMulti('chartReschedReasonTypes', {}, { series: [] });
-    renderStackLegend('chartReschedReasonTypesLegend', []);
+  const cancelTypeStack = buildReasonTypeStack(sum.cancelReasonDetails, { topN: 6, formatReason: prettyReason });
+  const noApptStack = buildReasonTypeStack(sum.noApptReasonDetails, { topN: 6, formatReason: (key)=>key });
+  const noApptPalette = ['#f97316','#f59e0b','#fbbf24','#84cc16','#22c55e'];
+  OUTCOME_DATA = {
+    scheduled: {
+      key: 'scheduled',
+      label: OUTCOME_LABELS.scheduled,
+      total: totalScheduled,
+      stack: scheduledStack,
+      reasonMap: {},
+      reasonLabelMap: {},
+      reasonPalette: null,
+      detailMap: scheduledDetailMap,
+      labelFormatter: (key)=>key
+    },
+    rescheduled: {
+      key: 'rescheduled',
+      label: OUTCOME_LABELS.rescheduled,
+      total: sum.resched,
+      stack: reschedTypeStack,
+      reasonMap: sum.reschedReasons,
+      reasonLabelMap: buildReasonLabelMap(sum.reschedReasons),
+      reasonPalette: reschedPalette,
+      detailMap: sum.reschedReasonDetails,
+      labelFormatter: prettyReason
+    },
+    cancelled: {
+      key: 'cancelled',
+      label: OUTCOME_LABELS.cancelled,
+      total: sum.cancel,
+      stack: cancelTypeStack,
+      reasonMap: sum.cancelReasons,
+      reasonLabelMap: buildReasonLabelMap(sum.cancelReasons),
+      reasonPalette: cancelPalette,
+      detailMap: sum.cancelReasonDetails,
+      labelFormatter: prettyReason
+    },
+    no_appointment: {
+      key: 'no_appointment',
+      label: OUTCOME_LABELS.no_appointment,
+      total: totalFromMap(sum.appointmentTypesByOutcome.noAppointment),
+      stack: noApptStack,
+      reasonMap: sum.noApptReasons,
+      reasonLabelMap: {},
+      reasonPalette: noApptPalette,
+      detailMap: sum.noApptReasonDetails,
+      labelFormatter: (key)=>key
+    }
+  };
+  if (!OUTCOME_DATA[CURRENT_OUTCOME] || OUTCOME_DATA[CURRENT_OUTCOME].total === 0){
+    const firstWithData = OUTCOME_KEYS.find(key => OUTCOME_DATA[key]?.total);
+    if (firstWithData) CURRENT_OUTCOME = firstWithData;
   }
+  updateOutcomeFunnel(OUTCOME_DATA);
+  renderOutcomeView(CURRENT_OUTCOME);
   const tasksByType={}; const transfersByType={};
   Object.entries(sum.actionsByType).forEach(([k,v])=>{ if(v.task) tasksByType[k]=(tasksByType[k]||0)+v.task; if(v.transfer) transfersByType[k]=(transfersByType[k]||0)+v.transfer; });
   const prettify=(key)=>{ const map={ ma_call:'MA Call', provider_question:'Provider Question', refill_request:'Refill Request', billing_question:'Billing Question', confirmation:'Confirmation', results:'Results' }; return map[key] || String(key).replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()); };
@@ -874,7 +1002,6 @@ function updateKpisAndCharts(){
     drawBarChart('chartTasksByType', tasksByType, { palette: tasksPalette, labelMap: buildLabelMap(tasksByType) });
     drawBarChart('chartTransfersByType', transfersByType, { palette: transfersPalette, labelMap: buildLabelMap(transfersByType) });
   }
-  renderOutcomeLists(sum.appointmentTypesByOutcome);
 }
 
 const SEEN = loadSeen();
@@ -961,4 +1088,5 @@ try {
   const url = new URL(window.location.href);
   if(url.searchParams.get('test')==='1'){ const btn=document.getElementById('rolloverNow'); if(btn){ btn.style.display=''; btn.textContent='Recompute Now'; btn.addEventListener('click', ()=>{ try{ SELECTED_MONTH=monthKey(Date.now()); if(monthPicker) monthPicker.value=SELECTED_MONTH; renderTable(); updateKpisAndCharts(); } catch{} }); } }
   setView('daily');
+  initializeOutcomeTabs();
 } catch {}

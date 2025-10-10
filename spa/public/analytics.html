@@ -81,6 +81,20 @@
       .change-count{ font-weight:600 }
       .change-percent{ color:var(--muted); font-size:12px }
       .change-empty{ padding:10px 12px; color:var(--muted); font-style:italic }
+      .outcome-panel{ position:relative }
+      .outcome-header{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; padding:4px 8px 12px }
+      .outcome-tabs{ display:inline-flex; gap:6px; border-radius:999px; background:#eef2ff; padding:4px; }
+      .outcome-tab{ border:none; background:transparent; padding:6px 14px; border-radius:999px; font-weight:600; color:#4b5563; cursor:pointer }
+      .outcome-tab.active{ background:#4f46e5; color:#fff; box-shadow:0 4px 12px rgba(79,70,229,0.25) }
+      .outcome-funnel{ display:flex; gap:10px; flex-wrap:wrap }
+      .funnel-card{ min-width:120px; padding:8px 12px; border:1px solid var(--line); border-radius:14px; display:flex; flex-direction:column; background:#fff }
+      .funnel-card .label{ font-size:12px; color:var(--muted) }
+      .funnel-card .value{ font-size:18px; font-weight:700; color:#111827 }
+      .funnel-card.active{ border-color:#4f46e5; background:#eef2ff }
+      .outcome-body{ display:flex; gap:16px; flex-wrap:wrap }
+      .outcome-left, .outcome-right{ flex:1 1 320px; min-width:280px }
+      #chartOutcomeTypesLegend{ margin-top:8px }
+      .outcome-message{ font-size:13px; color:var(--muted); padding:8px 0 }
       table thead th:nth-child(6), table tbody td:nth-child(6){ min-width:160px }
       tbody tr:nth-child(even){ background:#f9fafb }
       @media (min-width: 1024px){ .kpi-grid{ grid-template-columns: repeat(6,minmax(140px,1fr)); } }
@@ -130,6 +144,48 @@
         </div>
       </div>
       <div class="charts">
+        <div class="panel wide outcome-panel">
+          <h2>Outcome Overview</h2>
+          <div class="body">
+            <div class="outcome-header">
+              <div class="outcome-tabs" id="outcomeTabs" role="tablist" aria-label="Appointment outcomes">
+                <button type="button" class="outcome-tab active" data-outcome="scheduled" role="tab" aria-selected="true">Scheduled</button>
+                <button type="button" class="outcome-tab" data-outcome="rescheduled" role="tab" aria-selected="false">Rescheduled</button>
+                <button type="button" class="outcome-tab" data-outcome="cancelled" role="tab" aria-selected="false">Cancelled</button>
+                <button type="button" class="outcome-tab" data-outcome="no_appointment" role="tab" aria-selected="false">No Appointment</button>
+              </div>
+              <div class="outcome-funnel" id="outcomeFunnel" aria-live="polite">
+                <div class="funnel-card" data-outcome="scheduled">
+                  <span class="label">Scheduled</span>
+                  <span class="value" id="funnelScheduled">0</span>
+                </div>
+                <div class="funnel-card" data-outcome="rescheduled">
+                  <span class="label">Rescheduled</span>
+                  <span class="value" id="funnelRescheduled">0</span>
+                </div>
+                <div class="funnel-card" data-outcome="cancelled">
+                  <span class="label">Cancelled</span>
+                  <span class="value" id="funnelCancelled">0</span>
+                </div>
+                <div class="funnel-card" data-outcome="no_appointment">
+                  <span class="label">No Appointment</span>
+                  <span class="value" id="funnelNoAppt">0</span>
+                </div>
+              </div>
+            </div>
+            <div class="outcome-body">
+              <div class="outcome-left">
+                <canvas id="chartOutcomeTypes" class="chart" aria-label="Appointment type distribution by reason"></canvas>
+                <div id="chartOutcomeTypesLegend" class="chart-legend"></div>
+              </div>
+              <div class="outcome-right">
+                <canvas id="chartOutcomeReasons" class="chart" aria-label="Outcome reasons"></canvas>
+                <div id="outcomeReasonDetails" class="reason-details"></div>
+                <div id="outcomeMessage" class="outcome-message" aria-live="polite"></div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="panel wide"><h2>Time Distribution (8am–5pm)</h2><div class="body"><canvas id="chartHours" class="chart"></canvas></div></div>
         <div class="panel wide" id="panelWeekdays"><h2>Weekday Distribution (Mon–Fri)</h2><div class="body"><canvas id="chartWeekdays" class="chart"></canvas></div></div>
         <div class="panel allow-overflow"><h2>Scheduling by Office</h2><div class="body chart-with-legend"><canvas id="chartNewExisting" class="chart"></canvas><div id="chartNewExistingLegend" class="chart-legend"></div></div></div>
@@ -139,30 +195,9 @@
         <div class="panel allow-overflow"><h2>Other Appointment Mix</h2><div class="body chart-with-legend"><canvas id="chartApptOther" class="chart"></canvas><div id="chartApptOtherLegend" class="chart-legend"></div></div></div>
         <div class="panel"><h2>Office Mix</h2><div class="body"><canvas id="chartOffices" class="chart"></canvas></div></div>
         <div class="panel"><h2>Cancel Reasons</h2><div class="body"><canvas id="chartCancelReasons" class="chart"></canvas><div id="cancelReasonDetails" class="reason-details"></div></div></div>
-        <div class="panel allow-overflow"><h2>Reschedule Reasons</h2><div class="body"><canvas id="chartReschedReasons" class="chart"></canvas><div class="chart-with-legend" style="margin-top:12px"><canvas id="chartReschedReasonTypes" class="chart"></canvas><div id="chartReschedReasonTypesLegend" class="chart-legend"></div></div><div id="reschedReasonDetails" class="reason-details"></div></div></div>
-        <div class="panel allow-overflow"><h2>Appointment Types by Outcome</h2><div class="body change-breakdown">
-          <div class="change-column">
-            <h3>Scheduled</h3>
-            <ol id="listScheduledTypes" class="change-list">
-              <li class="change-empty">No data yet</li>
-            </ol>
-          </div>
-          <div class="change-column">
-            <h3>Rescheduled</h3>
-            <ol id="listRescheduledTypes" class="change-list">
-              <li class="change-empty">No data yet</li>
-            </ol>
-          </div>
-          <div class="change-column">
-            <h3>Cancelled</h3>
-            <ol id="listCancelledTypes" class="change-list">
-              <li class="change-empty">No data yet</li>
-            </ol>
-          </div>
-        </div></div>
         <div class="panel"><h2>Tasks by Type</h2><div class="body"><canvas id="chartTasksByType" class="chart"></canvas></div></div>
         <div class="panel"><h2>Transfers by Type</h2><div class="body"><canvas id="chartTransfersByType" class="chart"></canvas></div></div>
-      </div>
+      </div></div>
 
       <div class="panel wide">
         <h2>Appointment Types</h2>
