@@ -787,8 +787,11 @@ function updateKpisAndCharts(){
       order: reschedTypeStack.order,
       formatValue: (value) => String(value)
     });
+    renderLegend('chartReschedReasonTypesLegend', reschedTypeStack.series);
   } else {
     drawStackedMulti('chartReschedReasonTypes', {}, { series: [] });
+    const legend = document.getElementById('chartReschedReasonTypesLegend');
+    if(legend) legend.innerHTML = '<div class=\"muted\">No appointment types yet</div>';
   }
   const tasksByType={}; const transfersByType={};
   Object.entries(sum.actionsByType).forEach(([k,v])=>{ if(v.task) tasksByType[k]=(tasksByType[k]||0)+v.task; if(v.transfer) transfersByType[k]=(transfersByType[k]||0)+v.transfer; });

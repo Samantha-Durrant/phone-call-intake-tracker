@@ -982,8 +982,11 @@ function updateKpisAndCharts(){
       order: reschedTypeStack.order,
       formatValue: (value) => String(value)
     });
+    renderLegend('chartReschedReasonTypesLegend', reschedTypeStack.series);
   } else {
     drawStackedMulti('chartReschedReasonTypes', {}, { series: [] });
+    const legend = document.getElementById('chartReschedReasonTypesLegend');
+    if (legend) legend.innerHTML = '<div class="muted">No appointment types yet</div>';
   }
 
   // Split tasks / transfers by type with distinct colors and proper labels
