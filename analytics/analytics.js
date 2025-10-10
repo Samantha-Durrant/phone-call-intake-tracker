@@ -18,6 +18,7 @@ function canonicalOffice(name){
 
 const PIE_PALETTE = ['#6366f1','#8b5cf6','#ec4899','#f473b7','#f59e0b','#facc15','#10b981','#14b8a6','#0ea5e9','#3b82f6','#a855f7','#ef4444'];
 const STACK_TYPE_COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ec4899','#a855f7','#94a3b8','#22d3ee'];
+const OFFICE_COLORS = ['#6366f1','#22d3ee','#10b981','#f59e0b','#94a3b8','#c084fc'];
 const OUTCOME_KEYS = ['scheduled','rescheduled','cancelled','no_appointment'];
 const OUTCOME_LABELS = {
   scheduled: 'Scheduled',
@@ -334,14 +335,23 @@ function summarize(entries){
       reschedule: {},
       cancellation: {},
       noAppointment: {}
-    }
+    },
+    byOffice: {}
   };
+  OFFICE_KEYS.forEach(name => { sum.byOffice[name] = createOfficeBucket(); });
   const inRange = (h) => h>=8 && h<=17;
   const normReason = (r) => String(r||'').trim().replace(/[\/]+/g,' ').replace(/\s+/g,' ').trim();
   entries.forEach(e => {
     const d = new Date(e.time);
     const h = d.getHours();
-    if (inRange(h)) sum.hours[h] = (sum.hours[h]||0)+1;
+    const { apptType, office } = normalizeTypeAndOffice(e.appointment);
+    const apptLabel = apptType || 'Unspecified';
+    const officeKey = office || 'Unspecified';
+    const officeMetrics = sum.byOffice[officeKey] || (sum.byOffice[officeKey] = createOfficeBucket());
+    if (inRange(h)) {
+      sum.hours[h] = (sum.hours[h]||0)+1;
+      officeMetrics.hours[h] = (officeMetrics.hours[h] || 0) + 1;
+    }
     const ptype = (e.patient?.type||'').toLowerCase();
     const questionOnly = !!e.appointment?.questionOnly;
     if (ptype === 'new') {
@@ -359,8 +369,6 @@ function summarize(entries){
       }
       if (e.appointment?.scheduled) sum.existingScheduled = (sum.existingScheduled||0) + 1;
     }
-    const { apptType, office } = normalizeTypeAndOffice(e.appointment);
-    const apptLabel = apptType || 'Unspecified';
     if (office) {
       sum.offices[office] = (sum.offices[office] || 0) + 1;
       if (e.appointment) e.appointment.office = office;
@@ -371,7 +379,6 @@ function summarize(entries){
       const bucket = sum.apptGroups[group] || (sum.apptGroups[group] = {});
       bucket[apptType] = (bucket[apptType] || 0) + 1;
     }
-    const officeKey = office || 'Unspecified';
     const officeBucket = sum.officeBreakdown[officeKey] || { existingScheduled:0, existingNot:0, newScheduled:0, newNot:0, questionOnlyExisting:0, questionOnlyNew:0 };
     if (ptype === 'new') {
       if (e.appointment?.scheduled) {
@@ -395,6 +402,9 @@ function summarize(entries){
     if (e.appointment?.scheduled && ch === 'none') {
       const scheduledBucket = sum.appointmentTypesByOutcome.scheduled;
       scheduledBucket[apptLabel] = (scheduledBucket[apptLabel] || 0) + 1;
+      const officeOutcome = officeMetrics.outcomes.scheduled;
+      officeOutcome.total = (officeOutcome.total || 0) + 1;
+      officeOutcome.appointmentTypes[apptLabel] = (officeOutcome.appointmentTypes[apptLabel] || 0) + 1;
     }
     if (!e.appointment?.scheduled) {
       const rawReasons = Array.isArray(e.appointment?.noAppointmentReasons)
@@ -404,12 +414,20 @@ function summarize(entries){
       let reasons = rawReasons.map(reason => String(reason || '').trim()).filter(Boolean);
       if (!reasons.length && questionOnlyFlag) reasons = ['Question Only'];
       if (reasons.length) {
+        const officeNoOutcome = officeMetrics.outcomes.noAppointment;
+        officeNoOutcome.total = (officeNoOutcome.total || 0) + 1;
+        officeNoOutcome.appointmentTypes[apptLabel] = (officeNoOutcome.appointmentTypes[apptLabel] || 0) + 1;
         reasons.forEach(reason => {
           const key = reason || 'Unspecified';
           sum.noApptReasons[key] = (sum.noApptReasons[key] || 0) + 1;
           const detail = sum.noApptReasonDetails[key] || (sum.noApptReasonDetails[key] = { total: 0, types: {} });
           detail.total += 1;
           detail.types[apptLabel] = (detail.types[apptLabel] || 0) + 1;
+          officeMetrics.noApptReasons[key] = (officeMetrics.noApptReasons[key] || 0) + 1;
+          officeNoOutcome.reasons[key] = (officeNoOutcome.reasons[key] || 0) + 1;
+          const officeDetail = officeNoOutcome.reasonDetails[key] || (officeNoOutcome.reasonDetails[key] = { total:0, types:{} });
+          officeDetail.total += 1;
+          officeDetail.types[apptLabel] = (officeDetail.types[apptLabel] || 0) + 1;
         });
         const noApptBucket = sum.appointmentTypesByOutcome.noAppointment;
         noApptBucket[apptLabel] = (noApptBucket[apptLabel] || 0) + 1;
@@ -424,6 +442,14 @@ function summarize(entries){
       detail.types[apptLabel] = (detail.types[apptLabel] || 0) + 1;
       const cancelBucket = sum.appointmentTypesByOutcome.cancellation;
       cancelBucket[apptLabel] = (cancelBucket[apptLabel] || 0) + 1;
+      officeMetrics.cancelReasons[reasonKey] = (officeMetrics.cancelReasons[reasonKey] || 0) + 1;
+      const officeCancelOutcome = officeMetrics.outcomes.cancelled;
+      officeCancelOutcome.total = (officeCancelOutcome.total || 0) + 1;
+      officeCancelOutcome.appointmentTypes[apptLabel] = (officeCancelOutcome.appointmentTypes[apptLabel] || 0) + 1;
+      officeCancelOutcome.reasons[reasonKey] = (officeCancelOutcome.reasons[reasonKey] || 0) + 1;
+      const officeCancelDetail = officeCancelOutcome.reasonDetails[reasonKey] || (officeCancelOutcome.reasonDetails[reasonKey] = { total:0, types:{} });
+      officeCancelDetail.total += 1;
+      officeCancelDetail.types[apptLabel] = (officeCancelDetail.types[apptLabel] || 0) + 1;
     } else if (ch === 'reschedule') {
       sum.resched++;
       const reasonKey = normReason(e.appointment?.reason) || 'unspecified';
@@ -433,16 +459,25 @@ function summarize(entries){
       detail.types[apptLabel] = (detail.types[apptLabel] || 0) + 1;
       const reschedBucket = sum.appointmentTypesByOutcome.reschedule;
       reschedBucket[apptLabel] = (reschedBucket[apptLabel] || 0) + 1;
+      officeMetrics.reschedReasons[reasonKey] = (officeMetrics.reschedReasons[reasonKey] || 0) + 1;
+      const officeReschedOutcome = officeMetrics.outcomes.rescheduled;
+      officeReschedOutcome.total = (officeReschedOutcome.total || 0) + 1;
+      officeReschedOutcome.appointmentTypes[apptLabel] = (officeReschedOutcome.appointmentTypes[apptLabel] || 0) + 1;
+      officeReschedOutcome.reasons[reasonKey] = (officeReschedOutcome.reasons[reasonKey] || 0) + 1;
+      const officeReschedDetail = officeReschedOutcome.reasonDetails[reasonKey] || (officeReschedOutcome.reasonDetails[reasonKey] = { total:0, types:{} });
+      officeReschedDetail.total += 1;
+      officeReschedDetail.types[apptLabel] = (officeReschedDetail.types[apptLabel] || 0) + 1;
     }
     const actions = e.actions || {};
     Object.entries(actions).forEach(([k,v])=>{
       if (!sum.actionsByType[k]) sum.actionsByType[k] = { task:0, transfer:0 };
-      if (v.task) { sum.actionsByType[k].task++; sum.tasks++; }
-      if (v.transfer) { sum.actionsByType[k].transfer++; sum.transfers++; }
+      if (v.task) { sum.actionsByType[k].task++; sum.tasks++; officeMetrics.tasksByType[k] = (officeMetrics.tasksByType[k] || 0) + 1; }
+      if (v.transfer) { sum.actionsByType[k].transfer++; sum.transfers++; officeMetrics.transfersByType[k] = (officeMetrics.transfersByType[k] || 0) + 1; }
     });
     const confirmed = !!e.appointment?.confirmed;
     const confirmLabel = confirmed ? 'Confirmed' : 'Not Confirmed';
     sum.confirmations[confirmLabel] = (sum.confirmations[confirmLabel] || 0) + 1;
+    officeMetrics.confirmations[confirmLabel] = (officeMetrics.confirmations[confirmLabel] || 0) + 1;
     if (e.appointment) e.appointment.confirmed = confirmed;
   });
   return sum;
@@ -919,6 +954,149 @@ function buildReasonTypeStack(detailMap, { topN = 6, formatReason = (key) => Str
 
 function totalFromMap(map){
   return Object.values(map || {}).reduce((acc,val) => acc + (Number(val)||0), 0);
+}
+
+const makeOutcomeBucket = () => ({
+  total: 0,
+  appointmentTypes: {},
+  reasons: {},
+  reasonDetails: {}
+});
+
+function createOfficeBucket(){
+  return {
+    outcomes: {
+      scheduled: { total:0, appointmentTypes:{} },
+      rescheduled: makeOutcomeBucket(),
+      cancelled: makeOutcomeBucket(),
+      noAppointment: makeOutcomeBucket()
+    },
+    hours: {},
+    confirmations: { Confirmed:0, 'Not Confirmed':0 },
+    cancelReasons: {},
+    reschedReasons: {},
+    noApptReasons: {},
+    tasksByType: {},
+    transfersByType: {}
+  };
+}
+
+function officeList(byOffice = {}){
+  const extras = Object.keys(byOffice).filter(name => !OFFICE_KEYS.includes(name));
+  const combined = [...OFFICE_KEYS, ...extras];
+  return combined.filter((name, idx) => combined.indexOf(name) === idx && byOffice[name]);
+}
+
+function officeSeries(offices){
+  return offices.map((office, idx) => ({
+    key: office,
+    label: office,
+    color: OFFICE_COLORS[idx % OFFICE_COLORS.length]
+  }));
+}
+
+function buildOfficeTypeStack(byOffice, outcomeKey){
+  const offices = officeList(byOffice);
+  const dataMap = {};
+  const included = new Set();
+  offices.forEach((office)=>{
+    const bucket = byOffice[office];
+    if (!bucket) return;
+    const outcome = bucket.outcomes?.[outcomeKey] || {};
+    Object.entries(outcome.appointmentTypes || {}).forEach(([type,count])=>{
+      const value = Number(count) || 0;
+      if (!value) return;
+      (dataMap[type] ||= {})[office] = ((dataMap[type] || {})[office] || 0) + value;
+      included.add(office);
+    });
+  });
+  const order = Object.entries(dataMap).map(([label,map])=>({
+    label,
+    total: Object.values(map).reduce((acc,val)=>acc + (Number(val)||0), 0)
+  })).filter(item => item.total > 0).sort((a,b)=>b.total - a.total).map(item => item.label);
+  return { dataMap, series: officeSeries(offices.filter(o => included.has(o))), order };
+}
+
+function buildOfficeReasonStack(byOffice, outcomeKey){
+  const offices = officeList(byOffice);
+  const dataMap = {};
+  const included = new Set();
+  offices.forEach((office)=>{
+    const bucket = byOffice[office];
+    if (!bucket) return;
+    const outcome = bucket.outcomes?.[outcomeKey] || {};
+    Object.entries(outcome.reasons || {}).forEach(([reason,count])=>{
+      const value = Number(count) || 0;
+      if (!value) return;
+      (dataMap[reason] ||= {})[office] = ((dataMap[reason] || {})[office] || 0) + value;
+      included.add(office);
+    });
+  });
+  const order = Object.entries(dataMap).map(([label,map])=>({
+    label,
+    total: Object.values(map).reduce((acc,val)=>acc + (Number(val)||0), 0)
+  })).filter(item => item.total > 0).sort((a,b)=>b.total - a.total).map(item => item.label);
+  return { dataMap, series: officeSeries(offices.filter(o => included.has(o))), order };
+}
+
+function buildOfficeHoursStack(byOffice, hoursOrder){
+  const offices = officeList(byOffice);
+  const dataMap = {};
+  const included = new Set();
+  offices.forEach((office)=>{
+    const bucket = byOffice[office];
+    if (!bucket) return;
+    const hours = bucket.hours || {};
+    hoursOrder.forEach(hour=>{
+      const value = Number(hours[hour] || 0);
+      if (!value) return;
+      (dataMap[hour] ||= {})[office] = ((dataMap[hour] || {})[office] || 0) + value;
+      included.add(office);
+    });
+  });
+  hoursOrder.forEach(hour => { dataMap[hour] = dataMap[hour] || {}; });
+  return { dataMap, series: officeSeries(offices.filter(o => included.has(o))), order: hoursOrder };
+}
+
+function buildOfficeConfirmationStack(byOffice){
+  const offices = officeList(byOffice);
+  const labels = ['Confirmed','Not Confirmed'];
+  const dataMap = { Confirmed:{}, 'Not Confirmed':{} };
+  const included = new Set();
+  offices.forEach((office)=>{
+    const bucket = byOffice[office];
+    if (!bucket) return;
+    const confirmations = bucket.confirmations || {};
+    labels.forEach(label=>{
+      const value = Number(confirmations[label] || 0);
+      if (!value) return;
+      dataMap[label][office] = (dataMap[label][office] || 0) + value;
+      included.add(office);
+    });
+  });
+  return { dataMap, series: officeSeries(offices.filter(o => included.has(o))), order: labels };
+}
+
+function buildOfficeCategoryStack(byOffice, accessor){
+  const offices = officeList(byOffice);
+  const dataMap = {};
+  const included = new Set();
+  offices.forEach((office)=>{
+    const bucket = byOffice[office];
+    if (!bucket) return;
+    const dataset = accessor(bucket) || {};
+    Object.entries(dataset).forEach(([label,count])=>{
+      const value = Number(count) || 0;
+      if (!value) return;
+      (dataMap[label] ||= {})[office] = ((dataMap[label] || {})[office] || 0) + value;
+      included.add(office);
+    });
+  });
+  const order = Object.entries(dataMap).map(([label,map])=>({
+    label,
+    total: Object.values(map).reduce((acc,val)=>acc + (Number(val)||0), 0)
+  })).filter(item => item.total > 0).sort((a,b)=>b.total - a.total).map(item => item.label);
+  return { dataMap, series: officeSeries(offices.filter(o => included.has(o))), order };
 }
 
 const outcomeTabsEl = document.getElementById('outcomeTabs');
