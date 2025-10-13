@@ -73,6 +73,7 @@ const CATEGORY_LABELS = {
   cosmetic: 'Cosmetic Dermatology',
   other: 'Other'
 };
+const reasonDetailOpenState = new Map();
 
 function unpackTypeValue(label, value){
   if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -1160,9 +1161,13 @@ function renderStackLegend(containerId, series, legendDetails = {}){
 }
 
 
+
 function renderReasonDetails(containerId, detailMap, { labelForReason = (key) => String(key||'') } = {}){
   const container = document.getElementById(containerId);
   if (!container) return;
+  const stateKey = containerId || 'default';
+  const prevState = reasonDetailOpenState.get(stateKey) || new Set();
+  const nextState = new Set(prevState);
   container.innerHTML = '';
   const entries = Object.entries(detailMap || {}).filter(([,detail]) => detail && detail.total).sort((a,b)=> (b[1].total||0) - (a[1].total||0));
   if (!entries.length){
@@ -1175,6 +1180,7 @@ function renderReasonDetails(containerId, detailMap, { labelForReason = (key) =>
   entries.forEach(([reasonKey, detail])=>{
     const item = document.createElement('details');
     item.className = 'reason-detail';
+    if (prevState.has(reasonKey)) item.setAttribute('open','');
     const summary = document.createElement('summary');
     summary.innerHTML = `<span class="reason-detail-title">${labelForReason(reasonKey)} — ${detail.total}</span><span class="chevron">▾</span>`;
     item.appendChild(summary);
@@ -1192,8 +1198,14 @@ function renderReasonDetails(containerId, detailMap, { labelForReason = (key) =>
     });
     body.appendChild(list);
     item.appendChild(body);
+    item.addEventListener('toggle', () => {
+      if (item.open) nextState.add(reasonKey);
+      else nextState.delete(reasonKey);
+      reasonDetailOpenState.set(stateKey, new Set(nextState));
+    });
     container.appendChild(item);
   });
+  reasonDetailOpenState.set(stateKey, new Set(Array.from(nextState).filter(key => detailMap && Object.prototype.hasOwnProperty.call(detailMap, key))));
 }
 
 
