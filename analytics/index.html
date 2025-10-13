@@ -116,9 +116,17 @@
       .main-tab{ border:none; background:#e5e7eb; padding:6px 14px; border-radius:999px; font-weight:600; color:#374151; cursor:pointer }
       .main-tab.active{ background:#111827; color:#fff; box-shadow:0 4px 12px rgba(17,24,39,0.25) }
       .hidden{ display:none !important; }
-      .insight-list{ margin:12px 0 0; padding-left:18px; display:flex; flex-direction:column; gap:8px; font-size:13px; color:#111827 }
-      .insight-list li strong{ color:#111827 }
-      .insights-intro{ font-size:12px; margin-bottom:6px }
+      .insights-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin-top:12px }
+      .insight-card{ border:1px solid var(--line); border-radius:12px; background:#fff; padding:12px 14px; box-shadow:0 6px 18px rgba(15,23,42,0.08); display:flex; flex-direction:column; gap:10px }
+      .insight-heading{ font-size:13px; font-weight:700; color:#111827; display:flex; justify-content:space-between; align-items:center }
+      .insight-total{ font-size:24px; font-weight:800; color:#111827 }
+      .insight-subtext{ font-size:12px; color:#6b7280 }
+      .insight-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; font-size:13px; color:#111827 }
+      .insight-list li{ display:flex; justify-content:space-between; align-items:center; gap:12px }
+      .insight-label{ flex:1 }
+      .insight-value{ font-weight:600; color:#4f46e5 }
+      .insights-intro{ font-size:12px; margin-bottom:6px; color:#6b7280 }
+      .insight-empty{ color:#6b7280; font-size:13px }
       @media (min-width: 1024px){ .kpi-grid{ grid-template-columns: repeat(6,minmax(140px,1fr)); } }
       @media (max-width: 980px){ .wrap{ grid-template-columns: 1fr; height:auto } }
     </style>
@@ -290,9 +298,38 @@
         <h2>Insights</h2>
         <div class="body">
           <div class="insights-intro muted">Snapshots update with the current filters and view.</div>
-          <ul id="insightList" class="insight-list">
-            <li class="muted">Loading insights…</li>
-          </ul>
+          <div id="insightShell" class="insights-grid">
+            <div class="insight-card">
+              <div class="insight-heading">
+                <span>Scheduled Highlights</span>
+                <span class="insight-total" id="insightScheduledTotal">0</span>
+              </div>
+              <div class="insight-subtext">Most common appointment types scheduled</div>
+              <ul id="insightScheduledList" class="insight-list">
+                <li class="insight-empty">Not enough data yet.</li>
+              </ul>
+            </div>
+            <div class="insight-card">
+              <div class="insight-heading">
+                <span>Cancellation Drivers</span>
+                <span class="insight-total" id="insightCancelTotal">0</span>
+              </div>
+              <div class="insight-subtext">Top appointment & reason combinations</div>
+              <ul id="insightCancelList" class="insight-list">
+                <li class="insight-empty">Not enough data yet.</li>
+              </ul>
+            </div>
+            <div class="insight-card">
+              <div class="insight-heading">
+                <span>No Appointment Reasons</span>
+                <span class="insight-total" id="insightNoApptTotal">0</span>
+              </div>
+              <div class="insight-subtext">Top “no appointment” explanations</div>
+              <ul id="insightNoApptList" class="insight-list">
+                <li class="insight-empty">Not enough data yet.</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>

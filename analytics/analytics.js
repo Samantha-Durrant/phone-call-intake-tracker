@@ -1422,57 +1422,77 @@ function getTopEntry(map, labelFormatter = (label) => String(label || '')){
   return { label: labelFormatter(label), count: Number(count)||0 };
 }
 
-function renderInsights(sum){
-  if (!insightListEl) return;
-  insightListEl.innerHTML = '';
-  if (!sum || !sum.total){
+function renderInsightList(listEl, entries){
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  if (!entries || !entries.length){
     const li = document.createElement('li');
-    li.className = 'muted';
-    li.textContent = 'No submissions captured yet.';
-    insightListEl.appendChild(li);
+    li.className = 'insight-empty';
+    li.textContent = 'Not enough data yet.';
+    listEl.appendChild(li);
     return;
   }
-  const items = [];
-  const totalScheduled = totalFromMap(sum.appointmentTypesByOutcome?.scheduled);
-  const topScheduled = getTopEntry(sum.appointmentTypesByOutcome?.scheduled);
-  if (topScheduled){
-    const pct = totalScheduled ? Math.round((topScheduled.count / totalScheduled) * 100) : 0;
-    items.push(`Top scheduled type: <strong>${topScheduled.label}</strong> — ${topScheduled.count} (${pct}% of scheduled captures)`);
-  }
-
-  const cancelTotal = sum.cancel || totalFromMap(sum.appointmentTypesByOutcome?.cancellation);
-  const topCancelledType = getTopEntry(sum.appointmentTypesByOutcome?.cancellation);
-  if (topCancelledType){
-    const pct = cancelTotal ? Math.round((topCancelledType.count / cancelTotal) * 100) : 0;
-    items.push(`Most cancelled: <strong>${topCancelledType.label}</strong> — ${topCancelledType.count} (${pct}% of cancellations)`);
-  }
-
-  const topCancelReason = getTopEntry(sum.cancelReasons, prettyReasonLabel);
-  if (topCancelReason){
-    const pct = cancelTotal ? Math.round((topCancelReason.count / cancelTotal) * 100) : 0;
-    items.push(`Leading cancellation reason: <strong>${topCancelReason.label}</strong> — ${topCancelReason.count} (${pct}% of cancellations)`);
-  }
-
-  const noApptTotal = totalFromMap(sum.appointmentTypesByOutcome?.noAppointment);
-  const topNoApptReason = getTopEntry(sum.noApptReasons, prettyReasonLabel);
-  if (topNoApptReason){
-    const pct = noApptTotal ? Math.round((topNoApptReason.count / noApptTotal) * 100) : 0;
-    items.push(`Why no appointment: <strong>${topNoApptReason.label}</strong> — ${topNoApptReason.count} (${pct}% of no-appointment captures)`);
-  }
-
-  if (!items.length){
+  entries.forEach(({ label, count, pct }) => {
     const li = document.createElement('li');
-    li.className = 'muted';
-    li.textContent = 'Capture more submissions to generate insights.';
-    insightListEl.appendChild(li);
-    return;
-  }
-
-  items.forEach(text => {
-    const li = document.createElement('li');
-    li.innerHTML = text;
-    insightListEl.appendChild(li);
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'insight-label';
+    labelSpan.textContent = label;
+    const valueSpan = document.createElement('span');
+    valueSpan.className = 'insight-value';
+    valueSpan.textContent = pct !== undefined ? `${count} (${pct}%)` : String(count);
+    li.append(labelSpan, valueSpan);
+    listEl.appendChild(li);
   });
+}
+
+function gatherTopAppointments(typeMap, limit = 4){
+  const entries = Object.entries(typeMap || {}).filter(([,val]) => (Number(val)||0) > 0).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
+  const total = entries.reduce((acc,[,val]) => acc + (Number(val)||0), 0) || 1;
+  return entries.slice(0, limit).map(([label,count]) => ({ label, count: Number(count)||0, pct: Math.round((Number(count)||0)/total*100) }));
+}
+
+function gatherTopReasons(reasonMap, limit = 4){
+  const entries = Object.entries(reasonMap || {}).filter(([,val]) => (Number(val)||0) > 0).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
+  const total = entries.reduce((acc,[,val]) => acc + (Number(val)||0), 0) || 1;
+  return entries.slice(0, limit).map(([label,count]) => ({ label: prettyReasonLabel(label), count: Number(count)||0, pct: Math.round((Number(count)||0)/total*100) }));
+}
+
+function renderInsights(sum){
+  if (!insightShellEl) return;
+  if (!sum || !sum.total){
+    renderInsightList(insightScheduledListEl, []);
+    renderInsightList(insightCancelListEl, []);
+    renderInsightList(insightNoApptListEl, []);
+    if (insightScheduledTotalEl) insightScheduledTotalEl.textContent = '0';
+    if (insightCancelTotalEl) insightCancelTotalEl.textContent = '0';
+    if (insightNoApptTotalEl) insightNoApptTotalEl.textContent = '0';
+    return;
+  }
+  const scheduledEntries = gatherTopAppointments(sum.appointmentTypesByOutcome?.scheduled, 5);
+  const cancelEntries = gatherTopAppointments(sum.appointmentTypesByOutcome?.cancellation, 5);
+  const cancelReasons = gatherTopReasons(sum.cancelReasons, 3);
+  const noApptReasons = gatherTopReasons(sum.noApptReasons, 3);
+
+  const scheduledTotal = scheduledEntries.reduce((acc,item)=> acc + item.count, 0);
+  const cancelTotal = sum.cancel || cancelEntries.reduce((acc,item)=> acc + item.count, 0);
+  const noApptTotal = totalFromMap(sum.appointmentTypesByOutcome?.noAppointment);
+
+  if (insightScheduledTotalEl) insightScheduledTotalEl.textContent = String(scheduledTotal);
+  if (insightCancelTotalEl) insightCancelTotalEl.textContent = String(cancelTotal);
+  if (insightNoApptTotalEl) insightNoApptTotalEl.textContent = String(noApptTotal);
+
+  renderInsightList(insightScheduledListEl, scheduledEntries);
+
+  const cancelCombined = [];
+  cancelEntries.slice(0,3).forEach(entry => {
+    cancelCombined.push({ label: entry.label, count: entry.count, pct: entry.pct });
+  });
+  cancelReasons.slice(0,3).forEach(entry => {
+    cancelCombined.push({ label: `Reason · ${entry.label}` , count: entry.count, pct: entry.pct });
+  });
+  renderInsightList(insightCancelListEl, cancelCombined);
+
+  renderInsightList(insightNoApptListEl, noApptReasons);
 }
 
 function totalFromMap(map){
@@ -1625,7 +1645,13 @@ function buildOfficeCategoryStack(byOffice, accessor){
 const analyticsTabsEl = document.getElementById('analyticsTabs');
 const dashboardViewEl = document.getElementById('dashboardView');
 const insightsViewEl = document.getElementById('insightsView');
-const insightListEl = document.getElementById('insightList');
+const insightShellEl = document.getElementById('insightShell');
+const insightScheduledTotalEl = document.getElementById('insightScheduledTotal');
+const insightScheduledListEl = document.getElementById('insightScheduledList');
+const insightCancelTotalEl = document.getElementById('insightCancelTotal');
+const insightCancelListEl = document.getElementById('insightCancelList');
+const insightNoApptTotalEl = document.getElementById('insightNoApptTotal');
+const insightNoApptListEl = document.getElementById('insightNoApptList');
 const outcomeTabsEl = document.getElementById('outcomeTabs');
 const outcomeCategoryTabsEl = document.getElementById('outcomeCategoryTabs');
 const outcomeFunnelEl = document.getElementById('outcomeFunnel');
