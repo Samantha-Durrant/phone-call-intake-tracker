@@ -26,6 +26,17 @@ const OUTCOME_LABELS = {
   cancelled: 'Cancelled',
   no_appointment: 'No Appointment'
 };
+const PRIORITY_APPT_RULES = [
+  { key: 'new_patient', label: 'New Patient', match: (s) => s === 'new patient' },
+  { key: 'spot_check', label: 'Spot Check', match: (s) => s === 'spot check' },
+  { key: 'fse', label: 'FSE', match: (s) => s === 'fse' },
+  { key: 'botox', label: 'Botox', match: (s) => s === 'botox' },
+  { key: 'filler_major', label: 'Filler Major', match: (s) => s === 'filler major' },
+  { key: 'bbl_heroic', label: 'BBL HEROic', match: (s) => s === 'bbl heroic' },
+  { key: 'dermaplane', label: 'Dermaplane', match: (s) => s === 'dermaplane' },
+  { key: 'hydrafacial', label: 'Hydrafacial', match: (s) => s.includes('hydrafacial'), collectDetails: true },
+  { key: 'cosmetic_consult', label: 'Cosmetic Consults', match: (s) => s === 'cosmetic consult' || s === 'cosmetic consults' }
+];
 let CURRENT_OUTCOME = 'scheduled';
 let OUTCOME_DATA = null;
 
@@ -84,21 +95,60 @@ function buildApptTypePieData(map){
     .filter(item=>item.count > 0)
     .sort((a,b)=>b.count - a.count);
   if (!entries.length) return [];
+
+  const priorityMap = new Map();
+  const otherEntries = [];
+  entries.forEach(({ label, count }) => {
+    const norm = normalizeAppt(label);
+    const ruleIndex = PRIORITY_APPT_RULES.findIndex(rule => rule.match(norm));
+    if (ruleIndex >= 0) {
+      const rule = PRIORITY_APPT_RULES[ruleIndex];
+      const existing = priorityMap.get(rule.key) || {
+        label: rule.label,
+        count: 0,
+        priorityOrder: ruleIndex,
+        details: rule.collectDetails ? [] : null
+      };
+      existing.count += count;
+      if (rule.collectDetails || normalizeAppt(rule.label) !== norm) {
+        if (!existing.details) existing.details = [];
+        existing.details.push({ label, count });
+      }
+      priorityMap.set(rule.key, existing);
+    } else {
+      otherEntries.push({ label, count });
+    }
+  });
+
+  const priorityEntries = Array.from(priorityMap.values())
+    .filter(item => item.count > 0)
+    .sort((a,b)=> a.priorityOrder - b.priorityOrder)
+    .map(({ priorityOrder, details, ...rest }) => {
+      const entry = { ...rest };
+      if (Array.isArray(details) && details.length) entry.details = details;
+      return entry;
+    });
+
+  otherEntries.sort((a,b)=> b.count - a.count);
+
   const LIMIT = 7;
-  const top = entries.slice(0, LIMIT).map(item => ({ ...item }));
-  const remainderEntries = entries.slice(LIMIT);
+  const remainingSlots = Math.max(0, LIMIT - priorityEntries.length);
+  const topOther = otherEntries.slice(0, remainingSlots).map(item => ({ ...item }));
+  const remainderEntries = otherEntries.slice(remainingSlots);
   const remainder = remainderEntries.reduce((acc,item)=>acc + (item.count||0), 0);
+  const result = [...priorityEntries, ...topOther];
+
   if (remainder > 0){
-    const existingOther = top.find(item => /^other\b/i.test(String(item.label||'')));
+    const existingOther = result.find(item => /^other\b/i.test(String(item.label||'')));
     const detailList = remainderEntries.map(item => ({ label: item.label, count: item.count }));
     if (existingOther) {
       existingOther.count += remainder;
       existingOther.details = [...(existingOther.details || []), ...detailList];
     } else {
-      top.push({ label:'Other Types', count: remainder, details: detailList });
+      result.push({ label:'Other Types', count: remainder, details: detailList });
     }
   }
-  return top;
+  return result;
 }
 
 function buildTopEntries(map, limit=12){
@@ -1318,6 +1368,7 @@ function updateKpisAndCharts(){
     drawBarChart('chartCancelReasons', sum.cancelReasons, { palette: cancelPalette, labelMap: buildReasonLabelMap(sum.cancelReasons) });
     drawBarChart('chartReschedReasons', sum.reschedReasons, { palette: reschedPalette, labelMap: buildReasonLabelMap(sum.reschedReasons) });
   }
+  renderReasonDetails('reschedReasonDetails', sum.reschedReasonDetails, { labelForReason: prettyReason });
   renderReasonDetails('cancelReasonDetails', sum.cancelReasonDetails, { labelForReason: prettyReason });
   const totalScheduled = totalFromMap(sum.appointmentTypesByOutcome.scheduled);
   const scheduledDetailMap = totalScheduled ? { Scheduled: { total: totalScheduled, types: sum.appointmentTypesByOutcome.scheduled } } : {};

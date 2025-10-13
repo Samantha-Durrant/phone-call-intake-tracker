@@ -148,13 +148,23 @@
 
   function collectReasonOptions(){
     return qsa('#reasonToggleList .reason-toggle')
-      .map(btn => btn.getAttribute('data-reason') || btn.textContent?.trim() || '')
+      .map(btn => {
+        const explicit = btn.getAttribute('data-reason');
+        if (explicit) return explicit;
+        const text = (btn.textContent || '').trim();
+        return text;
+      })
       .filter(Boolean);
   }
 
   function collectNoApptOptions(){
     return qsa('#noApptReasonList .reason-toggle')
-      .map(btn => btn.getAttribute('data-reason') || btn.textContent?.trim() || '')
+      .map(btn => {
+        const explicit = btn.getAttribute('data-reason');
+        if (explicit) return explicit;
+        const text = (btn.textContent || '').trim();
+        return text;
+      })
       .filter(Boolean);
   }
 
@@ -351,6 +361,7 @@
     for (const scenario of queue) {
       if (batchState.abort) break;
       setManualDefaults();
+      clearReasonToggles();
       await wait(40);
       await applyScenario(scenario);
       await wait(80);
