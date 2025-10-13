@@ -2266,6 +2266,7 @@ window.addEventListener('message', (event) => {
       if (event?.source) screenpopWindow = event.source;
     } catch {}
     if (launchScreenpopBtn) launchScreenpopBtn.textContent = 'Screenpop Connected';
+    importPendingSubmissions();
     return;
   }
   if (msg.type === 'screenpop-submit' && msg.entry) {
@@ -2411,8 +2412,8 @@ tabButtons.forEach(btn => {
 importPendingSubmissions();
 renderTable();
 updateKpisAndCharts();
-// Periodic refresh as a safety-net
-setInterval(()=>{ renderTable(); updateKpisAndCharts(); }, 2000);
+// Periodic refresh as a safety-net (also pulls any pending storage writes)
+setInterval(()=>{ importPendingSubmissions(); renderTable(); updateKpisAndCharts(); }, 2000);
 // Redraw on resize to ensure canvases use full width
 let __rz;
 window.addEventListener('resize', () => { clearTimeout(__rz); __rz = setTimeout(() => updateKpisAndCharts(), 150); });
