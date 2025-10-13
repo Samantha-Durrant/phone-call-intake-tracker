@@ -112,6 +112,13 @@
       .secondary-panels .panel-body{ padding:8px 12px }
       table thead th:nth-child(6), table tbody td:nth-child(6){ min-width:160px }
       tbody tr:nth-child(even){ background:#f9fafb }
+      .main-tabs{ display:flex; gap:8px; margin:12px 12px 0; }
+      .main-tab{ border:none; background:#e5e7eb; padding:6px 14px; border-radius:999px; font-weight:600; color:#374151; cursor:pointer }
+      .main-tab.active{ background:#111827; color:#fff; box-shadow:0 4px 12px rgba(17,24,39,0.25) }
+      .hidden{ display:none !important; }
+      .insight-list{ margin:12px 0 0; padding-left:18px; display:flex; flex-direction:column; gap:8px; font-size:13px; color:#111827 }
+      .insight-list li strong{ color:#111827 }
+      .insights-intro{ font-size:12px; margin-bottom:6px }
       @media (min-width: 1024px){ .kpi-grid{ grid-template-columns: repeat(6,minmax(140px,1fr)); } }
       @media (max-width: 980px){ .wrap{ grid-template-columns: 1fr; height:auto } }
     </style>
@@ -121,7 +128,11 @@
       <strong>Screenpop Analytics</strong>
       <div class="muted">Updates on “Done” from any screenpop tab</div>
     </header>
-    <div class="wrap" style="grid-template-columns: 1fr; gap:12px;">
+    <div class="main-tabs" id="analyticsTabs" role="tablist" aria-label="Analytics sections">
+      <button type="button" class="main-tab active" data-view="dashboard" role="tab" aria-selected="true">Dashboard</button>
+      <button type="button" class="main-tab" data-view="insights" role="tab" aria-selected="false">Insights</button>
+    </div>
+    <div id="dashboardView" class="wrap" style="grid-template-columns: 1fr; gap:12px;">
       <div class="panel" style="padding-bottom:0">
         <div class="toolbar" style="justify-content:space-between">
           <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -271,6 +282,17 @@
               <tr class="empty"><td colspan="12">No submissions yet</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+    <div id="insightsView" class="wrap hidden" style="grid-template-columns:1fr; gap:12px;" aria-live="polite">
+      <div class="panel wide">
+        <h2>Insights</h2>
+        <div class="body">
+          <div class="insights-intro muted">Snapshots update with the current filters and view.</div>
+          <ul id="insightList" class="insight-list">
+            <li class="muted">Loading insights…</li>
+          </ul>
         </div>
       </div>
     </div>

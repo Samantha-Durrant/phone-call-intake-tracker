@@ -149,6 +149,8 @@ function aggregateTypeCounts(typeCounts = {}){
 let CURRENT_OUTCOME = 'scheduled';
 let OUTCOME_DATA = null;
 let CURRENT_OUTCOME_CATEGORY = 'all';
+let CURRENT_MAIN_VIEW = 'dashboard';
+let LAST_INSIGHT_SUMMARY = null;
 
 function prettyReasonLabel(reason){
   const raw = String(reason || '').trim();
@@ -1383,6 +1385,96 @@ function categoryLabelForKey(key){
   return CATEGORY_LABELS[key] || CATEGORY_LABELS.other;
 }
 
+function setMainView(view){
+  if (!dashboardViewEl || !insightsViewEl) return;
+  CURRENT_MAIN_VIEW = view;
+  const showDashboard = view === 'dashboard';
+  dashboardViewEl.classList.toggle('hidden', !showDashboard);
+  insightsViewEl.classList.toggle('hidden', showDashboard);
+  if (analyticsTabsEl){
+    analyticsTabsEl.querySelectorAll('.main-tab').forEach(btn => {
+      const isActive = (btn.dataset.view || 'dashboard') === view;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+  }
+  if (view === 'insights' && LAST_INSIGHT_SUMMARY){
+    renderInsights(LAST_INSIGHT_SUMMARY.sum);
+  }
+}
+
+function initializeMainTabs(){
+  if (!analyticsTabsEl) return;
+  analyticsTabsEl.addEventListener('click', (evt) => {
+    const btn = evt.target.closest('.main-tab');
+    if (!btn) return;
+    const nextView = btn.dataset.view || 'dashboard';
+    if (nextView === CURRENT_MAIN_VIEW) return;
+    setMainView(nextView);
+  });
+}
+
+function getTopEntry(map, labelFormatter = (label) => String(label || '')){
+  const entries = Object.entries(map || {}).filter(([,count]) => (Number(count)||0) > 0);
+  if (!entries.length) return null;
+  entries.sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
+  const [label, count] = entries[0];
+  return { label: labelFormatter(label), count: Number(count)||0 };
+}
+
+function renderInsights(sum){
+  if (!insightListEl) return;
+  insightListEl.innerHTML = '';
+  if (!sum || !sum.total){
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No submissions captured yet.';
+    insightListEl.appendChild(li);
+    return;
+  }
+  const items = [];
+  const totalScheduled = totalFromMap(sum.appointmentTypesByOutcome?.scheduled);
+  const topScheduled = getTopEntry(sum.appointmentTypesByOutcome?.scheduled);
+  if (topScheduled){
+    const pct = totalScheduled ? Math.round((topScheduled.count / totalScheduled) * 100) : 0;
+    items.push(`Top scheduled type: <strong>${topScheduled.label}</strong> — ${topScheduled.count} (${pct}% of scheduled captures)`);
+  }
+
+  const cancelTotal = sum.cancel || totalFromMap(sum.appointmentTypesByOutcome?.cancellation);
+  const topCancelledType = getTopEntry(sum.appointmentTypesByOutcome?.cancellation);
+  if (topCancelledType){
+    const pct = cancelTotal ? Math.round((topCancelledType.count / cancelTotal) * 100) : 0;
+    items.push(`Most cancelled: <strong>${topCancelledType.label}</strong> — ${topCancelledType.count} (${pct}% of cancellations)`);
+  }
+
+  const topCancelReason = getTopEntry(sum.cancelReasons, prettyReasonLabel);
+  if (topCancelReason){
+    const pct = cancelTotal ? Math.round((topCancelReason.count / cancelTotal) * 100) : 0;
+    items.push(`Leading cancellation reason: <strong>${topCancelReason.label}</strong> — ${topCancelReason.count} (${pct}% of cancellations)`);
+  }
+
+  const noApptTotal = totalFromMap(sum.appointmentTypesByOutcome?.noAppointment);
+  const topNoApptReason = getTopEntry(sum.noApptReasons, prettyReasonLabel);
+  if (topNoApptReason){
+    const pct = noApptTotal ? Math.round((topNoApptReason.count / noApptTotal) * 100) : 0;
+    items.push(`Why no appointment: <strong>${topNoApptReason.label}</strong> — ${topNoApptReason.count} (${pct}% of no-appointment captures)`);
+  }
+
+  if (!items.length){
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'Capture more submissions to generate insights.';
+    insightListEl.appendChild(li);
+    return;
+  }
+
+  items.forEach(text => {
+    const li = document.createElement('li');
+    li.innerHTML = text;
+    insightListEl.appendChild(li);
+  });
+}
+
 function totalFromMap(map){
   return Object.values(map || {}).reduce((acc,val) => acc + (Number(val)||0), 0);
 }
@@ -1530,6 +1622,10 @@ function buildOfficeCategoryStack(byOffice, accessor){
   return { dataMap, series: officeSeries(offices.filter(o => included.has(o))), order };
 }
 
+const analyticsTabsEl = document.getElementById('analyticsTabs');
+const dashboardViewEl = document.getElementById('dashboardView');
+const insightsViewEl = document.getElementById('insightsView');
+const insightListEl = document.getElementById('insightList');
 const outcomeTabsEl = document.getElementById('outcomeTabs');
 const outcomeCategoryTabsEl = document.getElementById('outcomeCategoryTabs');
 const outcomeFunnelEl = document.getElementById('outcomeFunnel');
@@ -1797,6 +1893,7 @@ function updateKpisAndCharts(){
   const scheduledStack = buildReasonTypeStack(scheduledDetailMap, { topN: 6, formatReason: (key)=>key });
   const reschedTypeStack = buildReasonTypeStack(sum.reschedReasonDetails, { topN: 6, formatReason: prettyReason });
   const cancelTypeStack = buildReasonTypeStack(sum.cancelReasonDetails, { topN: 6, formatReason: prettyReason });
+  const totalNoAppt = totalFromMap(sum.appointmentTypesByOutcome.noAppointment);
   const noApptStack = buildReasonTypeStack(sum.noApptReasonDetails, { topN: 6, formatReason: (key)=>key });
   const noApptPalette = ['#f97316','#f59e0b','#fbbf24','#84cc16','#22c55e'];
   OUTCOME_DATA = {
@@ -1809,7 +1906,8 @@ function updateKpisAndCharts(){
       reasonLabelMap: {},
       reasonPalette: null,
       detailMap: scheduledDetailMap,
-      labelFormatter: (key)=>key
+      labelFormatter: (key)=>key,
+      categoryTotals: scheduledStack.categoryTotals || { all: totalScheduled || 0 }
     },
     rescheduled: {
       key: 'rescheduled',
@@ -1820,7 +1918,8 @@ function updateKpisAndCharts(){
       reasonLabelMap: buildReasonLabelMap(sum.reschedReasons),
       reasonPalette: reschedPalette,
       detailMap: sum.reschedReasonDetails,
-      labelFormatter: prettyReason
+      labelFormatter: prettyReason,
+      categoryTotals: reschedTypeStack.categoryTotals || { all: sum.resched || 0 }
     },
     cancelled: {
       key: 'cancelled',
@@ -1831,24 +1930,28 @@ function updateKpisAndCharts(){
       reasonLabelMap: buildReasonLabelMap(sum.cancelReasons),
       reasonPalette: cancelPalette,
       detailMap: sum.cancelReasonDetails,
-      labelFormatter: prettyReason
+      labelFormatter: prettyReason,
+      categoryTotals: cancelTypeStack.categoryTotals || { all: sum.cancel || 0 }
     },
     no_appointment: {
       key: 'no_appointment',
       label: OUTCOME_LABELS.no_appointment,
-      total: totalFromMap(sum.appointmentTypesByOutcome.noAppointment),
+      total: totalNoAppt,
       stack: noApptStack,
       reasonMap: sum.noApptReasons,
       reasonLabelMap: {},
       reasonPalette: noApptPalette,
       detailMap: sum.noApptReasonDetails,
-      labelFormatter: (key)=>key
+      labelFormatter: (key)=>key,
+      categoryTotals: noApptStack.categoryTotals || { all: totalNoAppt }
     }
   };
   if (!OUTCOME_DATA[CURRENT_OUTCOME] || OUTCOME_DATA[CURRENT_OUTCOME].total === 0){
     const firstWithData = OUTCOME_KEYS.find(key => OUTCOME_DATA[key]?.total);
     if (firstWithData) CURRENT_OUTCOME = firstWithData;
   }
+  LAST_INSIGHT_SUMMARY = { sum, sumAll };
+  renderInsights(sum);
   renderOutcomeView(CURRENT_OUTCOME);
 
   // Split tasks / transfers by type with distinct colors and proper labels
@@ -2047,6 +2150,8 @@ try {
   if (url.searchParams.get('test') === '1') {
     const btn = document.getElementById('rolloverNow'); if (btn) { btn.style.display=''; btn.textContent='Recompute Now'; btn.addEventListener('click', () => { try { SELECTED_MONTH = monthKey(Date.now()); if (monthPicker) monthPicker.value = SELECTED_MONTH; renderTable(); updateKpisAndCharts(); } catch {} }); }
   }
+  initializeMainTabs();
+  setMainView('dashboard');
   setView('daily');
   initializeOutcomeTabs();
 } catch {}
