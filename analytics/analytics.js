@@ -1159,6 +1159,7 @@ function renderStackLegend(containerId, series, legendDetails = {}){
   });
 }
 
+
 function renderReasonDetails(containerId, detailMap, { labelForReason = (key) => String(key||'') } = {}){
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -1172,12 +1173,13 @@ function renderReasonDetails(containerId, detailMap, { labelForReason = (key) =>
     return;
   }
   entries.forEach(([reasonKey, detail])=>{
-    const section = document.createElement('div');
-    section.className = 'reason-detail';
-    const title = document.createElement('div');
-    title.className = 'reason-detail-title';
-    title.textContent = `${labelForReason(reasonKey)} — ${detail.total}`;
-    section.appendChild(title);
+    const item = document.createElement('details');
+    item.className = 'reason-detail';
+    const summary = document.createElement('summary');
+    summary.innerHTML = `<span class="reason-detail-title">${labelForReason(reasonKey)} — ${detail.total}</span><span class="chevron">▾</span>`;
+    item.appendChild(summary);
+    const body = document.createElement('div');
+    body.className = 'reason-detail-body';
     const list = document.createElement('ul');
     list.className = 'reason-detail-list';
     const typeEntries = Object.entries(detail.types || {}).filter(([,count]) => Number(count)||0).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
@@ -1188,10 +1190,12 @@ function renderReasonDetails(containerId, detailMap, { labelForReason = (key) =>
       li.textContent = `${label} — ${count} (${pct}%)`;
       list.appendChild(li);
     });
-    section.appendChild(list);
-    container.appendChild(section);
+    body.appendChild(list);
+    item.appendChild(body);
+    container.appendChild(item);
   });
 }
+
 
 
 function buildStackFromEntryMap(entryMap, topN, formatReason){
