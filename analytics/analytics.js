@@ -207,6 +207,7 @@ function buildTopEntries(map, limit=12){
 
 function renderAppointmentLists(sum){
   const medList = document.getElementById('listApptMedical');
+  const laserList = document.getElementById('listApptLaser');
   const cosList = document.getElementById('listApptCosmetic');
   const render = (el, data) => {
     if (!el) return;
@@ -228,7 +229,8 @@ function renderAppointmentLists(sum){
     });
   };
   render(medList, sum.apptGroups?.Medical);
-  render(cosList, sum.apptGroups?.Cosmetic);
+  render(laserList, sum.apptGroups?.['Laser Dermatology']);
+  render(cosList, sum.apptGroups?.['Cosmetic Dermatology'] || sum.apptGroups?.Cosmetic);
 }
 
 function loadEntries(){
@@ -419,7 +421,7 @@ function summarize(entries){
     noApptReasonDetails: {},
     actionsByType: {},
     apptTypes: {},
-    apptGroups: { Medical:{}, Cosmetic:{}, Other:{} },
+    apptGroups: { Medical:{}, 'Laser Dermatology':{}, 'Cosmetic Dermatology':{}, Cosmetic:{}, Other:{} },
     offices: OFFICE_KEYS.reduce((acc,k)=>{ acc[k]=0; return acc; }, {}),
     officeBreakdown: {},
     confirmations: { Confirmed:0, 'Not Confirmed':0 },
@@ -1358,9 +1360,11 @@ function updateKpisAndCharts(){
   renderLegend('chartNewExistingLegend', SCHEDULING_SERIES);
   renderAppointmentLists(sum);
   const medPie = buildApptTypePieData(sum.apptGroups?.Medical || {});
-  const cosPie = buildApptTypePieData(sum.apptGroups?.Cosmetic || {});
+  const laserPie = buildApptTypePieData(sum.apptGroups?.['Laser Dermatology'] || {});
+  const cosmeticPie = buildApptTypePieData(sum.apptGroups?.['Cosmetic Dermatology'] || sum.apptGroups?.Cosmetic || {});
   drawPieChart('chartApptMedical', medPie, { legendId: 'chartApptMedicalLegend' });
-  drawPieChart('chartApptCosmetic', cosPie, { legendId: 'chartApptCosmeticLegend' });
+  drawPieChart('chartApptLaser', laserPie, { legendId: 'chartApptLaserLegend' });
+  drawPieChart('chartApptCosmetic', cosmeticPie, { legendId: 'chartApptCosmeticLegend' });
   const cancelPalette = ['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899'];
   const reschedPalette = ['#1d4ed8','#0ea5e9','#14b8a6','#10b981','#84cc16','#eab308','#f59e0b','#f97316','#ef4444','#a855f7'];
   const prettyReason = (key) => {

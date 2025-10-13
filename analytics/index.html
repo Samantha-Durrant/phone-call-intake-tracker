@@ -195,7 +195,8 @@
         <div class="panel allow-overflow"><h2>Scheduling by Office</h2><div class="body chart-with-legend"><canvas id="chartNewExisting" class="chart"></canvas><div id="chartNewExistingLegend" class="chart-legend"></div></div></div>
         <div class="panel"><h2>Confirmation Status</h2><div class="body"><canvas id="chartConfirmations" class="chart"></canvas></div></div>
         <div class="panel allow-overflow"><h2>Medical Appointment Mix</h2><div class="body chart-with-legend"><canvas id="chartApptMedical" class="chart"></canvas><div id="chartApptMedicalLegend" class="chart-legend"></div></div></div>
-        <div class="panel allow-overflow"><h2>Cosmetic Appointment Mix</h2><div class="body chart-with-legend"><canvas id="chartApptCosmetic" class="chart"></canvas><div id="chartApptCosmeticLegend" class="chart-legend"></div></div></div>
+        <div class="panel allow-overflow"><h2>Laser Dermatology Mix</h2><div class="body chart-with-legend"><canvas id="chartApptLaser" class="chart"></canvas><div id="chartApptLaserLegend" class="chart-legend"></div></div></div>
+        <div class="panel allow-overflow"><h2>Cosmetic Dermatology Mix</h2><div class="body chart-with-legend"><canvas id="chartApptCosmetic" class="chart"></canvas><div id="chartApptCosmeticLegend" class="chart-legend"></div></div></div>
         <div class="panel"><h2>Office Mix</h2><div class="body"><canvas id="chartOffices" class="chart"></canvas></div></div>
         <div class="panel"><h2>Reschedule Reasons</h2><div class="body"><canvas id="chartReschedReasons" class="chart"></canvas><div id="reschedReasonDetails" class="reason-details"></div></div></div>
         <div class="panel"><h2>Cancel Reasons</h2><div class="body"><canvas id="chartCancelReasons" class="chart"></canvas><div id="cancelReasonDetails" class="reason-details"></div></div></div>
@@ -213,9 +214,15 @@
             </ol>
           </div>
           <div class="appt-column">
-            <h3>Cosmetic</h3>
+            <h3>Laser Dermatology</h3>
+            <ol id="listApptLaser" class="appt-list">
+              <li class="appt-empty">No laser dermatology appointments yet</li>
+            </ol>
+          </div>
+          <div class="appt-column">
+            <h3>Cosmetic Dermatology</h3>
             <ol id="listApptCosmetic" class="appt-list">
-              <li class="appt-empty">No cosmetic appointments yet</li>
+              <li class="appt-empty">No cosmetic dermatology appointments yet</li>
             </ol>
           </div>
         </div>
