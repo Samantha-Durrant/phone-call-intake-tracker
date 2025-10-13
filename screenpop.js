@@ -548,6 +548,14 @@
 
   handleVisibility();
 
+  // Notify analytics windows that the screenpop UI is ready
+  try {
+    const msg = { type:'screenpop-ready' };
+    if (window.opener && !window.opener.closed) window.opener.postMessage(msg, '*');
+    const parentWin = window.parent;
+    if (parentWin && parentWin !== window) parentWin.postMessage(msg, '*');
+  } catch {}
+
   // Wire Call For segmented changes to clear/apply behavior
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.seg[data-group="callfor"]');

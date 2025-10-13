@@ -2260,7 +2260,15 @@ try {
 // Fallback: accept postMessage submissions from embedded or opener windows
 window.addEventListener('message', (event) => {
   const msg = event?.data || {};
-  if (msg && msg.type === 'screenpop-submit' && msg.entry) {
+  if (!msg) return;
+  if (msg.type === 'screenpop-ready') {
+    try {
+      if (event?.source) screenpopWindow = event.source;
+    } catch {}
+    if (launchScreenpopBtn) launchScreenpopBtn.textContent = 'Screenpop Connected';
+    return;
+  }
+  if (msg.type === 'screenpop-submit' && msg.entry) {
     processEntry(msg.entry);
   }
 });
@@ -2295,6 +2303,55 @@ const dailyDateLabel = document.getElementById('dailyDateLabel');
 const tabButtons = [tabDaily, tabMonthly].filter(Boolean);
 const officeToggle = document.getElementById('officeFilter');
 const officeButtons = officeToggle ? Array.from(officeToggle.querySelectorAll('button[data-office]')) : [];
+const launchScreenpopBtn = document.getElementById('launchScreenpopBtn');
+let screenpopWindow = null;
+
+function launchScreenpop({ focus = true } = {}){
+  try {
+    if (screenpopWindow && !screenpopWindow.closed) {
+      if (focus) screenpopWindow.focus();
+      return screenpopWindow;
+    }
+  } catch {
+    screenpopWindow = null;
+  }
+  try {
+    const url = new URL('../screenpop.html', window.location.href);
+    const features = 'width=420,height=780,resizable=yes,scrollbars=yes';
+    screenpopWindow = window.open(url.toString(), 'screenpop-intake', features);
+    if (focus && screenpopWindow) screenpopWindow.focus();
+  } catch (err) {
+    console.warn('[Analytics] Unable to open screenpop window', err);
+  }
+  return screenpopWindow;
+}
+
+if (launchScreenpopBtn){
+  launchScreenpopBtn.addEventListener('click', () => {
+    launchScreenpopBtn.textContent = 'Launching...';
+    launchScreenpop({ focus: true });
+  });
+}
+
+setInterval(() => {
+  try {
+    if (screenpopWindow && screenpopWindow.closed) {
+      screenpopWindow = null;
+      if (launchScreenpopBtn) launchScreenpopBtn.textContent = 'Open Screenpop';
+    }
+  } catch {
+    screenpopWindow = null;
+    if (launchScreenpopBtn) launchScreenpopBtn.textContent = 'Open Screenpop';
+  }
+}, 4000);
+
+window.addEventListener('beforeunload', () => {
+  try {
+    if (screenpopWindow && !screenpopWindow.closed) {
+      screenpopWindow.close();
+    }
+  } catch {}
+});
 
 function applyOfficeState(selected){
   officeButtons.forEach(btn => {
@@ -2372,6 +2429,9 @@ try {
   const url = new URL(window.location.href);
   if (url.searchParams.get('test') === '1') {
     const btn = document.getElementById('rolloverNow'); if (btn) { btn.style.display=''; btn.textContent='Recompute Now'; btn.addEventListener('click', () => { try { SELECTED_MONTH = monthKey(Date.now()); if (monthPicker) monthPicker.value = SELECTED_MONTH; renderTable(); updateKpisAndCharts(); } catch {} }); }
+  }
+  if (url.searchParams.get('openScreenpop') === '1' || url.searchParams.get('screenpop') === '1') {
+    setTimeout(() => launchScreenpop({ focus: false }), 100);
   }
   initializeMainTabs();
   setMainView('insights');
