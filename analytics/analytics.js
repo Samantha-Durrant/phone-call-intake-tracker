@@ -1459,7 +1459,7 @@ function gatherTopReasons(reasonMap, limit = 4){
 
 
 function gatherOfficeHighlights(summary){
-  const breakdown = summary?.officeBreakdown || {};
+  const breakdown = summary?.byOffice || {};
   const offices = [...new Set([...OFFICE_KEYS, ...Object.keys(breakdown)])];
   return offices.map(office => {
     const bucket = breakdown[office] || {};
@@ -1468,7 +1468,7 @@ function gatherOfficeHighlights(summary){
     const cancelled = Number(bucket.outcomes?.cancelled?.total) || 0;
     const topReason = getTopEntry(bucket.outcomes?.cancelled?.reasons || {}, prettyReasonLabel);
     return { office, scheduled, rescheduled, cancelled, topReason };
-  }).sort((a,b)=> (b.scheduled||0) - (a.scheduled||0));
+  }).filter(entry => (entry.scheduled||entry.rescheduled||entry.cancelled||entry.topReason)).sort((a,b)=> (b.scheduled||0) - (a.scheduled||0));
 }
 
 function renderOfficeList(listEl, entries){
