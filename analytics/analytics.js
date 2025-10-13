@@ -2427,8 +2427,12 @@ tabButtons.forEach(btn => {
 importPendingSubmissions();
 renderTable();
 updateKpisAndCharts();
-// Periodic refresh as a safety-net
-setInterval(()=>{ renderTable(); updateKpisAndCharts(); }, 2000);
+// Periodic refresh/poll as a safety-net to capture submissions even if events fail
+setInterval(()=>{
+  importPendingSubmissions();
+  renderTable();
+  updateKpisAndCharts();
+}, 2000);
 // Redraw on resize to ensure canvases use full width
 let __rz;
 window.addEventListener('resize', () => { clearTimeout(__rz); __rz = setTimeout(() => updateKpisAndCharts(), 150); });
