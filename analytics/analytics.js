@@ -73,35 +73,6 @@ const CATEGORY_LABELS = {
   cosmetic: 'Cosmetic Dermatology',
   other: 'Other'
 };
-
-const MOCK_CALL_VOLUME_TRENDS = {
-  daily: [
-    { label:'2024-06-01', count:28 },
-    { label:'2024-06-02', count:32 },
-    { label:'2024-06-03', count:41 },
-    { label:'2024-06-04', count:37 },
-    { label:'2024-06-05', count:35 },
-    { label:'2024-06-06', count:39 },
-    { label:'2024-06-07', count:44 },
-    { label:'2024-06-08', count:31 },
-    { label:'2024-06-09', count:29 },
-    { label:'2024-06-10', count:40 },
-    { label:'2024-06-11', count:42 },
-    { label:'2024-06-12', count:38 },
-    { label:'2024-06-13', count:36 },
-    { label:'2024-06-14', count:47 }
-  ],
-  weekly: [
-    { label:'2024 W19', count:210 },
-    { label:'2024 W20', count:224 },
-    { label:'2024 W21', count:235 },
-    { label:'2024 W22', count:228 },
-    { label:'2024 W23', count:246 },
-    { label:'2024 W24', count:252 },
-    { label:'2024 W25', count:240 },
-    { label:'2024 W26', count:258 }
-  ]
-};
 const reasonDetailOpenState = new Map();
 
 function unpackTypeValue(label, value){
@@ -516,51 +487,6 @@ function isSameDay(a,b){ const da=new Date(a), db=new Date(b); return da.getFull
 function monthKey(ts){ const d=new Date(ts); const m=String(d.getMonth()+1).padStart(2,'0'); return `${d.getFullYear()}-${m}`; }
 function parseYearMonth(ym){ try { const [y,m]=String(ym||'').split('-').map(n=>parseInt(n,10)); return { y: isFinite(y)?y:new Date().getFullYear(), m: isFinite(m)?m: (new Date().getMonth()+1) }; } catch { const d=new Date(); return { y:d.getFullYear(), m:d.getMonth()+1}; } }
 function daysInMonth(y,m){ return new Date(y, m, 0).getDate(); }
-function startOfIsoWeek(date){ const d = new Date(date); const day = (d.getDay()+6)%7; d.setDate(d.getDate() - day); d.setHours(0,0,0,0); return d; }
-function getIsoWeekNumber(date){ const d = new Date(date); d.setHours(0,0,0,0); d.setDate(d.getDate() + 3 - ((d.getDay()+6)%7)); const week1 = new Date(d.getFullYear(),0,4); return 1 + Math.round(((d - week1) / 86400000 - 3 + ((week1.getDay()+6)%7)) / 7); }
-function formatWeekLabel(date){ const start = startOfIsoWeek(date); const week = getIsoWeekNumber(start); return `${start.getFullYear()} W${String(week).padStart(2,'0')}`; }
-function formatShortDateLabel(str){ try { const d = new Date(str); return d.toLocaleDateString(undefined,{ month:'short', day:'numeric' }); } catch { return str; } }
-function computeCallVolumeTrends(entries){
-  if (!Array.isArray(entries) || !entries.length) return MOCK_CALL_VOLUME_TRENDS;
-  const sorted = entries.filter(e => e && typeof e.time === 'number').sort((a,b)=> a.time - b.time);
-  if (!sorted.length) return MOCK_CALL_VOLUME_TRENDS;
-  const now = Date.now();
-  const dailyCutoff = now - (14 * 86400000);
-  const weeklyCutoff = now - (8 * 7 * 86400000);
-  const dailyMap = new Map();
-  const weeklyMap = new Map();
-  sorted.forEach(entry => {
-    const t = entry.time;
-    const day = new Date(t);
-    if (t >= dailyCutoff){
-      const key = day.toISOString().slice(0,10);
-      dailyMap.set(key, (dailyMap.get(key)||0) + 1);
-    }
-    if (t >= weeklyCutoff){
-      const start = startOfIsoWeek(day);
-      const key = formatWeekLabel(start);
-      weeklyMap.set(key, (weeklyMap.get(key)||0) + 1);
-    }
-  });
-  const daily = Array.from(dailyMap.entries()).sort((a,b)=> new Date(a[0]) - new Date(b[0])).map(([label,count]) => ({ label, count }));
-  const weekly = Array.from(weeklyMap.entries()).sort((a,b)=> {
-    const parse = (str) => { const [year, wk] = str.split(' W'); return { year:Number(year), week:Number(wk) }; };
-    const aParts = parse(a[0]); const bParts = parse(b[0]);
-    if (aParts.year !== bParts.year) return aParts.year - bParts.year;
-    return aParts.week - bParts.week;
-  }).map(([label,count]) => ({ label, count }));
-  const ensure = (arr, fallback) => arr.length ? arr : fallback;
-  return { daily: ensure(daily, MOCK_CALL_VOLUME_TRENDS.daily), weekly: ensure(weekly, MOCK_CALL_VOLUME_TRENDS.weekly) };
-}
-function renderCallVolumeTrends(trends){
-  const dailyOrder = trends.daily.map(item => item.label);
-  const dailyData = Object.fromEntries(trends.daily.map(item => [item.label, item.count]));
-  const dailyLabelMap = Object.fromEntries(trends.daily.map(item => [item.label, formatShortDateLabel(item.label)]));
-  drawBarChart('chartCallVolumeDaily', dailyData, { order: dailyOrder, labelMap: dailyLabelMap, palette: ['#4f46e5','#6366f1','#818cf8','#a5b4fc','#c7d2fe'] });
-  const weeklyOrder = trends.weekly.map(item => item.label);
-  const weeklyData = Object.fromEntries(trends.weekly.map(item => [item.label, item.count]));
-  drawBarChart('chartCallVolumeWeekly', weeklyData, { order: weeklyOrder, labelMap: Object.fromEntries(trends.weekly.map(item => [item.label, item.label])), palette: ['#0ea5e9','#38bdf8','#7dd3fc','#bae6fd','#e0f2fe'] });
-}
 function weekdayOccurrencesInMonth(y,m){ const map={0:0,1:0,2:0,3:0,4:0,5:0,6:0}; const total=daysInMonth(y,m); for(let d=1; d<=total; d++){ const wd=new Date(y, m-1, d).getDay(); map[wd]++; } return map; }
 function getActiveEntries(){
   const all = loadLedger();
@@ -1558,11 +1484,6 @@ function initializeTableFilters(){
     });
     renderTable();
   });
-  tableFiltersEl.querySelectorAll('.table-filter-btn').forEach(el => {
-    const isActive = (el.dataset.filter || 'all') === CURRENT_TABLE_FILTER;
-    el.classList.toggle('active', isActive);
-    el.setAttribute('aria-selected', isActive ? 'true' : 'false');
-  });
 }
 
 function initializeMainTabs(){
@@ -1669,7 +1590,6 @@ function renderInsights(sum, sumAll){
     if (insightReschedTotalEl) insightReschedTotalEl.textContent = '0';
     if (insightNoApptTotalEl) insightNoApptTotalEl.textContent = '0';
     if (insightOfficeTotalEl) insightOfficeTotalEl.textContent = '0';
-    renderCallVolumeTrends(MOCK_CALL_VOLUME_TRENDS);
     return;
   }
   const scheduledEntries = gatherTopAppointments(sum.appointmentTypesByOutcome?.scheduled, 5);
@@ -1714,7 +1634,6 @@ function renderInsights(sum, sumAll){
 
   renderInsightList(insightNoApptListEl, noApptReasons);
   renderOfficeList(insightOfficeListEl, officeHighlights);
-  renderCallVolumeTrends(computeCallVolumeTrends(loadLedger()));
 }
 
 function totalFromMap(map){
@@ -2427,12 +2346,8 @@ tabButtons.forEach(btn => {
 importPendingSubmissions();
 renderTable();
 updateKpisAndCharts();
-// Periodic refresh/poll as a safety-net to capture submissions even if events fail
-setInterval(()=>{
-  importPendingSubmissions();
-  renderTable();
-  updateKpisAndCharts();
-}, 2000);
+// Periodic refresh as a safety-net
+setInterval(()=>{ renderTable(); updateKpisAndCharts(); }, 2000);
 // Redraw on resize to ensure canvases use full width
 let __rz;
 window.addEventListener('resize', () => { clearTimeout(__rz); __rz = setTimeout(() => updateKpisAndCharts(), 150); });
