@@ -149,8 +149,12 @@ function aggregateTypeCounts(typeCounts = {}){
 let CURRENT_OUTCOME = 'scheduled';
 let OUTCOME_DATA = null;
 let CURRENT_OUTCOME_CATEGORY = 'all';
-let CURRENT_MAIN_VIEW = 'dashboard';
+let CURRENT_MAIN_VIEW = 'insights';
 let LAST_INSIGHT_SUMMARY = null;
+let CURRENT_TABLE_FILTER = 'all';
+let LAST_SUMMARY = null;
+const APPOINTMENT_LIST_STATE = new Map();
+const outcomeChartVisibility = { types: true, reasons: true };
 
 function prettyReasonLabel(reason){
   const raw = String(reason || '').trim();
@@ -392,38 +396,68 @@ function buildTopEntries(map, limit=12){
   return { data:Object.fromEntries(top), order: top.map(([k])=>k) };
 }
 
+function getTopReasonChartData(map, limit = 6){
+  const top = buildTopEntries(map, limit);
+  return { data: top.data, order: top.order };
+}
+
 function renderAppointmentLists(sum){
-  const medList = document.getElementById('listApptMedical');
-  const laserList = document.getElementById('listApptLaser');
-  const cosList = document.getElementById('listApptCosmetic');
-  const render = (el, data) => {
-    if (!el) return;
-    const entries = Object.entries(data || {})
-      .map(([label, value]) => {
-        const count = (value && typeof value === 'object' && !Array.isArray(value)) ? Number(value.count)||0 : Number(value)||0;
-        return [label, count];
-      })
-      .filter(([,count]) => count > 0)
-      .sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
-    el.innerHTML = '';
-    if (!entries.length){
-      const empty = document.createElement('li'); empty.className='appt-empty'; empty.textContent='No appointments captured yet'; el.appendChild(empty); return;
-    }
-    const total = entries.reduce((acc,[,cnt]) => acc + (Number(cnt)||0), 0) || 1;
-    entries.forEach(([label,count]) => {
-      const li = document.createElement('li');
-      const name = document.createElement('span'); name.className='appt-label'; name.textContent = label;
-      const meta = document.createElement('span'); meta.className='appt-meta';
-      const cnt = document.createElement('span'); cnt.className='appt-count'; cnt.textContent = String(count);
-      const pct = document.createElement('span'); pct.className='appt-percent'; pct.textContent = `${Math.round((Number(count)||0)/total*100)}%`;
-      meta.append(cnt, pct);
-      li.append(name, meta);
-      el.appendChild(li);
+  if (LAST_SUMMARY !== sum) APPOINTMENT_LIST_STATE.clear();
+  LAST_SUMMARY = sum;
+  renderAppointmentGroup('listApptMedical', 'medical', normalizeAppointmentEntries(groupMedicalAppointments(sum.apptGroups?.Medical || {})));
+  renderAppointmentGroup('listApptLaser', 'laser', normalizeAppointmentEntries(sum.apptGroups?.['Laser Dermatology']));
+  renderAppointmentGroup('listApptCosmetic', 'cosmetic', normalizeAppointmentEntries(sum.apptGroups?.['Cosmetic Dermatology'] || sum.apptGroups?.Cosmetic));
+}
+
+function normalizeAppointmentEntries(data){
+  return Object.entries(data || {})
+    .map(([label, value]) => {
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        return { label, count: Number(value.count) || 0 };
+      }
+      return { label, count: Number(value) || 0 };
+    })
+    .filter(item => item.count > 0)
+    .sort((a,b)=> b.count - a.count);
+}
+
+function renderAppointmentGroup(elementId, stateKey, entries){
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const state = APPOINTMENT_LIST_STATE.get(stateKey) || { expanded:false };
+  if (entries.length <= 5) state.expanded = false;
+  APPOINTMENT_LIST_STATE.set(stateKey, state);
+  el.innerHTML = '';
+  if (!entries.length){
+    const empty = document.createElement('li');
+    empty.className = 'appt-empty';
+    empty.textContent = 'No appointments captured yet';
+    el.appendChild(empty);
+    return;
+  }
+  const limit = state.expanded ? entries.length : 5;
+  const total = entries.reduce((acc,item)=> acc + item.count, 0) || 1;
+  entries.slice(0, limit).forEach(({ label, count }) => {
+    const li = document.createElement('li');
+    const name = document.createElement('span'); name.className='appt-label'; name.textContent = label;
+    const meta = document.createElement('span'); meta.className='appt-meta';
+    const cnt = document.createElement('span'); cnt.className='appt-count'; cnt.textContent = String(count);
+    const pct = document.createElement('span'); pct.className='appt-percent'; pct.textContent = `${Math.round((count/total)*100)}%`;
+    meta.append(cnt, pct);
+    li.append(name, meta);
+    el.appendChild(li);
+  });
+  if (entries.length > 5){
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'list-toggle';
+    toggle.textContent = state.expanded ? 'Show top 5' : `Show all (${entries.length})`;
+    toggle.addEventListener('click', () => {
+      state.expanded = !state.expanded;
+      if (LAST_SUMMARY) renderAppointmentLists(LAST_SUMMARY);
     });
-  };
-  render(medList, groupMedicalAppointments(sum.apptGroups?.Medical || {}));
-  render(laserList, sum.apptGroups?.['Laser Dermatology']);
-  render(cosList, sum.apptGroups?.['Cosmetic Dermatology'] || sum.apptGroups?.Cosmetic);
+    el.appendChild(toggle);
+  }
 }
 
 function loadEntries(){
@@ -477,17 +511,21 @@ function getScopedEntries(){
   return filterEntriesBySelectedOffice(getActiveEntries());
 }
 
-function updateCountBadge(){
+function updateCountBadge(filteredCount = null, totalCount = null){
   const badge = document.getElementById('countBadge');
-  const entries = getScopedEntries();
-  badge.textContent = `${entries.length} submission${entries.length===1?'':'s'}`;
+  if (!badge) return;
+  const total = Number.isFinite(totalCount) ? totalCount : getScopedEntries().length;
+  const filtered = Number.isFinite(filteredCount) ? filteredCount : total;
+  const totalLabel = `${total} submission${total===1?'':'s'}`;
+  badge.textContent = (filtered === total) ? totalLabel : `${filtered} of ${totalLabel}`;
 }
 
 function renderTable(){
   const tbody = document.getElementById('analyticsBody');
   const entries = getScopedEntries();
+  const totalEntries = entries.length;
   tbody.innerHTML = '';
-  if (!entries.length){
+  if (!totalEntries){
     const tr = document.createElement('tr');
     tr.className = 'empty';
     const td = document.createElement('td');
@@ -495,7 +533,35 @@ function renderTable(){
     td.textContent = 'No submissions yet';
     tr.appendChild(td);
     tbody.appendChild(tr);
-    updateCountBadge();
+    updateCountBadge(0, 0);
+    return;
+  }
+  let filteredEntries = entries;
+  switch (CURRENT_TABLE_FILTER){
+    case 'scheduled':
+      filteredEntries = entries.filter(e => (e.appointment?.scheduled) && ((e.appointment?.change || 'none').toLowerCase() === 'none'));
+      break;
+    case 'rescheduled':
+      filteredEntries = entries.filter(e => (e.appointment?.change || '').toLowerCase() === 'reschedule');
+      break;
+    case 'cancelled':
+      filteredEntries = entries.filter(e => (e.appointment?.change || '').toLowerCase() === 'cancellation');
+      break;
+    case 'no_appointment':
+      filteredEntries = entries.filter(e => e.appointment && e.appointment.scheduled === false);
+      break;
+    default:
+      break;
+  }
+  if (!filteredEntries.length){
+    const tr = document.createElement('tr');
+    tr.className = 'empty';
+    const td = document.createElement('td');
+    td.colSpan = 12;
+    td.textContent = 'No submissions match this filter';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    updateCountBadge(0, totalEntries);
     return;
   }
   const prettify = (key) => {
@@ -509,7 +575,7 @@ function renderTable(){
       .map(([k]) => prettify(k));
     return parts.join('; ');
   };
-  for (const e of entries){
+  for (const e of filteredEntries){
     const tr = document.createElement('tr');
     const td = (t) => { const el = document.createElement('td'); el.textContent = t ?? ''; return el; };
     tr.appendChild(td(fmtDate(e.time)));
@@ -534,7 +600,7 @@ function renderTable(){
     tr.appendChild(td(summarizeActions(e.actions, 'transfer')));
     tbody.appendChild(tr);
   }
-  updateCountBadge();
+  updateCountBadge(filteredEntries.length, totalEntries);
   applyMrnFilter();
 }
 
@@ -1184,7 +1250,7 @@ function renderReasonDetails(containerId, detailMap, { labelForReason = (key) =>
     item.className = 'reason-detail';
     if (prevState.has(reasonKey)) item.setAttribute('open','');
     const summary = document.createElement('summary');
-    summary.innerHTML = `<span class="reason-detail-title">${labelForReason(reasonKey)} — ${detail.total}</span><span class="chevron">▾</span>`;
+    summary.innerHTML = `<span class="reason-detail-title">${labelForReason(reasonKey)}</span><span class="reason-count-badge">${detail.total}</span><span class="chevron">▾</span>`;
     item.appendChild(summary);
     const body = document.createElement('div');
     body.className = 'reason-detail-body';
@@ -1403,6 +1469,23 @@ function setMainView(view){
   }
 }
 
+function initializeTableFilters(){
+  if (!tableFiltersEl) return;
+  tableFiltersEl.addEventListener('click', (evt) => {
+    const btn = evt.target.closest('.table-filter-btn');
+    if (!btn) return;
+    const filter = btn.dataset.filter || 'all';
+    if (filter === CURRENT_TABLE_FILTER) return;
+    CURRENT_TABLE_FILTER = filter;
+    tableFiltersEl.querySelectorAll('.table-filter-btn').forEach(el => {
+      const isActive = (el.dataset.filter || 'all') === filter;
+      el.classList.toggle('active', isActive);
+      el.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+    renderTable();
+  });
+}
+
 function initializeMainTabs(){
   if (!analyticsTabsEl) return;
   analyticsTabsEl.addEventListener('click', (evt) => {
@@ -1515,7 +1598,7 @@ function renderInsights(sum, sumAll){
   const cancelReasons = gatherTopReasons(sum.cancelReasons, 3);
   const reschedReasons = gatherTopReasons(sum.reschedReasons, 3);
   const noApptReasons = gatherTopReasons(sum.noApptReasons, 3);
-  const officeHighlights = gatherOfficeHighlights(sum);
+  const officeHighlights = gatherOfficeHighlights(sumAll || sum);
 
   const scheduledTotal = scheduledEntries.reduce((acc,item)=> acc + item.count, 0);
   const cancelTotal = sum.cancel || cancelEntries.reduce((acc,item)=> acc + item.count, 0);
@@ -1703,6 +1786,9 @@ function buildOfficeCategoryStack(byOffice, accessor){
 const analyticsTabsEl = document.getElementById('analyticsTabs');
 const dashboardViewEl = document.getElementById('dashboardView');
 const insightsViewEl = document.getElementById('insightsView');
+const outcomeChartToggleEl = document.getElementById('outcomeChartToggle');
+const outcomeTypesSection = document.querySelector('[data-chart=\"types\"]');
+const outcomeReasonsSection = document.querySelector('[data-chart=\"reasons\"]');
 const insightShellEl = document.getElementById('insightShell');
 const insightScheduledTotalEl = document.getElementById('insightScheduledTotal');
 const insightScheduledListEl = document.getElementById('insightScheduledList');
@@ -1718,6 +1804,7 @@ const outcomeTabsEl = document.getElementById('outcomeTabs');
 const outcomeCategoryTabsEl = document.getElementById('outcomeCategoryTabs');
 const outcomeFunnelEl = document.getElementById('outcomeFunnel');
 const outcomeMessageEl = document.getElementById('outcomeMessage');
+const tableFiltersEl = document.getElementById('tableFilters');
 
 function updateOutcomeFunnel(dataMap, categoryKey = 'all'){
   if (!outcomeFunnelEl) return;
@@ -1787,11 +1874,13 @@ function renderOutcomeView(outcomeKey){
   renderStackLegend('chartOutcomeTypesLegend', stack.series, stack.legendDetails);
 
   const reasonMap = filterReasonMapByCategory(target, CURRENT_OUTCOME_CATEGORY);
+  const reasonChart = getTopReasonChartData(reasonMap, 6);
   const reasonOptions = {
     palette: target.reasonPalette || ['#4f46e5','#7c3aed','#0ea5e9','#f97316','#10b981'],
-    labelMap: target.reasonLabelMap || {}
+    labelMap: target.reasonLabelMap || {},
+    order: reasonChart.order
   };
-  drawBarChart('chartOutcomeReasons', reasonMap, reasonOptions);
+  drawBarChart('chartOutcomeReasons', reasonChart.data, reasonOptions);
   const scopedDetailMap = filterDetailMapByCategory(target.detailMap || {}, CURRENT_OUTCOME_CATEGORY);
   renderReasonDetails('outcomeReasonDetails', scopedDetailMap, { labelForReason: target.labelFormatter || ((key)=>key) });
   if (outcomeMessageEl){
@@ -1811,11 +1900,45 @@ function renderOutcomeView(outcomeKey){
     } else {
       outcomeMessageEl.textContent = '';
     }
-  }
+  }  updateOutcomeChartToggleButtons();
+  applyOutcomeChartVisibility();
+
 }
 
 function setOutcome(outcomeKey){
   renderOutcomeView(outcomeKey);
+}
+
+function applyOutcomeChartVisibility(){
+  if (outcomeTypesSection) outcomeTypesSection.classList.toggle('hidden', !outcomeChartVisibility.types);
+  if (outcomeReasonsSection) outcomeReasonsSection.classList.toggle('hidden', !outcomeChartVisibility.reasons);
+}
+
+function updateOutcomeChartToggleButtons(){
+  if (!outcomeChartToggleEl) return;
+  outcomeChartToggleEl.querySelectorAll('.chart-toggle-btn').forEach(btn => {
+    const key = btn.dataset.chart;
+    const active = outcomeChartVisibility[key] !== false;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
+function initializeOutcomeChartToggle(){
+  if (!outcomeChartToggleEl) return;
+  outcomeChartToggleEl.addEventListener('click', (evt) => {
+    const btn = evt.target.closest('.chart-toggle-btn');
+    if (!btn) return;
+    const key = btn.dataset.chart;
+    if (!key) return;
+    const currentlyActive = outcomeChartVisibility[key] !== false;
+    if (currentlyActive && Object.values(outcomeChartVisibility).filter(Boolean).length === 1) return;
+    outcomeChartVisibility[key] = !currentlyActive;
+    updateOutcomeChartToggleButtons();
+    applyOutcomeChartVisibility();
+  });
+  updateOutcomeChartToggleButtons();
+  applyOutcomeChartVisibility();
 }
 
 function initializeOutcomeTabs(){
@@ -1924,6 +2047,8 @@ function updateKpisAndCharts(){
   drawPieChart('chartApptCosmetic', cosmeticPie, { legendId: 'chartApptCosmeticLegend' });
   const cancelPalette = ['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899'];
   const reschedPalette = ['#1d4ed8','#0ea5e9','#14b8a6','#10b981','#84cc16','#eab308','#f59e0b','#f97316','#ef4444','#a855f7'];
+  const cancelChartData = getTopReasonChartData(sum.cancelReasons, 6);
+  const reschedChartData = getTopReasonChartData(sum.reschedReasons, 6);
   const prettyReason = (key) => {
     const map = {
       'illness family emergency':'Illness/Family Emergency',
@@ -1958,21 +2083,23 @@ function updateKpisAndCharts(){
     drawBarChart('chartOffices', officeCounts, { palette: officePalette, order: OFFICE_KEYS });
   }
   if (CURRENT_VIEW === 'monthly') {
-    drawBarChart('chartCancelReasons', toPercentMap(sum.cancelReasons), {
+    drawBarChart('chartCancelReasons', toPercentMap(cancelChartData.data), {
       palette: cancelPalette,
-      labelMap: buildReasonLabelMap(sum.cancelReasons),
+      labelMap: buildReasonLabelMap(cancelChartData.data),
+      order: cancelChartData.order,
       maxValue: 100,
       formatValue: (v) => `${Math.round(v)}%`
     });
-    drawBarChart('chartReschedReasons', toPercentMap(sum.reschedReasons), {
+    drawBarChart('chartReschedReasons', toPercentMap(reschedChartData.data), {
       palette: reschedPalette,
-      labelMap: buildReasonLabelMap(sum.reschedReasons),
+      labelMap: buildReasonLabelMap(reschedChartData.data),
+      order: reschedChartData.order,
       maxValue: 100,
       formatValue: (v) => `${Math.round(v)}%`
     });
   } else {
-    drawBarChart('chartCancelReasons', sum.cancelReasons, { palette: cancelPalette, labelMap: buildReasonLabelMap(sum.cancelReasons) });
-    drawBarChart('chartReschedReasons', sum.reschedReasons, { palette: reschedPalette, labelMap: buildReasonLabelMap(sum.reschedReasons) });
+    drawBarChart('chartCancelReasons', cancelChartData.data, { palette: cancelPalette, labelMap: buildReasonLabelMap(cancelChartData.data), order: cancelChartData.order });
+    drawBarChart('chartReschedReasons', reschedChartData.data, { palette: reschedPalette, labelMap: buildReasonLabelMap(reschedChartData.data), order: reschedChartData.order });
   }
   renderReasonDetails('reschedReasonDetails', sum.reschedReasonDetails, { labelForReason: prettyReason });
   renderReasonDetails('cancelReasonDetails', sum.cancelReasonDetails, { labelForReason: prettyReason });
@@ -2239,7 +2366,9 @@ try {
     const btn = document.getElementById('rolloverNow'); if (btn) { btn.style.display=''; btn.textContent='Recompute Now'; btn.addEventListener('click', () => { try { SELECTED_MONTH = monthKey(Date.now()); if (monthPicker) monthPicker.value = SELECTED_MONTH; renderTable(); updateKpisAndCharts(); } catch {} }); }
   }
   initializeMainTabs();
-  setMainView('dashboard');
+  setMainView('insights');
   setView('daily');
   initializeOutcomeTabs();
+  initializeOutcomeChartToggle();
+  initializeTableFilters();
 } catch {}

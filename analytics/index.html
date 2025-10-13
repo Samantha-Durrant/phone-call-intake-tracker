@@ -11,10 +11,10 @@
       html,body{ height:100% }
       body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#f5f7fb; color:#111827; }
       header{ display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:linear-gradient(180deg,#f9fafb,#f3f4f6); border-bottom:1px solid var(--line) }
-      .wrap{ display:grid; grid-template-columns:minmax(360px, 560px) 1fr; gap:12px; padding:12px; height:calc(100% - 56px) }
-      .panel{ background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; display:flex; flex-direction:column }
-      .panel h2{ margin:0; padding:10px 12px; font-size:14px; border-bottom:1px solid var(--line); background:#f9fafb }
-      .panel .body{ flex:1; overflow:auto }
+      .wrap{ display:grid; grid-template-columns:minmax(360px, 560px) 1fr; gap:18px; padding:12px; }
+      .panel{ background:#fff; border:1px solid var(--line); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 12px 24px rgba(15,23,42,0.08); }
+      .panel h2{ margin:0; padding:12px 16px; font-size:15px; font-weight:700; border-bottom:1px solid var(--line); background:#f9fafb }
+      .panel .body{ flex:1; overflow:auto; padding:0 16px 16px }
       iframe{ width:100%; height:100%; border:0; display:block }
       .toolbar{ display:flex; gap:8px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line); background:#fff; flex-wrap:wrap }
       button{ height:32px; padding:0 10px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer; font-weight:600 }
@@ -46,10 +46,10 @@
       .muted{ color:var(--muted) }
       .empty{ padding:16px; color:var(--muted) }
       /* Dashboard adjustments */
-      .kpi-grid{ display:grid; grid-template-columns: repeat(2,minmax(140px,1fr)); gap:8px; padding:8px; border-bottom:1px solid var(--line); background:#fff }
-      .kpi{ background:#f9fafb; border:1px solid var(--line); border-radius:10px; padding:8px 10px }
+      .kpi-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap:12px; padding:12px 16px; border-bottom:1px solid var(--line); background:#fff }
+      .kpi{ background:#f3f4f6; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; box-shadow:inset 0 1px 0 rgba(255,255,255,0.6) }
       .kpi .label{ color:var(--muted); font-size:12px }
-      .kpi .value{ font-weight:700; font-size:18px }
+      .kpi .value{ font-weight:700; font-size:22px }
       .charts{ display:grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap:16px; align-items:stretch }
       .panel.wide{ grid-column: 1 / -1 }
       .panel .body{ padding:8px }
@@ -69,13 +69,14 @@
       .reason-details{ display:flex; flex-direction:column; gap:8px; margin-top:8px }
       .reason-detail{ border:1px solid var(--line); border-radius:10px; background:#fff; }
       details.reason-detail{ padding:0; }
-      details.reason-detail summary{ padding:10px 12px; cursor:pointer; list-style:none; font-weight:600; font-size:13px; color:#111827; display:flex; align-items:center; justify-content:space-between; }
+      details.reason-detail summary{ padding:10px 12px; cursor:pointer; list-style:none; font-weight:600; font-size:13px; color:#111827; display:flex; align-items:center; justify-content:space-between; gap:12px }
       details.reason-detail[open]{ box-shadow:0 10px 25px rgba(15,23,42,0.08); }
       details.reason-detail summary::-webkit-details-marker{ display:none; }
       details.reason-detail summary .chevron{ display:inline-block; transition:transform .2s ease; margin-left:8px; color:#6b7280; font-size:11px; }
       details.reason-detail[open] summary .chevron{ transform:rotate(180deg); }
       details.reason-detail .reason-detail-body{ padding:0 12px 12px; }
-      .reason-detail-title{ font-weight:600; font-size:13px; color:#111827 }
+      .reason-detail-title{ font-weight:600; font-size:13px; color:#111827; flex:1 }
+      .reason-count-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:32px; padding:0 10px; height:20px; border-radius:999px; background:#eef2ff; color:#4338ca; font-size:12px; font-weight:600 }
       .reason-detail-list{ margin:8px 0 0; padding-left:18px; display:flex; flex-direction:column; gap:4px; font-size:12px; color:#374151 }
       .reason-detail-empty{ padding:8px 0; font-size:12px }
       .change-breakdown{ display:flex; gap:24px; flex-wrap:wrap }
@@ -89,6 +90,8 @@
       .change-count{ font-weight:600 }
       .change-percent{ color:var(--muted); font-size:12px }
       .change-empty{ padding:10px 12px; color:var(--muted); font-style:italic }
+      .list-toggle{ margin-top:6px; border:none; background:#e5e7eb; border-radius:999px; padding:6px 14px; font-size:12px; font-weight:600; color:#1f2937; cursor:pointer; align-self:flex-start }
+      .list-toggle:hover{ background:#d1d5db }
       .outcome-panel{ position:relative }
       .outcome-header{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; padding:4px 8px 12px }
       .outcome-tabs{ display:inline-flex; gap:6px; border-radius:999px; background:#eef2ff; padding:4px; }
@@ -98,6 +101,9 @@
       .outcome-category-tabs{ display:inline-flex; gap:6px; border-radius:999px; background:#e5e7eb; padding:4px; margin-top:10px; }
       .outcome-category-tab{ border:none; background:transparent; padding:6px 14px; border-radius:999px; font-weight:600; color:#374151; cursor:pointer }
       .outcome-category-tab.active{ background:#111827; color:#fff; box-shadow:0 4px 12px rgba(17,24,39,0.25) }
+      .outcome-chart-toggle{ display:inline-flex; gap:6px; border-radius:999px; background:#f3f4f6; padding:4px; }
+      .chart-toggle-btn{ border:none; background:transparent; padding:6px 12px; border-radius:999px; font-weight:600; color:#4b5563; cursor:pointer }
+      .chart-toggle-btn.active{ background:#4f46e5; color:#fff; box-shadow:0 4px 12px rgba(79,70,229,0.25) }
       .outcome-funnel{ display:flex; gap:10px; flex-wrap:wrap }
       .funnel-card{ min-width:120px; padding:8px 12px; border:1px solid var(--line); border-radius:14px; display:flex; flex-direction:column; background:#fff }
       .funnel-card .label{ font-size:12px; color:var(--muted) }
@@ -112,6 +118,9 @@
       .secondary-panels .panel-body{ padding:8px 12px }
       table thead th:nth-child(6), table tbody td:nth-child(6){ min-width:160px }
       tbody tr:nth-child(even){ background:#f9fafb }
+      .table-filters{ display:flex; gap:8px; flex-wrap:wrap; padding:12px 16px 0 }
+      .table-filter-btn{ border:1px solid var(--line); border-radius:999px; padding:6px 12px; font-size:12px; font-weight:600; background:#fff; color:#374151; cursor:pointer }
+      .table-filter-btn.active{ background:#4f46e5; color:#fff; border-color:#4f46e5 }
       .main-tabs{ display:flex; gap:8px; margin:12px 12px 0; }
       .main-tab{ border:none; background:#e5e7eb; padding:6px 14px; border-radius:999px; font-weight:600; color:#374151; cursor:pointer }
       .main-tab.active{ background:#111827; color:#fff; box-shadow:0 4px 12px rgba(17,24,39,0.25) }
@@ -140,10 +149,10 @@
       <div class="muted">Updates on “Done” from any screenpop tab</div>
     </header>
     <div class="main-tabs" id="analyticsTabs" role="tablist" aria-label="Analytics sections">
-      <button type="button" class="main-tab active" data-view="dashboard" role="tab" aria-selected="true">Dashboard</button>
-      <button type="button" class="main-tab" data-view="insights" role="tab" aria-selected="false">Insights</button>
+      <button type="button" class="main-tab active" data-view="insights" role="tab" aria-selected="true">Insights</button>
+      <button type="button" class="main-tab" data-view="dashboard" role="tab" aria-selected="false">Dashboard</button>
     </div>
-    <div id="dashboardView" class="wrap" style="grid-template-columns: 1fr; gap:12px;">
+    <div id="dashboardView" class="wrap hidden" style="grid-template-columns: 1fr; gap:12px;">
       <div class="panel" style="padding-bottom:0">
         <div class="toolbar" style="justify-content:space-between">
           <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -192,6 +201,10 @@
                   <button type="button" class="outcome-tab" data-outcome="cancelled" role="tab" aria-selected="false">Cancelled</button>
                   <button type="button" class="outcome-tab" data-outcome="no_appointment" role="tab" aria-selected="false">No Appointment</button>
                 </div>
+                <div class="outcome-chart-toggle" id="outcomeChartToggle" role="group" aria-label="Toggle charts">
+                  <button type="button" class="chart-toggle-btn active" data-chart="types">Types</button>
+                  <button type="button" class="chart-toggle-btn active" data-chart="reasons">Reasons</button>
+                </div>
                 <div class="outcome-category-tabs" id="outcomeCategoryTabs" role="tablist" aria-label="Appointment categories">
                   <button type="button" class="outcome-category-tab active" data-category="all" role="tab" aria-selected="true">All</button>
                   <button type="button" class="outcome-category-tab" data-category="medical" role="tab" aria-selected="false">Medical</button>
@@ -219,11 +232,11 @@
               </div>
             </div>
             <div class="outcome-body">
-              <div class="outcome-left">
+              <div class="outcome-left" data-chart="types">
                 <canvas id="chartOutcomeTypes" class="chart" aria-label="Appointment type distribution by reason"></canvas>
                 <div id="chartOutcomeTypesLegend" class="chart-legend"></div>
               </div>
-              <div class="outcome-right">
+              <div class="outcome-right" data-chart="reasons">
                 <canvas id="chartOutcomeReasons" class="chart" aria-label="Top reasons"></canvas>
                 <div id="outcomeReasonDetails" class="reason-details"></div>
                 <div id="outcomeMessage" class="outcome-message" aria-live="polite"></div>
@@ -272,6 +285,13 @@
       <div class="panel table-panel">
         <h2>Submissions</h2>
         <div class="body">
+          <div class="table-filters" id="tableFilters" role="tablist" aria-label="Submission filter">
+            <button type="button" class="table-filter-btn active" data-filter="all" role="tab" aria-selected="true">All</button>
+            <button type="button" class="table-filter-btn" data-filter="scheduled" role="tab" aria-selected="false">Scheduled</button>
+            <button type="button" class="table-filter-btn" data-filter="rescheduled" role="tab" aria-selected="false">Rescheduled</button>
+            <button type="button" class="table-filter-btn" data-filter="cancelled" role="tab" aria-selected="false">Cancelled</button>
+            <button type="button" class="table-filter-btn" data-filter="no_appointment" role="tab" aria-selected="false">No Appointment</button>
+          </div>
           <table id="analyticsTable" aria-label="Screenpop submissions">
             <thead>
               <tr>
@@ -296,7 +316,7 @@
         </div>
       </div>
     </div>
-    <div id="insightsView" class="wrap hidden" style="grid-template-columns:1fr; gap:12px;" aria-live="polite">
+    <div id="insightsView" class="wrap" style="grid-template-columns:1fr; gap:12px;" aria-live="polite">
       <div class="panel wide">
         <h2>Insights</h2>
         <div class="body">
