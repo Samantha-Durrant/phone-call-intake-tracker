@@ -27,15 +27,16 @@ const OUTCOME_LABELS = {
   no_appointment: 'No Appointment'
 };
 const PRIORITY_APPT_RULES = [
+  { key: 'new_patient', label: 'New Patient', match: (s) => s === 'new patient' },
+  { key: 'follow_up', label: 'Follow Up', match: (s) => s === 'follow up' },
+  { key: 'spot_check', label: 'Spot Check', match: (s) => s === 'spot check' },
+  { key: 'fse', label: 'FSE', match: (s) => s === 'fse' },
   { key: 'bbl_heroic', label: 'BBL HEROic', match: (s) => s === 'bbl heroic' },
-  { key: 'barehr_lhr', label: 'BareHR / LHR', match: (s) => s === 'barehr' || s === 'laser hair removal (lhr)' || s === 'lase hair removal (lhr)' },
-  { key: 'injectables', label: 'Injectables (Botox & Fillers)', match: (s) => s === 'botox' || s === 'filler major' || s === 'dermal filler' || s === 'dermal fillers', collectDetails: true },
+  { key: 'barehr_lhr', label: 'BareHR / LHR', match: (s) => s === 'barehr' || s === 'laser hair removal (lhr)' || s === 'lase hair removal (lhr)' || s === 'barehr / lhr' },
+  { key: 'injectables', label: 'Injectables (Botox & Fillers)', match: (s) => ['botox','filler major','dermal filler','dermal fillers'].includes(s), collectDetails: true },
   { key: 'dermaplane', label: 'Dermaplane', match: (s) => s === 'dermaplane' },
   { key: 'hydrafacial', label: 'Hydrafacial', match: (s) => s.includes('hydrafacial'), collectDetails: true },
-  { key: 'cosmetic_consult', label: 'Cosmetic Consults', match: (s) => ['cosmetic consult','cosmetic consults','cosmetic follow-up'].includes(s), collectDetails: true },
-  { key: 'new_patient', label: 'New Patient', match: (s) => s === 'new patient' },
-  { key: 'spot_check', label: 'Spot Check', match: (s) => s === 'spot check' },
-  { key: 'fse', label: 'FSE', match: (s) => s === 'fse' }
+  { key: 'cosmetic_consult', label: 'Cosmetic Consults', match: (s) => ['cosmetic consult','cosmetic consults','cosmetic follow-up'].includes(s), collectDetails: true }
 ];
 let CURRENT_OUTCOME = 'scheduled';
 let OUTCOME_DATA = null;
@@ -75,7 +76,7 @@ const SCHEDULING_SERIES = [
 
 const normalizeAppt = (name) => String(name || '').trim().toLowerCase();
 const MEDICAL_APPOINTMENTS = new Set([
-  'fse','new patient','follow up','spot check','cyst injection','cyst excision','biopsy','hairloss','rash','isotretinoin','video visit isotretinoin','video visit','suture removal ma','wart treatment'
+  'fse','new patient','follow up','spot check','cyst injection','cyst excision','biopsy','hairloss','rash','isotretinoin','video visit isotretinoin','video visit','video visit - isotretinoin','suture removal ma','wart treatment','cosmetic procedure','ed & c','ed&c','edc'
 ].map(normalizeAppt));
 const LASER_DERM_APPOINTMENTS = new Set([
   'bbl heroic',
@@ -119,8 +120,21 @@ const COSMETIC_DERM_APPOINTMENTS = new Set([
   'dermaplane',
   'cosmetic consult',
   'cosmetic consults',
-  'cosmetic procedure',
   'cosmetic follow-up'
+].map(normalizeAppt));
+const SURGERY_APPOINTMENTS = new Set([
+  'biopsy',
+  'cyst excision',
+  'cyst injection',
+  'ed & c',
+  'ed&c',
+  'edc',
+  'cosmetic procedure'
+].map(normalizeAppt));
+const VIDEO_VISIT_APPOINTMENTS = new Set([
+  'video visit',
+  'video visit isotretinoin',
+  'video visit - isotretinoin'
 ].map(normalizeAppt));
 
 function categorizeAppointment(name){
@@ -136,15 +150,29 @@ function categorizeAppointment(name){
 
 function buildApptTypePieData(map){
   const entries = Object.entries(map || {})
-    .map(([label,count])=>({ label, count:Number(count)||0 }))
+    .map(([label, value]) => {
+      let count = 0;
+      let details = null;
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        count = Number(value.count) || 0;
+        if (Array.isArray(value.details) && value.details.length) {
+          details = value.details
+            .map(detail => ({ label: String(detail.label || ''), count: Number(detail.count) || 0 }))
+            .filter(detail => detail.count > 0);
+        }
+      } else {
+        count = Number(value) || 0;
+      }
+      return { label, count, details };
+    })
     .filter(item=>item.count > 0)
     .sort((a,b)=>b.count - a.count);
   if (!entries.length) return [];
 
   const priorityMap = new Map();
   const otherEntries = [];
-  entries.forEach(({ label, count }) => {
-    const norm = normalizeAppt(label);
+  entries.forEach((item) => {
+    const norm = normalizeAppt(item.label);
     const ruleIndex = PRIORITY_APPT_RULES.findIndex(rule => rule.match(norm));
     if (ruleIndex >= 0) {
       const rule = PRIORITY_APPT_RULES[ruleIndex];
@@ -154,14 +182,20 @@ function buildApptTypePieData(map){
         priorityOrder: ruleIndex,
         details: rule.collectDetails ? [] : null
       };
-      existing.count += count;
-      if (rule.collectDetails || normalizeAppt(rule.label) !== norm) {
-        if (!existing.details) existing.details = [];
-        existing.details.push({ label, count });
+      existing.count += item.count;
+      const detailEntries = item.details && item.details.length
+        ? item.details
+        : [{ label: item.label, count: item.count }];
+      if (rule.collectDetails) {
+        existing.details = existing.details || [];
+        existing.details.push(...detailEntries);
+      } else if (item.details && item.details.length) {
+        existing.details = existing.details || [];
+        existing.details.push(...item.details);
       }
       priorityMap.set(rule.key, existing);
     } else {
-      otherEntries.push({ label, count });
+      otherEntries.push(item);
     }
   });
 
@@ -178,14 +212,21 @@ function buildApptTypePieData(map){
 
   const LIMIT = 7;
   const remainingSlots = Math.max(0, LIMIT - priorityEntries.length);
-  const topOther = otherEntries.slice(0, remainingSlots).map(item => ({ ...item }));
+  const topOther = otherEntries.slice(0, remainingSlots).map(item => ({
+    label: item.label,
+    count: item.count,
+    ...(item.details && item.details.length ? { details: item.details } : {})
+  }));
   const remainderEntries = otherEntries.slice(remainingSlots);
   const remainder = remainderEntries.reduce((acc,item)=>acc + (item.count||0), 0);
   const result = [...priorityEntries, ...topOther];
 
   if (remainder > 0){
+    const detailList = remainderEntries.flatMap(item => {
+      if (item.details && item.details.length) return item.details;
+      return [{ label: item.label, count: item.count }];
+    });
     const existingOther = result.find(item => /^other\b/i.test(String(item.label||'')));
-    const detailList = remainderEntries.map(item => ({ label: item.label, count: item.count }));
     if (existingOther) {
       existingOther.count += remainder;
       existingOther.details = [...(existingOther.details || []), ...detailList];
@@ -194,6 +235,41 @@ function buildApptTypePieData(map){
     }
   }
   return result;
+}
+
+function groupMedicalAppointments(map){
+  const grouped = {};
+  Object.entries(map || {}).forEach(([label, value]) => {
+    let count = 0;
+    let detailEntries = [];
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      count = Number(value.count) || 0;
+      if (Array.isArray(value.details) && value.details.length) {
+        detailEntries = value.details
+          .map(detail => ({ label: String(detail.label || ''), count: Number(detail.count) || 0 }))
+          .filter(detail => detail.count > 0);
+      }
+    } else {
+      count = Number(value) || 0;
+    }
+    if (!count) return;
+    const norm = normalizeAppt(label);
+    let target = label;
+    if (SURGERY_APPOINTMENTS.has(norm)) target = 'Surgery';
+    else if (VIDEO_VISIT_APPOINTMENTS.has(norm)) target = 'Video Visit';
+    if (!grouped[target]) grouped[target] = { count: 0, details: [] };
+    grouped[target].count += count;
+    const detailsToPush = detailEntries.length ? detailEntries : [{ label, count }];
+    if (target !== label) {
+      grouped[target].details.push(...detailsToPush);
+    } else if (detailEntries.length) {
+      grouped[target].details.push(...detailEntries);
+    }
+  });
+  Object.values(grouped).forEach(entry => {
+    if (Array.isArray(entry.details) && !entry.details.length) delete entry.details;
+  });
+  return grouped;
 }
 
 function buildTopEntries(map, limit=12){
@@ -211,7 +287,13 @@ function renderAppointmentLists(sum){
   const cosList = document.getElementById('listApptCosmetic');
   const render = (el, data) => {
     if (!el) return;
-    const entries = Object.entries(data || {}).filter(([,v]) => (Number(v)||0) > 0).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
+    const entries = Object.entries(data || {})
+      .map(([label, value]) => {
+        const count = (value && typeof value === 'object' && !Array.isArray(value)) ? Number(value.count)||0 : Number(value)||0;
+        return [label, count];
+      })
+      .filter(([,count]) => count > 0)
+      .sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
     el.innerHTML = '';
     if (!entries.length){
       const empty = document.createElement('li'); empty.className='appt-empty'; empty.textContent='No appointments captured yet'; el.appendChild(empty); return;
@@ -228,7 +310,7 @@ function renderAppointmentLists(sum){
       el.appendChild(li);
     });
   };
-  render(medList, sum.apptGroups?.Medical);
+  render(medList, groupMedicalAppointments(sum.apptGroups?.Medical || {}));
   render(laserList, sum.apptGroups?.['Laser Dermatology']);
   render(cosList, sum.apptGroups?.['Cosmetic Dermatology'] || sum.apptGroups?.Cosmetic);
 }
@@ -1359,7 +1441,8 @@ function updateKpisAndCharts(){
   drawStackedMulti('chartNewExisting', officeData, { series: SCHEDULING_SERIES, order: officeOrder });
   renderLegend('chartNewExistingLegend', SCHEDULING_SERIES);
   renderAppointmentLists(sum);
-  const medPie = buildApptTypePieData(sum.apptGroups?.Medical || {});
+  const groupedMedical = groupMedicalAppointments(sum.apptGroups?.Medical || {});
+  const medPie = buildApptTypePieData(groupedMedical);
   const laserPie = buildApptTypePieData(sum.apptGroups?.['Laser Dermatology'] || {});
   const cosmeticPie = buildApptTypePieData(sum.apptGroups?.['Cosmetic Dermatology'] || sum.apptGroups?.Cosmetic || {});
   drawPieChart('chartApptMedical', medPie, { legendId: 'chartApptMedicalLegend' });
