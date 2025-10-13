@@ -5,6 +5,19 @@
 
   const DEFAULT_PHONE = '+15551234567'; // maps to John Smith in mock data
   const STATUS_DEFAULT = 'Testing mode — send the test caller to load mock data';
+  const wait = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms));
+  const BATCH_VARIANTS = [
+    { key: 'scheduled', label: 'Scheduled', scheduled: true, change: 'none', patientType: 'existing', confirm: true },
+    { key: 'cancel', label: 'Cancellation', scheduled: true, change: 'cancellation', reasons: ['Illness/Family Emergency'], patientType: 'existing' },
+    { key: 'reschedule', label: 'Reschedule', scheduled: true, change: 'reschedule', reasons: ['Work/School Conflict', 'Other'], otherText: 'Requested different provider availability', patientType: 'existing' },
+    { key: 'no_appt', label: 'No Appointment', scheduled: false, change: 'none', noApptReasons: ['Question Only'], patientType: 'new' }
+  ];
+  const batchState = { running: false, abort: false };
+  let runBtn = null;
+  let resetBtn = null;
+  let runAllBtn = null;
+  let apptSelect = null;
+  let officePicker = null;
   let SESSION_ID = null;
 
   function updateStatus(text){
@@ -59,15 +72,31 @@
     SESSION_ID = 'sess_' + Math.random().toString(36).slice(2,8);
     window.ScreenpopLogic?.configure({ sessionId: SESSION_ID, acceptBackground: false });
 
-    const runBtn = qs('#runScenario');
-    const resetBtn = qs('#resetScenario');
-    const apptSelect = qs('#apptTypeSelect');
-    const officePicker = qs('#officePicker');
+    runBtn = qs('#runScenario');
+    resetBtn = qs('#resetScenario');
+    runAllBtn = qs('#runAllCombos');
+    apptSelect = qs('#apptTypeSelect');
+    officePicker = qs('#officePicker');
 
     runBtn?.addEventListener('click', simulateManualCaller);
     resetBtn?.addEventListener('click', resetAll);
     apptSelect?.addEventListener('change', applySelectedApptType);
     officePicker?.addEventListener('change', applySelectedOffice);
+    runAllBtn?.addEventListener('click', () => {
+      if (batchState.running) {
+        batchState.abort = true;
+        updateStatus('Stopping batch after current scenario...');
+        return;
+      }
+      runAllCombos().catch((err) => {
+        console.error('Run all combos failed', err);
+        updateStatus('Batch run failed — check console for details');
+        batchState.running = false;
+        batchState.abort = false;
+        if (runAllBtn) runAllBtn.textContent = 'Run All Combos';
+        setDemoControlsDisabled(false);
+      });
+    });
 
     setManualDefaults();
     applySelectedApptType();
@@ -97,5 +126,133 @@
     const select = qs('#officePicker');
     const value = select?.value || '';
     window.ScreenpopAPI?.setAppointmentOffice(value);
+  }
+
+  function collectUniqueOptions(selectEl){
+    if (!selectEl) return [];
+    const values = Array.from(selectEl.querySelectorAll('option'))
+      .map(opt => String(opt.value || '').trim())
+      .filter(Boolean);
+    return Array.from(new Set(values));
+  }
+
+  function buildScenarioQueue(){
+    const apptTypes = collectUniqueOptions(apptSelect);
+    const offices = collectUniqueOptions(officePicker);
+    if (!apptTypes.length || !offices.length) return [];
+    const scenarios = [];
+    apptTypes.forEach(apptType => {
+      offices.forEach(office => {
+        BATCH_VARIANTS.forEach(variant => {
+          scenarios.push({
+            ...variant,
+            apptType,
+            office,
+            summary: `${variant.label} · ${apptType} @ ${office}`
+          });
+        });
+      });
+    });
+    return scenarios;
+  }
+
+  function setDemoControlsDisabled(disabled){
+    if (runBtn) runBtn.disabled = disabled;
+    if (resetBtn) resetBtn.disabled = disabled;
+  }
+
+  function clearMiniActions(){
+    qsa('.reasons .mini-btn').forEach(btn => btn.classList.remove('pressed'));
+  }
+
+  async function applyScenario(scenario){
+    setPatientType(scenario.patientType || 'existing');
+
+    if (apptSelect) {
+      apptSelect.value = scenario.apptType || '';
+      applySelectedApptType();
+    }
+    if (officePicker) {
+      officePicker.value = scenario.office || '';
+      applySelectedOffice();
+    }
+
+    const update = { scheduled: !!scenario.scheduled, change: scenario.change || 'none' };
+    if (Array.isArray(scenario.reasons) && scenario.reasons.length) {
+      update.reasons = scenario.reasons;
+      update.reason = scenario.reasons[0];
+      if (scenario.otherText) update.otherText = scenario.otherText;
+    } else if (scenario.change !== 'none') {
+      update.reasons = [];
+      update.reason = '';
+    }
+    window.ScreenpopAPI?.applyAppointment(update);
+
+    if (Array.isArray(scenario.noApptReasons) && scenario.noApptReasons.length) {
+      window.ScreenpopAPI?.setNoAppointmentReasons(scenario.noApptReasons);
+    } else {
+      window.ScreenpopAPI?.clearNoAppointmentReasons();
+    }
+
+    const otherInput = qs('#otherReason');
+    if (otherInput) {
+      const hasOther = Array.isArray(scenario.reasons) && scenario.reasons.includes('Other');
+      otherInput.value = hasOther ? (scenario.otherText || '') : '';
+    }
+
+    const confirmInput = qs('#confirmCheck');
+    if (confirmInput) confirmInput.checked = !!scenario.confirm;
+
+    clearMiniActions();
+
+    return wait(40);
+  }
+
+  async function runAllCombos(){
+    if (batchState.running) return;
+
+    const doneBtn = qs('#doneBtn');
+    if (!doneBtn) {
+      updateStatus('Unable to find Done button — batch aborted');
+      return;
+    }
+
+    const queue = buildScenarioQueue();
+    if (!queue.length) {
+      updateStatus('No appointment or office options available for batch run');
+      return;
+    }
+
+    batchState.running = true;
+    batchState.abort = false;
+    setDemoControlsDisabled(true);
+    if (runAllBtn) runAllBtn.textContent = 'Stop Batch';
+
+    updateStatus(`Starting batch of ${queue.length} scenarios...`);
+    await handleIncoming(DEFAULT_PHONE);
+    await wait(400);
+    setManualDefaults();
+
+    let processed = 0;
+    for (const scenario of queue) {
+      if (batchState.abort) break;
+      await applyScenario(scenario);
+      await wait(80);
+      doneBtn.click();
+      processed += 1;
+      updateStatus(`Captured ${processed}/${queue.length} · ${scenario.summary}`);
+      await wait(120);
+    }
+
+    if (batchState.abort) {
+      updateStatus(`Batch stopped after ${processed} scenarios.`);
+    } else {
+      updateStatus(`Batch complete — ${processed} scenarios captured.`);
+    }
+
+    batchState.running = false;
+    batchState.abort = false;
+    setDemoControlsDisabled(false);
+    if (runAllBtn) runAllBtn.textContent = 'Run All Combos';
   }
 })();

@@ -64,10 +64,10 @@ const SCHEDULING_SERIES = [
 
 const normalizeAppt = (name) => String(name || '').trim().toLowerCase();
 const MEDICAL_APPOINTMENTS = new Set([
-  'fse','new patient','follow up','spot check','cyst injection','cyst excision','biopsy','hairloss','rash','isotretinoin','video visit isotretinoin','video visit','suture removal ma','wart treatment','numbing major','filler major','botox','cosmetic procedure','prp','pdt','kybella'
+  'fse','new patient','follow up','spot check','cyst injection','cyst excision','biopsy','hairloss','rash','isotretinoin','video visit isotretinoin','video visit','suture removal ma','wart treatment'
 ].map(normalizeAppt));
 const COSMETIC_APPOINTMENTS = new Set([
-  'cosmetic consult','dermaplane','standard hydrafacial','acne hydrafacial','deluxe hydrafacial','emsculpt','emsella','vanquish','laser pro-frac','barehr','lase hair removal (lhr)','bbl heroic','laser bbl','acne bbl','moxi','halo','visia','visia numbing','ipad numbing','ipad','microneedling','microlaser peel','chemical peel','yag','skintyte','sclerotherapy','prp','ultherapy','cosmetic follow-up','diva'
+  'cosmetic consult','dermaplane','standard hydrafacial','acne hydrafacial','deluxe hydrafacial','emsculpt','emsella','vanquish','laser pro-frac','barehr','laser hair removal (lhr)','bbl heroic','laser bbl','acne bbl','moxi','halo','visia','visia numbing','ipad numbing','ipad','microneedling','microlaser peel','chemical peel','yag','skintyte','sclerotherapy','prp','ultherapy','cosmetic follow-up','diva', ,'numbing major','filler major','botox','cosmetic procedure','prp','pdt','kybella'
 ].map(normalizeAppt));
 
 function categorizeAppointment(name){
@@ -263,7 +263,7 @@ function applyMrnFilter(){
 
 function exportCsv(){
   const entries = getScopedEntries();
-  const cols = ['time','agent','callId','ani','patient.mrn','patient.name','patient.type','appointment.scheduled','appointment.change','appointment.type','appointment.office','appointment.reason','appointment.noAppointmentReasons','appointment.questionOnly','appointment.otherText','appointment.confirmed','actions'];
+  const cols = ['time','callId','patient.mrn','patient.name','patient.type','appointment.scheduled','appointment.change','appointment.type','appointment.office','appointment.reason','appointment.noAppointmentReasons','appointment.questionOnly','appointment.otherText','appointment.confirmed','actions'];
   const header = cols.join(',');
   const lines = [header];
   for (const e of entries){
