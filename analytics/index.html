@@ -89,7 +89,7 @@
       .change-meta{ display:flex; gap:8px; align-items:center; white-space:nowrap }
       .change-count{ font-weight:600 }
       .change-percent{ color:var(--muted); font-size:12px }
-      .change-empty{ padding:10px 12px; color:var(--muted); font-style:italic }
+      .change-empty{ padding:10px 12px; color:#muted; font-style:italic }
       .list-toggle{ margin-top:6px; border:none; background:#e5e7eb; border-radius:999px; padding:6px 14px; font-size:12px; font-weight:600; color:#1f2937; cursor:pointer; align-self:flex-start }
       .list-toggle:hover{ background:#d1d5db }
       .outcome-panel{ position:relative }
@@ -112,7 +112,7 @@
       .outcome-body{ display:flex; gap:16px; flex-wrap:wrap }
       .outcome-left, .outcome-right{ flex:1 1 320px; min-width:280px }
       #chartOutcomeTypesLegend{ margin-top:8px }
-      .outcome-message{ font-size:13px; color:var(--muted); padding:8px 0 }
+      .outcome-message{ font-size:13px; color:#muted; padding:8px 0 }
       .secondary-panels details{ border:1px solid var(--line); border-radius:12px; padding:0; background:#fff }
       .secondary-panels summary{ padding:10px 12px; font-weight:600; cursor:pointer; outline:none }
       .secondary-panels .panel-body{ padding:8px 12px }
@@ -132,9 +132,6 @@
       .insight-subtext{ font-size:12px; color:#6b7280 }
       .insight-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; font-size:13px; color:#111827 }
       .insight-list li{ display:flex; justify-content:space-between; align-items:center; gap:12px }
-.call-trend-body{ display:grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap:16px; }
-      .call-trend-chart{ display:flex; flex-direction:column; gap:6px; background:#f9fafb; border:1px solid var(--line); border-radius:12px; padding:12px }
-      .chart-title{ font-size:13px; font-weight:600; color:#111827 }
       .insight-office-list li{ flex-direction:column; align-items:flex-start; background:#f9fafb; padding:10px 12px; border-radius:10px }
       .insight-office-list .insight-value{ color:#111827; font-weight:600 }
       .insight-office-list .insight-subtext{ font-size:12px; color:#6b7280 }
@@ -288,13 +285,6 @@
       <div class="panel table-panel">
         <h2>Submissions</h2>
         <div class="body">
-          <div class="table-filters" id="tableFilters" role="tablist" aria-label="Submission filter">
-            <button type="button" class="table-filter-btn active" data-filter="all" role="tab" aria-selected="true">All</button>
-            <button type="button" class="table-filter-btn" data-filter="scheduled" role="tab" aria-selected="false">Scheduled</button>
-            <button type="button" class="table-filter-btn" data-filter="rescheduled" role="tab" aria-selected="false">Rescheduled</button>
-            <button type="button" class="table-filter-btn" data-filter="cancelled" role="tab" aria-selected="false">Cancelled</button>
-            <button type="button" class="table-filter-btn" data-filter="no_appointment" role="tab" aria-selected="false">No Appointment</button>
-          </div>
           <table id="analyticsTable" aria-label="Screenpop submissions">
             <thead>
               <tr>
@@ -325,69 +315,7 @@
         <div class="body">
           <div class="insights-intro muted">Snapshots update with the current filters and view.</div>
           <div id="insightShell" class="insights-grid">
-            <div class="insight-card">
-              <div class="insight-heading">
-                <span>Scheduled Highlights</span>
-                <span class="insight-total" id="insightScheduledTotal">0</span>
-              </div>
-              <div class="insight-subtext">Most common appointment types scheduled</div>
-              <ul id="insightScheduledList" class="insight-list">
-                <li class="insight-empty">Not enough data yet.</li>
-              </ul>
-            </div>
-            <div class="insight-card">
-              <div class="insight-heading">
-                <span>Cancellation Drivers</span>
-                <span class="insight-total" id="insightCancelTotal">0</span>
-              </div>
-              <div class="insight-subtext">Top appointment & reason combinations</div>
-              <ul id="insightCancelList" class="insight-list">
-                <li class="insight-empty">Not enough data yet.</li>
-              </ul>
-            </div>
-            <div class="insight-card">
-              <div class="insight-heading">
-                <span>Reschedule Trends</span>
-                <span class="insight-total" id="insightReschedTotal">0</span>
-              </div>
-              <div class="insight-subtext">Where and why patients rescheduled</div>
-              <ul id="insightReschedList" class="insight-list">
-                <li class="insight-empty">Not enough data yet.</li>
-              </ul>
-            </div>
-            <div class="insight-card">
-              <div class="insight-heading">
-                <span>No Appointment Reasons</span>
-                <span class="insight-total" id="insightNoApptTotal">0</span>
-              </div>
-              <div class="insight-subtext">Top “no appointment” explanations</div>
-              <ul id="insightNoApptList" class="insight-list">
-                <li class="insight-empty">Not enough data yet.</li>
-              </ul>
-            </div>
-            <div class="insight-card">
-              <div class="insight-heading">
-                <span>Office Snapshot</span>
-                <span class="insight-total" id="insightOfficeTotal">0</span>
-              </div>
-              <div class="insight-subtext">Scheduled vs. cancelled and leading reasons</div>
-              <ul id="insightOfficeList" class="insight-list insight-office-list">
-                <li class="insight-empty">Not enough data yet.</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="panel wide">
-        <h2>Call Volume Trends</h2>
-        <div class="body call-trend-body">
-          <div class="call-trend-chart">
-            <div class="chart-title">Daily Calls (last 14 days)</div>
-            <canvas id="chartCallVolumeDaily" class="chart"></canvas>
-          </div>
-          <div class="call-trend-chart">
-            <div class="chart-title">Weekly Calls (last 8 weeks)</div>
-            <canvas id="chartCallVolumeWeekly" class="chart"></canvas>
+            <<ANY OTHER PANEL CONTENT GOES HERE>>
           </div>
         </div>
       </div>
