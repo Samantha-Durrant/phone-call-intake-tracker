@@ -2257,6 +2257,14 @@ try {
   });
 } catch {}
 
+// Fallback: accept postMessage submissions from embedded or opener windows
+window.addEventListener('message', (event) => {
+  const msg = event?.data || {};
+  if (msg && msg.type === 'screenpop-submit' && msg.entry) {
+    processEntry(msg.entry);
+  }
+});
+
 // Also listen via storage events for cross-tab updates
 window.addEventListener('storage', (e) => {
   if (!e.key) return;

@@ -522,6 +522,13 @@
       try { const ch = new BroadcastChannel('screenpop-analytics'); ch.postMessage({ type:'submit', entry }); ch.close(); } catch {}
       // 3) Storage event fallback (processed and removed by analytics)
       try { localStorage.setItem(`screenpop_submit_${id}`, JSON.stringify(entry)); } catch {}
+      // 4) postMessage fallback for embedded or opener analytics windows
+      try {
+        const msg = { type:'screenpop-submit', entry };
+        if (window.opener && !window.opener.closed) window.opener.postMessage(msg, '*');
+        const parentWin = window.parent;
+        if (parentWin && parentWin !== window) parentWin.postMessage(msg, '*');
+      } catch {}
     } catch {}
 
     pulse('Captured (UI only)');
