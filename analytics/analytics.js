@@ -27,15 +27,15 @@ const OUTCOME_LABELS = {
   no_appointment: 'No Appointment'
 };
 const PRIORITY_APPT_RULES = [
-  { key: 'new_patient', label: 'New Patient', match: (s) => s === 'new patient' },
-  { key: 'spot_check', label: 'Spot Check', match: (s) => s === 'spot check' },
-  { key: 'fse', label: 'FSE', match: (s) => s === 'fse' },
-  { key: 'botox', label: 'Botox', match: (s) => s === 'botox' },
-  { key: 'filler_major', label: 'Filler Major', match: (s) => s === 'filler major' },
   { key: 'bbl_heroic', label: 'BBL HEROic', match: (s) => s === 'bbl heroic' },
+  { key: 'barehr_lhr', label: 'BareHR / LHR', match: (s) => s === 'barehr' || s === 'laser hair removal (lhr)' || s === 'lase hair removal (lhr)' },
+  { key: 'injectables', label: 'Injectables (Botox & Fillers)', match: (s) => s === 'botox' || s === 'filler major' || s === 'dermal filler' || s === 'dermal fillers', collectDetails: true },
   { key: 'dermaplane', label: 'Dermaplane', match: (s) => s === 'dermaplane' },
   { key: 'hydrafacial', label: 'Hydrafacial', match: (s) => s.includes('hydrafacial'), collectDetails: true },
-  { key: 'cosmetic_consult', label: 'Cosmetic Consults', match: (s) => s === 'cosmetic consult' || s === 'cosmetic consults' }
+  { key: 'cosmetic_consult', label: 'Cosmetic Consults', match: (s) => ['cosmetic consult','cosmetic consults','cosmetic follow-up'].includes(s), collectDetails: true },
+  { key: 'new_patient', label: 'New Patient', match: (s) => s === 'new patient' },
+  { key: 'spot_check', label: 'Spot Check', match: (s) => s === 'spot check' },
+  { key: 'fse', label: 'FSE', match: (s) => s === 'fse' }
 ];
 let CURRENT_OUTCOME = 'scheduled';
 let OUTCOME_DATA = null;
