@@ -58,6 +58,22 @@ function categoryPriorityOffset(category){
   }
 }
 
+function normalizeCategoryKey(category){
+  const norm = String(category || 'Other').toLowerCase();
+  if (norm.startsWith('medical')) return 'medical';
+  if (norm.startsWith('laser')) return 'laser';
+  if (norm.startsWith('cosmetic')) return 'cosmetic';
+  return 'other';
+}
+
+const CATEGORY_LABELS = {
+  all: 'All Appointments',
+  medical: 'Medical',
+  laser: 'Laser Dermatology',
+  cosmetic: 'Cosmetic Dermatology',
+  other: 'Other'
+};
+
 function unpackTypeValue(label, value){
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const count = Number(value.count) || 0;
@@ -110,10 +126,13 @@ function aggregateTypeCounts(typeCounts = {}){
       priorityRank = PRIORITY_LABEL_RANK.size + SPECIAL_PRIORITY_RANK.size + categoryPriorityOffset(category);
     }
     const categoryLabel = category && category !== 'Other' ? category : 'Other';
+    const categoryKey = normalizeCategoryKey(categoryLabel);
     const finalLabel = `${categoryLabel} · ${baseLabel}`;
-    const entry = map.get(finalLabel) || { label: finalLabel, count: 0, details: [], priorityRank, category: categoryLabel, baseLabel };
+    const entry = map.get(finalLabel) || { label: finalLabel, count: 0, details: [], priorityRank, category: categoryLabel, categoryKey, baseLabel };
     entry.count += count;
     entry.priorityRank = Math.min(entry.priorityRank, priorityRank);
+    entry.category = entry.category || categoryLabel;
+    entry.categoryKey = entry.categoryKey || categoryKey;
     if (collectDetails) {
       const detailList = details.length ? details : [{ label, count }];
       entry.details.push(...detailList);
@@ -128,6 +147,7 @@ function aggregateTypeCounts(typeCounts = {}){
 
 let CURRENT_OUTCOME = 'scheduled';
 let OUTCOME_DATA = null;
+let CURRENT_OUTCOME_CATEGORY = 'all';
 
 function prettyReasonLabel(reason){
   const raw = String(reason || '').trim();
@@ -1173,77 +1193,178 @@ function renderReasonDetails(containerId, detailMap, { labelForReason = (key) =>
   });
 }
 
-function buildReasonTypeStack(detailMap, { topN = 6, formatReason = (key) => String(key||'') } = {}){
-  const aggregatedPerReason = new Map();
+
+function buildStackFromEntryMap(entryMap, topN, formatReason){
   const totalsByLabel = new Map();
   let overallTotal = 0;
 
-  Object.entries(detailMap || {}).forEach(([reasonKey, detail]) => {
-    const aggregated = aggregateTypeCounts(detail?.types || {});
-    aggregatedPerReason.set(reasonKey, aggregated);
-    aggregated.forEach(entry => {
-      overallTotal += entry.count;
-      const existing = totalsByLabel.get(entry.label) || { count: 0, priorityRank: entry.priorityRank ?? 9999 };
-      existing.count += entry.count;
+  entryMap.forEach(entries => {
+    entries.forEach(entry => {
+      const value = Number(entry.count) || 0;
+      if (!value) return;
+      overallTotal += value;
+      const existing = totalsByLabel.get(entry.label) || {
+        count: 0,
+        priorityRank: entry.priorityRank ?? 9999,
+        category: entry.category,
+        categoryKey: entry.categoryKey,
+        baseLabel: entry.baseLabel
+      };
+      existing.count += value;
       existing.priorityRank = Math.min(existing.priorityRank, entry.priorityRank ?? existing.priorityRank);
+      if (!existing.category && entry.category) existing.category = entry.category;
+      if (!existing.categoryKey && entry.categoryKey) existing.categoryKey = entry.categoryKey;
+      if (!existing.baseLabel && entry.baseLabel) existing.baseLabel = entry.baseLabel;
       totalsByLabel.set(entry.label, existing);
     });
   });
 
-  if (!totalsByLabel.size) return { dataMap:{}, series:[], order:[], legendDetails:{} };
+  if (!overallTotal) return { dataMap:{}, series:[], order:[], legendDetails:{}, total:0 };
 
-  const sortedLabels = Array.from(totalsByLabel.entries())
-    .map(([label, info]) => ({ label, count: info.count || 0, priorityRank: info.priorityRank ?? 9999 }))
-    .sort((a,b)=> {
-      const rankDiff = (a.priorityRank||0) - (b.priorityRank||0);
-      if (rankDiff !== 0) return rankDiff;
-      const countDiff = (b.count||0) - (a.count||0);
-      if (countDiff !== 0) return countDiff;
-      return String(a.label||'').localeCompare(String(b.label||''));
-    });
-
-  const topTypeLabels = sortedLabels.slice(0, topN).map(item => item.label);
-  const includeOther = sortedLabels.length > topN;
-  const otherEntries = includeOther ? sortedLabels.slice(topN) : [];
-  const otherTotal = otherEntries.reduce((acc,item)=> acc + (Number(item.count)||0), 0);
-  const seriesKeys = includeOther ? [...topTypeLabels, 'Other'] : [...topTypeLabels];
-  const series = seriesKeys.map((label, idx) => ({
-    key: label,
+  const sorted = Array.from(totalsByLabel.entries()).map(([label, info]) => ({
     label,
-    color: STACK_TYPE_COLORS[idx % STACK_TYPE_COLORS.length],
-    total: label === 'Other' ? otherTotal : (totalsByLabel.get(label)?.count || 0)
-  }));
+    count: info.count || 0,
+    priorityRank: info.priorityRank ?? 9999,
+    category: info.category || 'Other',
+    categoryKey: info.categoryKey || 'other',
+    baseLabel: info.baseLabel || label
+  })).sort((a,b)=>{
+    const rankDiff = (a.priorityRank||0) - (b.priorityRank||0);
+    if (rankDiff !== 0) return rankDiff;
+    const countDiff = (b.count||0) - (a.count||0);
+    if (countDiff !== 0) return countDiff;
+    return String(a.label||'').localeCompare(String(b.label||''));
+  });
 
-  const reasonOrder = [];
+  const topLabels = sorted.slice(0, topN).map(item => item.label);
+  const includeOther = sorted.length > topN;
+  const otherEntries = includeOther ? sorted.slice(topN) : [];
+  const otherTotal = otherEntries.reduce((acc,item)=> acc + (item.count||0), 0);
+  const seriesKeys = includeOther ? [...topLabels, 'Other'] : [...topLabels];
+  const series = seriesKeys.map((label, idx) => {
+    if (label === 'Other') {
+      return {
+        key: 'Other',
+        label: 'Other',
+        color: STACK_TYPE_COLORS[idx % STACK_TYPE_COLORS.length],
+        total: otherTotal,
+        category: 'Other',
+        categoryKey: 'other'
+      };
+    }
+    const meta = totalsByLabel.get(label) || {};
+    return {
+      key: label,
+      label,
+      color: STACK_TYPE_COLORS[idx % STACK_TYPE_COLORS.length],
+      total: meta.count || 0,
+      category: meta.category || 'Other',
+      categoryKey: meta.categoryKey || 'other',
+      baseLabel: meta.baseLabel || label
+    };
+  });
+
   const dataMap = {};
-  aggregatedPerReason.forEach((entries, reasonKey) => {
+  const reasonOrder = [];
+  entryMap.forEach((entries, reasonKey) => {
     const formattedReason = formatReason(reasonKey);
     const bucket = {};
     seriesKeys.forEach(key => { bucket[key] = 0; });
+    let reasonTotal = 0;
     entries.forEach(entry => {
+      const value = Number(entry.count) || 0;
+      if (!value) return;
       let target = entry.label;
-      if (!topTypeLabels.includes(target)) {
+      if (!topLabels.includes(target)) {
         target = includeOther ? 'Other' : target;
       }
-      bucket[target] = (bucket[target] || 0) + entry.count;
+      bucket[target] = (bucket[target] || 0) + value;
+      reasonTotal += value;
     });
-    dataMap[formattedReason] = bucket;
-    const derivedTotal = Number((detailMap?.[reasonKey]?.total)) || Object.values(bucket).reduce((acc,val)=> acc + (Number(val)||0), 0);
-    reasonOrder.push({ label: formattedReason, total: derivedTotal });
+    if (reasonTotal > 0) {
+      dataMap[formattedReason] = bucket;
+      reasonOrder.push({ label: formattedReason, total: reasonTotal });
+    }
   });
   const order = reasonOrder.sort((a,b)=> (b.total||0) - (a.total||0)).map(item => item.label);
 
   const legendDetails = {};
   if (includeOther && otherEntries.length){
     legendDetails.Other = otherEntries.map(item => {
-      const count = Number(totalsByLabel.get(item.label)?.count || item.count || 0);
+      const count = Number(item.count) || 0;
       const pct = otherTotal ? Math.round((count / otherTotal) * 100) : 0;
       const pctTotal = overallTotal ? Math.round((count / overallTotal) * 100) : 0;
       return { label: item.label, count, pct, pctTotal };
     });
   }
 
-  return { dataMap, series, order, legendDetails };
+  return { dataMap, series, order, legendDetails, total: overallTotal };
+}
+
+function buildReasonTypeStack(detailMap, { topN = 6, formatReason = (key) => String(key||'') } = {}){
+  const aggregatedPerReason = new Map();
+  Object.entries(detailMap || {}).forEach(([reasonKey, detail]) => {
+    const aggregated = aggregateTypeCounts(detail?.types || {});
+    if (aggregated.length) aggregatedPerReason.set(reasonKey, aggregated);
+  });
+
+  const overallStack = buildStackFromEntryMap(aggregatedPerReason, topN, formatReason);
+  const categoryStacks = {};
+  const categoryTotals = { all: overallStack.total || 0 };
+  ['medical','laser','cosmetic'].forEach(catKey => {
+    const filteredMap = new Map();
+    aggregatedPerReason.forEach((entries, reasonKey) => {
+      const filteredEntries = entries.filter(entry => entry.categoryKey === catKey);
+      if (filteredEntries.length) filteredMap.set(reasonKey, filteredEntries);
+    });
+    const stackForCategory = buildStackFromEntryMap(filteredMap, topN, formatReason);
+    categoryStacks[catKey] = stackForCategory;
+    categoryTotals[catKey] = stackForCategory.total || 0;
+  });
+
+  overallStack.categoryStacks = categoryStacks;
+  overallStack.categoryTotals = categoryTotals;
+  return overallStack;
+}
+
+function getStackForCategory(stack, categoryKey){
+  if (!stack || typeof stack !== 'object') return { dataMap:{}, series:[], order:[], legendDetails:{}, total:0 };
+  if (!categoryKey || categoryKey === 'all') return stack;
+  const scoped = stack.categoryStacks?.[categoryKey];
+  if (scoped && Array.isArray(scoped.series)) return scoped;
+  return scoped || { dataMap:{}, series:[], order:[], legendDetails:{}, total:0 };
+}
+
+function filterDetailMapByCategory(detailMap, categoryKey){
+  if (!categoryKey || categoryKey === 'all') return detailMap;
+  const result = {};
+  Object.entries(detailMap || {}).forEach(([reasonKey, detail]) => {
+    const aggregated = aggregateTypeCounts(detail?.types || {});
+    const filteredEntries = aggregated.filter(entry => entry.categoryKey === categoryKey);
+    if (!filteredEntries.length) return;
+    const types = {};
+    let total = 0;
+    filteredEntries.forEach(entry => {
+      types[entry.label] = (types[entry.label] || 0) + entry.count;
+      total += entry.count;
+    });
+    result[reasonKey] = { total, types };
+  });
+  return result;
+}
+
+function filterReasonMapByCategory(target, categoryKey){
+  if (!categoryKey || categoryKey === 'all') return target.reasonMap || {};
+  const scopedDetailMap = filterDetailMapByCategory(target.detailMap || {}, categoryKey);
+  const map = {};
+  Object.entries(scopedDetailMap).forEach(([reasonKey, detail]) => {
+    map[reasonKey] = Number(detail.total) || 0;
+  });
+  return map;
+}
+
+function categoryLabelForKey(key){
+  return CATEGORY_LABELS[key] || CATEGORY_LABELS.other;
 }
 
 function totalFromMap(map){
@@ -1394,16 +1515,27 @@ function buildOfficeCategoryStack(byOffice, accessor){
 }
 
 const outcomeTabsEl = document.getElementById('outcomeTabs');
+const outcomeCategoryTabsEl = document.getElementById('outcomeCategoryTabs');
 const outcomeFunnelEl = document.getElementById('outcomeFunnel');
 const outcomeMessageEl = document.getElementById('outcomeMessage');
 
-function updateOutcomeFunnel(dataMap){
+function updateOutcomeFunnel(dataMap, categoryKey = 'all'){
   if (!outcomeFunnelEl) return;
+  const getTotalFor = (key) => {
+    const node = dataMap?.[key];
+    if (!node) return 0;
+    if (!categoryKey || categoryKey === 'all') return node.total || 0;
+    const catTotals = node.categoryTotals;
+    if (catTotals && Object.prototype.hasOwnProperty.call(catTotals, categoryKey)) {
+      return catTotals[categoryKey] || 0;
+    }
+    return 0;
+  };
   const totals = {
-    scheduled: dataMap?.scheduled?.total || 0,
-    rescheduled: dataMap?.rescheduled?.total || 0,
-    cancelled: dataMap?.cancelled?.total || 0,
-    no_appointment: dataMap?.no_appointment?.total || 0
+    scheduled: getTotalFor('scheduled'),
+    rescheduled: getTotalFor('rescheduled'),
+    cancelled: getTotalFor('cancelled'),
+    no_appointment: getTotalFor('no_appointment')
   };
   const ids = {
     scheduled: 'funnelScheduled',
@@ -1436,8 +1568,17 @@ function renderOutcomeView(outcomeKey){
       btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
   }
-  updateOutcomeFunnel(OUTCOME_DATA);
-  const stack = target.stack || { dataMap:{}, series:[], order:[], legendDetails:{} };
+  if (outcomeCategoryTabsEl){
+    outcomeCategoryTabsEl.querySelectorAll('.outcome-category-tab').forEach(btn=>{
+      const key = btn.dataset.category || 'all';
+      const isActive = key === CURRENT_OUTCOME_CATEGORY;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+  }
+  updateOutcomeFunnel(OUTCOME_DATA, CURRENT_OUTCOME_CATEGORY);
+  const stackSource = target.stack || { dataMap:{}, series:[], order:[], legendDetails:{}, total:0, categoryStacks:{} };
+  const stack = getStackForCategory(stackSource, CURRENT_OUTCOME_CATEGORY);
   drawStackedMulti('chartOutcomeTypes', stack.dataMap, {
     series: stack.series,
     order: stack.order,
@@ -1445,18 +1586,28 @@ function renderOutcomeView(outcomeKey){
   });
   renderStackLegend('chartOutcomeTypesLegend', stack.series, stack.legendDetails);
 
-  const reasonMap = target.reasonMap || {};
+  const reasonMap = filterReasonMapByCategory(target, CURRENT_OUTCOME_CATEGORY);
   const reasonOptions = {
     palette: target.reasonPalette || ['#4f46e5','#7c3aed','#0ea5e9','#f97316','#10b981'],
     labelMap: target.reasonLabelMap || {}
   };
   drawBarChart('chartOutcomeReasons', reasonMap, reasonOptions);
-  renderReasonDetails('outcomeReasonDetails', target.detailMap || {}, { labelForReason: target.labelFormatter || ((key)=>key) });
+  const scopedDetailMap = filterDetailMapByCategory(target.detailMap || {}, CURRENT_OUTCOME_CATEGORY);
+  renderReasonDetails('outcomeReasonDetails', scopedDetailMap, { labelForReason: target.labelFormatter || ((key)=>key) });
   if (outcomeMessageEl){
-    if ((target.total || 0) === 0){
-      outcomeMessageEl.textContent = `No records captured for ${OUTCOME_LABELS[outcomeKey] || outcomeKey}.`;
+    const totalForCategory = (target.categoryTotals && Object.prototype.hasOwnProperty.call(target.categoryTotals, CURRENT_OUTCOME_CATEGORY))
+      ? target.categoryTotals[CURRENT_OUTCOME_CATEGORY]
+      : (stack.total || 0);
+    const categoryLabel = categoryLabelForKey(CURRENT_OUTCOME_CATEGORY);
+    if ((totalForCategory || 0) === 0){
+      const scopeText = CURRENT_OUTCOME_CATEGORY === 'all' ? '' : `${categoryLabel.toLowerCase()} `;
+      outcomeMessageEl.textContent = `No ${scopeText}records captured for ${OUTCOME_LABELS[outcomeKey] || outcomeKey}.`;
     } else if (!Object.keys(reasonMap||{}).length){
-      outcomeMessageEl.textContent = 'No specific reasons captured yet for this outcome.';
+      if (CURRENT_OUTCOME_CATEGORY === 'all') {
+        outcomeMessageEl.textContent = 'No specific reasons captured yet for this outcome.';
+      } else {
+        outcomeMessageEl.textContent = `No specific reasons captured yet for this ${categoryLabel.toLowerCase()} outcome.`;
+      }
     } else {
       outcomeMessageEl.textContent = '';
     }
@@ -1473,6 +1624,16 @@ function initializeOutcomeTabs(){
       const btn = evt.target.closest('.outcome-tab');
       if (!btn) return;
       setOutcome(btn.dataset.outcome);
+    });
+  }
+  if (outcomeCategoryTabsEl){
+    outcomeCategoryTabsEl.addEventListener('click', (evt)=>{
+      const btn = evt.target.closest('.outcome-category-tab');
+      if (!btn) return;
+      const category = btn.dataset.category || 'all';
+      if (category === CURRENT_OUTCOME_CATEGORY) return;
+      CURRENT_OUTCOME_CATEGORY = category;
+      renderOutcomeView(CURRENT_OUTCOME);
     });
   }
   if (outcomeFunnelEl){
@@ -1672,7 +1833,6 @@ function updateKpisAndCharts(){
     const firstWithData = OUTCOME_KEYS.find(key => OUTCOME_DATA[key]?.total);
     if (firstWithData) CURRENT_OUTCOME = firstWithData;
   }
-  updateOutcomeFunnel(OUTCOME_DATA);
   renderOutcomeView(CURRENT_OUTCOME);
 
   // Split tasks / transfers by type with distinct colors and proper labels
