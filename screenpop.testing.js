@@ -18,12 +18,21 @@
   let runAllBtn = null;
   let apptSelect = null;
   let officePicker = null;
+  let statusEl = null;
+  let statusObserver = null;
+  let lockedStatus = '';
   let SESSION_ID = null;
 
   function updateStatus(text){
-    const el = qs('#statusMsg');
-    if (el && typeof text === 'string') {
-      el.textContent = text;
+    if (typeof text !== 'string') return;
+    const el = statusEl || qs('#statusMsg');
+    if (!el) return;
+    statusEl = el;
+    el.textContent = text;
+    if (batchState.running) {
+      lockedStatus = text;
+    } else {
+      lockedStatus = '';
     }
   }
 
@@ -72,6 +81,7 @@
     SESSION_ID = 'sess_' + Math.random().toString(36).slice(2,8);
     window.ScreenpopLogic?.configure({ sessionId: SESSION_ID, acceptBackground: false });
 
+    statusEl = qs('#statusMsg');
     runBtn = qs('#runScenario');
     resetBtn = qs('#resetScenario');
     runAllBtn = qs('#runAllCombos');
@@ -86,6 +96,7 @@
       if (batchState.running) {
         batchState.abort = true;
         updateStatus('Stopping batch after current scenario...');
+        if (runAllBtn) runAllBtn.textContent = 'Stopping...';
         return;
       }
       runAllCombos().catch((err) => {
@@ -94,7 +105,9 @@
         batchState.running = false;
         batchState.abort = false;
         if (runAllBtn) runAllBtn.textContent = 'Run All Combos';
+        if (runAllBtn) delete runAllBtn.dataset.state;
         setDemoControlsDisabled(false);
+        releaseStatus();
       });
     });
 
@@ -165,6 +178,27 @@
     qsa('.reasons .mini-btn').forEach(btn => btn.classList.remove('pressed'));
   }
 
+  function lockStatus(){
+    if (!statusEl) statusEl = qs('#statusMsg');
+    if (!statusEl || statusObserver) return;
+    statusObserver = new MutationObserver(() => {
+      if (!batchState.running || !lockedStatus) return;
+      if (statusEl.textContent === lockedStatus) return;
+      statusObserver.disconnect();
+      statusEl.textContent = lockedStatus;
+      statusObserver.observe(statusEl, { childList: true });
+    });
+    statusObserver.observe(statusEl, { childList: true });
+  }
+
+  function releaseStatus(){
+    if (statusObserver) {
+      statusObserver.disconnect();
+      statusObserver = null;
+    }
+    lockedStatus = '';
+  }
+
   async function applyScenario(scenario){
     setPatientType(scenario.patientType || 'existing');
 
@@ -226,7 +260,11 @@
     batchState.running = true;
     batchState.abort = false;
     setDemoControlsDisabled(true);
-    if (runAllBtn) runAllBtn.textContent = 'Stop Batch';
+    if (runAllBtn) {
+      runAllBtn.textContent = 'Stop Batch';
+      runAllBtn.dataset.state = 'running';
+    }
+    lockStatus();
 
     updateStatus(`Starting batch of ${queue.length} scenarios...`);
     await handleIncoming(DEFAULT_PHONE);
@@ -241,6 +279,7 @@
       doneBtn.click();
       processed += 1;
       updateStatus(`Captured ${processed}/${queue.length} · ${scenario.summary}`);
+      if (runAllBtn) runAllBtn.textContent = `Stop Batch (${processed}/${queue.length})`;
       await wait(120);
     }
 
@@ -253,6 +292,10 @@
     batchState.running = false;
     batchState.abort = false;
     setDemoControlsDisabled(false);
-    if (runAllBtn) runAllBtn.textContent = 'Run All Combos';
+    if (runAllBtn) {
+      runAllBtn.textContent = 'Run All Combos';
+      delete runAllBtn.dataset.state;
+    }
+    releaseStatus();
   }
 })();
