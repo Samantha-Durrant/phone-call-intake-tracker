@@ -1661,6 +1661,7 @@ function renderInsights(sum, sumAll){
     if (insightReschedTotalEl) insightReschedTotalEl.textContent = '0';
     if (insightNoApptTotalEl) insightNoApptTotalEl.textContent = '0';
     if (insightOfficeTotalEl) insightOfficeTotalEl.textContent = '0';
+    renderCallVolumeTrends(MOCK_CALL_VOLUME_TRENDS);
     return;
   }
   const scheduledEntries = gatherTopAppointments(sum.appointmentTypesByOutcome?.scheduled, 5);
