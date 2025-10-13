@@ -66,6 +66,14 @@ function normalizeCategoryKey(category){
   return 'other';
 }
 
+const CATEGORY_LABELS = {
+  all: 'All Appointments',
+  medical: 'Medical',
+  laser: 'Laser Dermatology',
+  cosmetic: 'Cosmetic Dermatology',
+  other: 'Other'
+};
+
 const MOCK_CALL_VOLUME_TRENDS = {
   daily: [
     { label:'2024-06-01', count:28 },
