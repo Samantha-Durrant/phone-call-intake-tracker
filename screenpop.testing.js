@@ -6,12 +6,7 @@
   const DEFAULT_PHONE = '+15551234567'; // maps to John Smith in mock data
   const STATUS_DEFAULT = 'Testing mode — send the test caller to load mock data';
   const wait = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms));
-  const BATCH_VARIANTS = [
-    { key: 'scheduled', label: 'Scheduled', scheduled: true, change: 'none', patientType: 'existing', confirm: true },
-    { key: 'cancel', label: 'Cancellation', scheduled: true, change: 'cancellation', reasons: ['Illness/Family Emergency'], patientType: 'existing' },
-    { key: 'reschedule', label: 'Reschedule', scheduled: true, change: 'reschedule', reasons: ['Work/School Conflict', 'Other'], otherText: 'Requested different provider availability', patientType: 'existing' },
-    { key: 'no_appt', label: 'No Appointment', scheduled: false, change: 'none', noApptReasons: ['Question Only'], patientType: 'new' }
-  ];
+  let BATCH_VARIANTS = [];
   const batchState = { running: false, abort: false };
   let runBtn = null;
   let resetBtn = null;
@@ -111,6 +106,8 @@
       });
     });
 
+    ensureBatchVariants();
+
     setManualDefaults();
     applySelectedApptType();
     applySelectedOffice();
@@ -149,7 +146,82 @@
     return Array.from(new Set(values));
   }
 
+  function collectReasonOptions(){
+    return qsa('#reasonToggleList .reason-toggle')
+      .map(btn => btn.getAttribute('data-reason') || btn.textContent?.trim() || '')
+      .filter(Boolean);
+  }
+
+  function collectNoApptOptions(){
+    return qsa('#noApptReasonList .reason-toggle')
+      .map(btn => btn.getAttribute('data-reason') || btn.textContent?.trim() || '')
+      .filter(Boolean);
+  }
+
+  function slugify(label){
+    return String(label || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'item';
+  }
+
+  function buildBatchVariants({ reasonOptions = [], noApptOptions = [] } = {}){
+    const variants = [
+      { key: 'scheduled_existing', label: 'Scheduled · Existing', scheduled: true, change: 'none', patientType: 'existing', confirm: true },
+      { key: 'scheduled_new', label: 'Scheduled · New', scheduled: true, change: 'none', patientType: 'new', confirm: false }
+    ];
+
+    const reasonList = reasonOptions.length ? reasonOptions : ['General Reason'];
+    reasonList.forEach((reason) => {
+      const slug = slugify(reason);
+      const isOther = /^other$/i.test(reason);
+      const otherText = isOther ? 'Additional context supplied for "Other" reason.' : '';
+      variants.push({
+        key: `cancel_${slug}`,
+        label: `Cancellation · ${reason}`,
+        scheduled: true,
+        change: 'cancellation',
+        reasons: [reason],
+        otherText,
+        patientType: 'existing'
+      });
+      variants.push({
+        key: `resched_${slug}`,
+        label: `Reschedule · ${reason}`,
+        scheduled: true,
+        change: 'reschedule',
+        reasons: [reason],
+        otherText,
+        patientType: 'existing'
+      });
+    });
+
+    const noApptList = noApptOptions.length ? noApptOptions : ['General Interest'];
+    noApptList.forEach((reason) => {
+      const slug = slugify(reason);
+      variants.push({
+        key: `noappt_${slug}`,
+        label: `No Appointment · ${reason}`,
+        scheduled: false,
+        change: 'none',
+        noApptReasons: [reason],
+        patientType: 'new'
+      });
+    });
+
+    return variants;
+  }
+
+  function ensureBatchVariants(){
+    if (BATCH_VARIANTS.length) return;
+    BATCH_VARIANTS = buildBatchVariants({
+      reasonOptions: collectReasonOptions(),
+      noApptOptions: collectNoApptOptions()
+    });
+  }
+
   function buildScenarioQueue(){
+    ensureBatchVariants();
     const apptTypes = collectUniqueOptions(apptSelect);
     const offices = collectUniqueOptions(officePicker);
     if (!apptTypes.length || !offices.length) return [];
@@ -157,8 +229,12 @@
     apptTypes.forEach(apptType => {
       offices.forEach(office => {
         BATCH_VARIANTS.forEach(variant => {
+          const reasons = Array.isArray(variant.reasons) ? [...variant.reasons] : undefined;
+          const noApptReasons = Array.isArray(variant.noApptReasons) ? [...variant.noApptReasons] : undefined;
           scenarios.push({
             ...variant,
+            reasons,
+            noApptReasons,
             apptType,
             office,
             summary: `${variant.label} · ${apptType} @ ${office}`
@@ -274,6 +350,8 @@
     let processed = 0;
     for (const scenario of queue) {
       if (batchState.abort) break;
+      setManualDefaults();
+      await wait(40);
       await applyScenario(scenario);
       await wait(80);
       doneBtn.click();
