@@ -750,8 +750,10 @@ function drawPieChart(canvasId, items, { legendId=null, palette=PIE_PALETTE } = 
         list.className = 'legend-details-list';
         item.details.forEach(detail=>{
           const li = document.createElement('li');
-          const detailPct = Math.round(((Number(detail.count)||0) / Math.max(1, Number(item.count)||0)) * 100);
-          li.textContent = `${detail.label} — ${detail.count} (${detailPct}% of Other)`;
+          const detailCount = Number(detail.count) || 0;
+          const detailPct = Math.round((detailCount / Math.max(1, Number(item.count)||0)) * 100);
+          const detailTotalPct = Math.round((detailCount / total) * 100);
+          li.textContent = `${detail.label} — ${detailCount} (${detailPct}% of ${item.label}, ${detailTotalPct}% of Total)`;
           list.appendChild(li);
         });
         detailBox.appendChild(list);
