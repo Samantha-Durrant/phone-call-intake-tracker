@@ -1515,7 +1515,7 @@ function renderInsights(sum, sumAll){
   const cancelReasons = gatherTopReasons(sum.cancelReasons, 3);
   const reschedReasons = gatherTopReasons(sum.reschedReasons, 3);
   const noApptReasons = gatherTopReasons(sum.noApptReasons, 3);
-  const officeHighlights = gatherOfficeHighlights(sumAll || sum);
+  const officeHighlights = gatherOfficeHighlights(sum);
 
   const scheduledTotal = scheduledEntries.reduce((acc,item)=> acc + item.count, 0);
   const cancelTotal = sum.cancel || cancelEntries.reduce((acc,item)=> acc + item.count, 0);
