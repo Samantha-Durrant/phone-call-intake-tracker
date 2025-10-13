@@ -77,15 +77,60 @@ const normalizeAppt = (name) => String(name || '').trim().toLowerCase();
 const MEDICAL_APPOINTMENTS = new Set([
   'fse','new patient','follow up','spot check','cyst injection','cyst excision','biopsy','hairloss','rash','isotretinoin','video visit isotretinoin','video visit','suture removal ma','wart treatment'
 ].map(normalizeAppt));
-const COSMETIC_APPOINTMENTS = new Set([
-  'cosmetic consult','dermaplane','standard hydrafacial','acne hydrafacial','deluxe hydrafacial','emsculpt','emsella','vanquish','laser pro-frac','barehr','laser hair removal (lhr)','bbl heroic','laser bbl','acne bbl','moxi','halo','visia','visia numbing','ipad numbing','ipad','microneedling','microlaser peel','chemical peel','yag','skintyte','sclerotherapy','prp','ultherapy','cosmetic follow-up','diva', ,'numbing major','filler major','botox','cosmetic procedure','prp','pdt','kybella'
+const LASER_DERM_APPOINTMENTS = new Set([
+  'bbl heroic',
+  'acne bbl',
+  'laser bbl',
+  'barehr',
+  'laser hair removal (lhr)',
+  'lase hair removal (lhr)',
+  'yag',
+  'halo',
+  'moxi',
+  'microlaser peel',
+  'micro laser peel',
+  'laser pro-frac',
+  'pro-fractional',
+  'diva'
+].map(normalizeAppt));
+const COSMETIC_DERM_APPOINTMENTS = new Set([
+  'botox',
+  'filler major',
+  'dermal filler',
+  'dermal fillers',
+  'emsculpt',
+  'emsella',
+  'microneedling',
+  'sclerotherapy',
+  'slcerotherapy',
+  'vanquish',
+  'chemical peel',
+  'hydrafacial',
+  'standard hydrafacial',
+  'acne hydrafacial',
+  'deluxe hydrafacial',
+  'hydrafacial deluxe',
+  'hydrafacial acne',
+  'hydrafacials',
+  'kybella',
+  'ultherapy',
+  'prp',
+  'prp (face)',
+  'dermaplane',
+  'cosmetic consult',
+  'cosmetic consults',
+  'cosmetic procedure',
+  'cosmetic follow-up'
 ].map(normalizeAppt));
 
 function categorizeAppointment(name){
   const norm = normalizeAppt(name);
   if (!norm) return 'Other';
   if (MEDICAL_APPOINTMENTS.has(norm)) return 'Medical';
-  if (COSMETIC_APPOINTMENTS.has(norm)) return 'Cosmetic';
+  if (LASER_DERM_APPOINTMENTS.has(norm)) return 'Laser Dermatology';
+  if (COSMETIC_DERM_APPOINTMENTS.has(norm)) return 'Cosmetic Dermatology';
+  if (norm.includes('hydrafacial')) return 'Cosmetic Dermatology';
+  if (norm.includes('laser') || norm.includes('bbl')) return 'Laser Dermatology';
   return 'Other';
 }
 
