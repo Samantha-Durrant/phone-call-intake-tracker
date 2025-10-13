@@ -123,6 +123,9 @@
       .insight-subtext{ font-size:12px; color:#6b7280 }
       .insight-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; font-size:13px; color:#111827 }
       .insight-list li{ display:flex; justify-content:space-between; align-items:center; gap:12px }
+      .insight-office-list li{ flex-direction:column; align-items:flex-start; background:#f9fafb; padding:10px 12px; border-radius:10px }
+      .insight-office-list .insight-value{ color:#111827; font-weight:600 }
+      .insight-office-list .insight-subtext{ font-size:12px; color:#6b7280 }
       .insight-label{ flex:1 }
       .insight-value{ font-weight:600; color:#4f46e5 }
       .insights-intro{ font-size:12px; margin-bottom:6px; color:#6b7280 }
@@ -321,11 +324,31 @@
             </div>
             <div class="insight-card">
               <div class="insight-heading">
+                <span>Reschedule Trends</span>
+                <span class="insight-total" id="insightReschedTotal">0</span>
+              </div>
+              <div class="insight-subtext">Where and why patients rescheduled</div>
+              <ul id="insightReschedList" class="insight-list">
+                <li class="insight-empty">Not enough data yet.</li>
+              </ul>
+            </div>
+            <div class="insight-card">
+              <div class="insight-heading">
                 <span>No Appointment Reasons</span>
                 <span class="insight-total" id="insightNoApptTotal">0</span>
               </div>
               <div class="insight-subtext">Top “no appointment” explanations</div>
               <ul id="insightNoApptList" class="insight-list">
+                <li class="insight-empty">Not enough data yet.</li>
+              </ul>
+            </div>
+            <div class="insight-card">
+              <div class="insight-heading">
+                <span>Office Snapshot</span>
+                <span class="insight-total" id="insightOfficeTotal">0</span>
+              </div>
+              <div class="insight-subtext">Scheduled vs. cancelled and leading reasons</div>
+              <ul id="insightOfficeList" class="insight-list insight-office-list">
                 <li class="insight-empty">Not enough data yet.</li>
               </ul>
             </div>

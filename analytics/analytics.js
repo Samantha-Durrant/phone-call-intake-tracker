@@ -1399,7 +1399,7 @@ function setMainView(view){
     });
   }
   if (view === 'insights' && LAST_INSIGHT_SUMMARY){
-    renderInsights(LAST_INSIGHT_SUMMARY.sum);
+    renderInsights(LAST_INSIGHT_SUMMARY.sum, LAST_INSIGHT_SUMMARY.sumAll);
   }
 }
 
@@ -1457,29 +1457,77 @@ function gatherTopReasons(reasonMap, limit = 4){
   return entries.slice(0, limit).map(([label,count]) => ({ label: prettyReasonLabel(label), count: Number(count)||0, pct: Math.round((Number(count)||0)/total*100) }));
 }
 
-function renderInsights(sum){
+
+function gatherOfficeHighlights(summary){
+  const breakdown = summary?.officeBreakdown || {};
+  const offices = [...new Set([...OFFICE_KEYS, ...Object.keys(breakdown)])];
+  return offices.map(office => {
+    const bucket = breakdown[office] || {};
+    const scheduled = Number(bucket.outcomes?.scheduled?.total) || 0;
+    const rescheduled = Number(bucket.outcomes?.rescheduled?.total) || 0;
+    const cancelled = Number(bucket.outcomes?.cancelled?.total) || 0;
+    const topReason = getTopEntry(bucket.outcomes?.cancelled?.reasons || {}, prettyReasonLabel);
+    return { office, scheduled, rescheduled, cancelled, topReason };
+  }).sort((a,b)=> (b.scheduled||0) - (a.scheduled||0));
+}
+
+function renderOfficeList(listEl, entries){
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  if (!entries || !entries.length){
+    const li = document.createElement('li');
+    li.className = 'insight-empty';
+    li.textContent = 'Not enough data yet.';
+    listEl.appendChild(li);
+    return;
+  }
+  entries.forEach(entry => {
+    const li = document.createElement('li');
+    const header = document.createElement('div');
+    header.className = 'insight-label';
+    header.innerHTML = `<strong>${entry.office}</strong> — ${entry.scheduled} scheduled · ${entry.rescheduled} rescheduled · ${entry.cancelled} cancelled`;
+    const sub = document.createElement('div');
+    sub.className = 'insight-subtext';
+    sub.textContent = entry.topReason ? `Top cancel reason: ${entry.topReason.label} (${entry.topReason.count})` : 'Top cancel reason: —';
+    li.append(header, sub);
+    listEl.appendChild(li);
+  });
+}
+
+function renderInsights(sum, sumAll){
   if (!insightShellEl) return;
   if (!sum || !sum.total){
     renderInsightList(insightScheduledListEl, []);
     renderInsightList(insightCancelListEl, []);
+    renderInsightList(insightReschedListEl, []);
     renderInsightList(insightNoApptListEl, []);
+    renderOfficeList(insightOfficeListEl, []);
     if (insightScheduledTotalEl) insightScheduledTotalEl.textContent = '0';
     if (insightCancelTotalEl) insightCancelTotalEl.textContent = '0';
+    if (insightReschedTotalEl) insightReschedTotalEl.textContent = '0';
     if (insightNoApptTotalEl) insightNoApptTotalEl.textContent = '0';
+    if (insightOfficeTotalEl) insightOfficeTotalEl.textContent = '0';
     return;
   }
   const scheduledEntries = gatherTopAppointments(sum.appointmentTypesByOutcome?.scheduled, 5);
   const cancelEntries = gatherTopAppointments(sum.appointmentTypesByOutcome?.cancellation, 5);
+  const reschedEntries = gatherTopAppointments(sum.appointmentTypesByOutcome?.reschedule, 5);
   const cancelReasons = gatherTopReasons(sum.cancelReasons, 3);
+  const reschedReasons = gatherTopReasons(sum.reschedReasons, 3);
   const noApptReasons = gatherTopReasons(sum.noApptReasons, 3);
+  const officeHighlights = gatherOfficeHighlights(sumAll || sum);
 
   const scheduledTotal = scheduledEntries.reduce((acc,item)=> acc + item.count, 0);
   const cancelTotal = sum.cancel || cancelEntries.reduce((acc,item)=> acc + item.count, 0);
+  const reschedTotal = sum.resched || reschedEntries.reduce((acc,item)=> acc + item.count, 0);
   const noApptTotal = totalFromMap(sum.appointmentTypesByOutcome?.noAppointment);
+  const officeScheduledTotal = officeHighlights.reduce((acc,item)=> acc + (item.scheduled || 0), 0);
 
   if (insightScheduledTotalEl) insightScheduledTotalEl.textContent = String(scheduledTotal);
   if (insightCancelTotalEl) insightCancelTotalEl.textContent = String(cancelTotal);
+  if (insightReschedTotalEl) insightReschedTotalEl.textContent = String(reschedTotal);
   if (insightNoApptTotalEl) insightNoApptTotalEl.textContent = String(noApptTotal);
+  if (insightOfficeTotalEl) insightOfficeTotalEl.textContent = String(officeScheduledTotal);
 
   renderInsightList(insightScheduledListEl, scheduledEntries);
 
@@ -1488,11 +1536,21 @@ function renderInsights(sum){
     cancelCombined.push({ label: entry.label, count: entry.count, pct: entry.pct });
   });
   cancelReasons.slice(0,3).forEach(entry => {
-    cancelCombined.push({ label: `Reason · ${entry.label}` , count: entry.count, pct: entry.pct });
+    cancelCombined.push({ label: `Reason · ${entry.label}`, count: entry.count, pct: entry.pct });
   });
   renderInsightList(insightCancelListEl, cancelCombined);
 
+  const reschedCombined = [];
+  reschedEntries.slice(0,3).forEach(entry => {
+    reschedCombined.push({ label: entry.label, count: entry.count, pct: entry.pct });
+  });
+  reschedReasons.slice(0,3).forEach(entry => {
+    reschedCombined.push({ label: `Reason · ${entry.label}`, count: entry.count, pct: entry.pct });
+  });
+  renderInsightList(insightReschedListEl, reschedCombined);
+
   renderInsightList(insightNoApptListEl, noApptReasons);
+  renderOfficeList(insightOfficeListEl, officeHighlights);
 }
 
 function totalFromMap(map){
@@ -1650,8 +1708,12 @@ const insightScheduledTotalEl = document.getElementById('insightScheduledTotal')
 const insightScheduledListEl = document.getElementById('insightScheduledList');
 const insightCancelTotalEl = document.getElementById('insightCancelTotal');
 const insightCancelListEl = document.getElementById('insightCancelList');
+const insightReschedTotalEl = document.getElementById('insightReschedTotal');
+const insightReschedListEl = document.getElementById('insightReschedList');
 const insightNoApptTotalEl = document.getElementById('insightNoApptTotal');
 const insightNoApptListEl = document.getElementById('insightNoApptList');
+const insightOfficeTotalEl = document.getElementById('insightOfficeTotal');
+const insightOfficeListEl = document.getElementById('insightOfficeList');
 const outcomeTabsEl = document.getElementById('outcomeTabs');
 const outcomeCategoryTabsEl = document.getElementById('outcomeCategoryTabs');
 const outcomeFunnelEl = document.getElementById('outcomeFunnel');
@@ -1977,7 +2039,7 @@ function updateKpisAndCharts(){
     if (firstWithData) CURRENT_OUTCOME = firstWithData;
   }
   LAST_INSIGHT_SUMMARY = { sum, sumAll };
-  renderInsights(sum);
+  renderInsights(sum, sumAll);
   renderOutcomeView(CURRENT_OUTCOME);
 
   // Split tasks / transfers by type with distinct colors and proper labels
