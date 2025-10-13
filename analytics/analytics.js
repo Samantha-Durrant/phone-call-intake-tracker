@@ -32,12 +32,100 @@ const PRIORITY_APPT_RULES = [
   { key: 'spot_check', label: 'Spot Check', match: (s) => s === 'spot check' },
   { key: 'fse', label: 'FSE', match: (s) => s === 'fse' },
   { key: 'bbl_heroic', label: 'BBL HEROic', match: (s) => s === 'bbl heroic' },
-  { key: 'barehr_lhr', label: 'BareHR / LHR', match: (s) => s === 'barehr' || s === 'laser hair removal (lhr)' || s === 'lase hair removal (lhr)' || s === 'barehr / lhr' },
+  { key: 'barehr_lhr', label: 'BareHR / LHR', match: (s) => s === 'barehr' || s === 'laser hair removal (lhr)' || s === 'lase hair removal (lhr)' || s === 'barehr / lhr', collectDetails: true },
   { key: 'injectables', label: 'Injectables (Botox & Fillers)', match: (s) => ['botox','filler major','dermal filler','dermal fillers'].includes(s), collectDetails: true },
   { key: 'dermaplane', label: 'Dermaplane', match: (s) => s === 'dermaplane' },
   { key: 'hydrafacial', label: 'Hydrafacial', match: (s) => s.includes('hydrafacial'), collectDetails: true },
   { key: 'cosmetic_consult', label: 'Cosmetic Consults', match: (s) => ['cosmetic consult','cosmetic consults','cosmetic follow-up'].includes(s), collectDetails: true }
 ];
+
+function normalizePriorityLabel(value){
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+}
+
+const PRIORITY_LABEL_RANK = new Map(PRIORITY_APPT_RULES.map((rule,index)=> [normalizePriorityLabel(rule.label), index]));
+const SPECIAL_PRIORITY_RANK = new Map([
+  ['surgery', PRIORITY_LABEL_RANK.size],
+  ['video visit', PRIORITY_LABEL_RANK.size + 1]
+]);
+
+function categoryPriorityOffset(category){
+  switch (category) {
+    case 'Medical': return 0;
+    case 'Laser Dermatology': return 100;
+    case 'Cosmetic Dermatology': return 200;
+    default: return 300;
+  }
+}
+
+function unpackTypeValue(label, value){
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const count = Number(value.count) || 0;
+    const details = Array.isArray(value.details)
+      ? value.details.map(detail => ({
+          label: String(detail.label || label),
+          count: Number(detail.count) || 0
+        })).filter(detail => detail.count > 0)
+      : [];
+    return { count, details };
+  }
+  return { count: Number(value) || 0, details: [] };
+}
+
+function aggregateTypeCounts(typeCounts = {}){
+  const map = new Map();
+  Object.entries(typeCounts || {}).forEach(([label, rawValue]) => {
+    const { count, details } = unpackTypeValue(label, rawValue);
+    if (!count) return;
+    const norm = normalizeAppt(label);
+    const category = categorizeAppointment(label);
+    let baseLabel = label;
+    let collectDetails = false;
+    if (SURGERY_APPOINTMENTS.has(norm)) {
+      baseLabel = 'Surgery';
+      collectDetails = true;
+    } else if (VIDEO_VISIT_APPOINTMENTS.has(norm)) {
+      baseLabel = 'Video Visit';
+      collectDetails = true;
+    } else {
+      const rule = PRIORITY_APPT_RULES.find(rule => rule.match(norm));
+      if (rule) {
+        baseLabel = rule.label;
+        collectDetails = !!rule.collectDetails;
+      } else if (category === 'Cosmetic Dermatology' && norm.includes('hydrafacial')) {
+        baseLabel = 'Hydrafacial';
+        collectDetails = true;
+      } else if (category === 'Laser Dermatology' && norm.includes('hydrafacial')) {
+        baseLabel = 'Hydrafacial';
+        collectDetails = true;
+      }
+    }
+    const canonicalBase = normalizePriorityLabel(baseLabel);
+    let priorityRank;
+    if (PRIORITY_LABEL_RANK.has(canonicalBase)) {
+      priorityRank = PRIORITY_LABEL_RANK.get(canonicalBase);
+    } else if (SPECIAL_PRIORITY_RANK.has(canonicalBase)) {
+      priorityRank = SPECIAL_PRIORITY_RANK.get(canonicalBase);
+    } else {
+      priorityRank = PRIORITY_LABEL_RANK.size + SPECIAL_PRIORITY_RANK.size + categoryPriorityOffset(category);
+    }
+    const categoryLabel = category && category !== 'Other' ? category : 'Other';
+    const finalLabel = `${categoryLabel} · ${baseLabel}`;
+    const entry = map.get(finalLabel) || { label: finalLabel, count: 0, details: [], priorityRank, category: categoryLabel, baseLabel };
+    entry.count += count;
+    entry.priorityRank = Math.min(entry.priorityRank, priorityRank);
+    if (collectDetails) {
+      const detailList = details.length ? details : [{ label, count }];
+      entry.details.push(...detailList);
+    }
+    map.set(finalLabel, entry);
+  });
+  map.forEach(entry => {
+    if (!entry.details.length) delete entry.details;
+  });
+  return Array.from(map.values());
+}
+
 let CURRENT_OUTCOME = 'scheduled';
 let OUTCOME_DATA = null;
 
@@ -991,6 +1079,7 @@ function renderStackLegend(containerId, series, legendDetails = {}){
     container.appendChild(empty);
     return;
   }
+  const totalSeriesValue = series.reduce((acc,item)=> acc + (Number(item.total)||0), 0) || 1;
   series.forEach(item => {
     const row = document.createElement('div');
     row.className = 'legend-item';
@@ -1022,8 +1111,11 @@ function renderStackLegend(containerId, series, legendDetails = {}){
       list.className = 'legend-details-list';
       details.forEach(detail => {
         const li = document.createElement('li');
-        const pct = typeof detail.pct === 'number' ? ` (${detail.pct}% of Other)` : '';
-        li.textContent = `${detail.label} — ${detail.count}${pct}`;
+        const pctOfBucket = typeof detail.pct === 'number' ? detail.pct : Math.round(((Number(detail.count)||0)/(Math.max(1, Number(item.total)||0)))*100);
+        const pctOfTotal = typeof detail.pctTotal === 'number'
+          ? detail.pctTotal
+          : Math.round(((Number(detail.count)||0) / totalSeriesValue) * 100);
+        li.textContent = `${detail.label} — ${detail.count} (${pctOfBucket}% of ${item.label}, ${pctOfTotal}% of Total)`;
         list.appendChild(li);
       });
       detailBox.appendChild(list);
@@ -1082,56 +1174,75 @@ function renderReasonDetails(containerId, detailMap, { labelForReason = (key) =>
 }
 
 function buildReasonTypeStack(detailMap, { topN = 6, formatReason = (key) => String(key||'') } = {}){
-  const totalsByType = {};
-  Object.values(detailMap || {}).forEach(detail => {
-    Object.entries(detail?.types || {}).forEach(([type,count])=>{
-      const label = String(type || 'Unspecified');
-      const value = Number(count) || 0;
-      if (!value) return;
-      totalsByType[label] = (totalsByType[label] || 0) + value;
+  const aggregatedPerReason = new Map();
+  const totalsByLabel = new Map();
+  let overallTotal = 0;
+
+  Object.entries(detailMap || {}).forEach(([reasonKey, detail]) => {
+    const aggregated = aggregateTypeCounts(detail?.types || {});
+    aggregatedPerReason.set(reasonKey, aggregated);
+    aggregated.forEach(entry => {
+      overallTotal += entry.count;
+      const existing = totalsByLabel.get(entry.label) || { count: 0, priorityRank: entry.priorityRank ?? 9999 };
+      existing.count += entry.count;
+      existing.priorityRank = Math.min(existing.priorityRank, entry.priorityRank ?? existing.priorityRank);
+      totalsByLabel.set(entry.label, existing);
     });
   });
-  const sortedTypes = Object.entries(totalsByType).filter(([,count])=>count>0).sort((a,b)=> (Number(b[1])||0) - (Number(a[1])||0));
-  if (!sortedTypes.length) return { dataMap:{}, series:[], order:[], legendDetails:{} };
-  const topTypeLabels = sortedTypes.slice(0, topN).map(([label])=>label);
-  const includeOther = sortedTypes.length > topN;
-  const otherEntries = includeOther ? sortedTypes.slice(topN) : [];
-  const otherTotal = otherEntries.reduce((acc,[,count])=> acc + (Number(count)||0), 0);
+
+  if (!totalsByLabel.size) return { dataMap:{}, series:[], order:[], legendDetails:{} };
+
+  const sortedLabels = Array.from(totalsByLabel.entries())
+    .map(([label, info]) => ({ label, count: info.count || 0, priorityRank: info.priorityRank ?? 9999 }))
+    .sort((a,b)=> {
+      const rankDiff = (a.priorityRank||0) - (b.priorityRank||0);
+      if (rankDiff !== 0) return rankDiff;
+      const countDiff = (b.count||0) - (a.count||0);
+      if (countDiff !== 0) return countDiff;
+      return String(a.label||'').localeCompare(String(b.label||''));
+    });
+
+  const topTypeLabels = sortedLabels.slice(0, topN).map(item => item.label);
+  const includeOther = sortedLabels.length > topN;
+  const otherEntries = includeOther ? sortedLabels.slice(topN) : [];
+  const otherTotal = otherEntries.reduce((acc,item)=> acc + (Number(item.count)||0), 0);
   const seriesKeys = includeOther ? [...topTypeLabels, 'Other'] : [...topTypeLabels];
   const series = seriesKeys.map((label, idx) => ({
     key: label,
     label,
     color: STACK_TYPE_COLORS[idx % STACK_TYPE_COLORS.length],
-    total: label === 'Other' ? otherTotal : (totalsByType[label] || 0)
+    total: label === 'Other' ? otherTotal : (totalsByLabel.get(label)?.count || 0)
   }));
-  const order = Object.entries(detailMap || {}).map(([reasonKey, detail]) => ({
-    label: formatReason(reasonKey),
-    total: Number(detail?.total) || 0
-  })).sort((a,b)=> (b.total||0) - (a.total||0)).map(item => item.label);
+
+  const reasonOrder = [];
   const dataMap = {};
-  Object.entries(detailMap || {}).forEach(([reasonKey, detail]) => {
-    const label = formatReason(reasonKey);
+  aggregatedPerReason.forEach((entries, reasonKey) => {
+    const formattedReason = formatReason(reasonKey);
     const bucket = {};
     seriesKeys.forEach(key => { bucket[key] = 0; });
-    Object.entries(detail?.types || {}).forEach(([type,count])=>{
-      const typeLabel = String(type || 'Unspecified');
-      const value = Number(count) || 0;
-      if (!value) return;
-      let target = typeLabel;
-      if (!topTypeLabels.includes(typeLabel)){
-        target = includeOther ? 'Other' : typeLabel;
+    entries.forEach(entry => {
+      let target = entry.label;
+      if (!topTypeLabels.includes(target)) {
+        target = includeOther ? 'Other' : target;
       }
-      bucket[target] = (bucket[target] || 0) + value;
+      bucket[target] = (bucket[target] || 0) + entry.count;
     });
-    dataMap[label] = bucket;
+    dataMap[formattedReason] = bucket;
+    const derivedTotal = Number((detailMap?.[reasonKey]?.total)) || Object.values(bucket).reduce((acc,val)=> acc + (Number(val)||0), 0);
+    reasonOrder.push({ label: formattedReason, total: derivedTotal });
   });
+  const order = reasonOrder.sort((a,b)=> (b.total||0) - (a.total||0)).map(item => item.label);
+
   const legendDetails = {};
   if (includeOther && otherEntries.length){
-    legendDetails.Other = otherEntries.map(([label,count])=>{
-      const pct = otherTotal ? Math.round((Number(count)||0) / otherTotal * 100) : 0;
-      return { label, count: Number(count)||0, pct };
+    legendDetails.Other = otherEntries.map(item => {
+      const count = Number(totalsByLabel.get(item.label)?.count || item.count || 0);
+      const pct = otherTotal ? Math.round((count / otherTotal) * 100) : 0;
+      const pctTotal = overallTotal ? Math.round((count / overallTotal) * 100) : 0;
+      return { label: item.label, count, pct, pctTotal };
     });
   }
+
   return { dataMap, series, order, legendDetails };
 }
 
