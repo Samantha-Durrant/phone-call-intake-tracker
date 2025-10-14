@@ -1923,3 +1923,8 @@ function importPendingSubmissions() {
     }
   } catch {}
 }
+
+function updateKpisAndCharts() {
+  // TODO: Implement KPI and chart updates
+  // This is a stub to prevent ReferenceError
+}
