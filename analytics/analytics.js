@@ -2272,7 +2272,15 @@ try {
   const ch = new BroadcastChannel('screenpop-analytics');
   ch.addEventListener('message', (e) => {
     const msg = e.data || {};
-    if (msg && msg.type === 'submit' && msg.entry) processEntry(msg.entry);
+    if (!msg || !msg.type) return;
+    if (msg.type === 'submit' && msg.entry) {
+      processEntry(msg.entry);
+      return;
+    }
+    if (msg.type === 'ready') {
+      if (launchScreenpopBtn) launchScreenpopBtn.textContent = 'Screenpop Connected';
+      importPendingSubmissions();
+    }
   });
 } catch {}
 
@@ -2307,6 +2315,11 @@ window.addEventListener('storage', (e) => {
       if (entry && typeof entry === 'object') processEntry(entry);
       try { localStorage.removeItem(e.key); } catch {}
     } catch {}
+    return;
+  }
+  if (e.key === 'screenpop_ready_ping') {
+    if (launchScreenpopBtn) launchScreenpopBtn.textContent = 'Screenpop Connected';
+    importPendingSubmissions();
   }
 });
 

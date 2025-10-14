@@ -554,6 +554,12 @@
     if (window.opener && !window.opener.closed) window.opener.postMessage(msg, '*');
     const parentWin = window.parent;
     if (parentWin && parentWin !== window) parentWin.postMessage(msg, '*');
+    try {
+      const ch = new BroadcastChannel('screenpop-analytics');
+      ch.postMessage({ type: 'ready' });
+      ch.close();
+    } catch {}
+    try { localStorage.setItem('screenpop_ready_ping', String(Date.now())); } catch {}
   } catch {}
 
   // Wire Call For segmented changes to clear/apply behavior
