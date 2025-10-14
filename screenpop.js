@@ -525,9 +525,11 @@
       // 4) postMessage fallback for embedded or opener analytics windows
       try {
         const msg = { type:'screenpop-submit', entry };
-        if (window.opener && !window.opener.closed) window.opener.postMessage(msg, '*');
-        const parentWin = window.parent;
-        if (parentWin && parentWin !== window) parentWin.postMessage(msg, '*');
+        try { window.opener && window.opener.postMessage(msg, '*'); } catch {}
+        try {
+          const parentWin = window.parent;
+          if (parentWin && parentWin !== window) parentWin.postMessage(msg, '*');
+        } catch {}
       } catch {}
     } catch {}
 
@@ -551,9 +553,11 @@
   // Notify analytics windows that the screenpop UI is ready
   try {
     const msg = { type:'screenpop-ready' };
-    if (window.opener && !window.opener.closed) window.opener.postMessage(msg, '*');
-    const parentWin = window.parent;
-    if (parentWin && parentWin !== window) parentWin.postMessage(msg, '*');
+    try { window.opener && window.opener.postMessage(msg, '*'); } catch {}
+    try {
+      const parentWin = window.parent;
+      if (parentWin && parentWin !== window) parentWin.postMessage(msg, '*');
+    } catch {}
     try {
       const ch = new BroadcastChannel('screenpop-analytics');
       ch.postMessage({ type: 'ready' });
