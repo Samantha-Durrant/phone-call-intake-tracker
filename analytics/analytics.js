@@ -149,8 +149,6 @@ function aggregateTypeCounts(typeCounts = {}){
 let CURRENT_OUTCOME = 'scheduled';
 let OUTCOME_DATA = null;
 let CURRENT_OUTCOME_CATEGORY = 'all';
-let CURRENT_MAIN_VIEW = 'insights';
-let LAST_INSIGHT_SUMMARY = null;
 let CURRENT_TABLE_FILTER = 'all';
 let LAST_SUMMARY = null;
 const APPOINTMENT_LIST_STATE = new Map();
@@ -1451,24 +1449,6 @@ function categoryLabelForKey(key){
   return CATEGORY_LABELS[key] || CATEGORY_LABELS.other;
 }
 
-function setMainView(view){
-  if (!dashboardViewEl || !insightsViewEl) return;
-  CURRENT_MAIN_VIEW = view;
-  const showDashboard = view === 'dashboard';
-  dashboardViewEl.classList.toggle('hidden', !showDashboard);
-  insightsViewEl.classList.toggle('hidden', showDashboard);
-  if (analyticsTabsEl){
-    analyticsTabsEl.querySelectorAll('.main-tab').forEach(btn => {
-      const isActive = (btn.dataset.view || 'dashboard') === view;
-      btn.classList.toggle('active', isActive);
-      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
-    });
-  }
-  if (view === 'insights' && LAST_INSIGHT_SUMMARY){
-    renderInsights(LAST_INSIGHT_SUMMARY.sum, LAST_INSIGHT_SUMMARY.sumAll);
-  }
-}
-
 function initializeTableFilters(){
   if (!tableFiltersEl) return;
   tableFiltersEl.addEventListener('click', (evt) => {
@@ -1483,17 +1463,6 @@ function initializeTableFilters(){
       el.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
     renderTable();
-  });
-}
-
-function initializeMainTabs(){
-  if (!analyticsTabsEl) return;
-  analyticsTabsEl.addEventListener('click', (evt) => {
-    const btn = evt.target.closest('.main-tab');
-    if (!btn) return;
-    const nextView = btn.dataset.view || 'dashboard';
-    if (nextView === CURRENT_MAIN_VIEW) return;
-    setMainView(nextView);
   });
 }
 
@@ -1783,9 +1752,6 @@ function buildOfficeCategoryStack(byOffice, accessor){
   return { dataMap, series: officeSeries(offices.filter(o => included.has(o))), order };
 }
 
-const analyticsTabsEl = document.getElementById('analyticsTabs');
-const dashboardViewEl = document.getElementById('dashboardView');
-const insightsViewEl = document.getElementById('insightsView');
 const outcomeChartToggleEl = document.getElementById('outcomeChartToggle');
 const outcomeTypesSection = document.querySelector('[data-chart=\"types\"]');
 const outcomeReasonsSection = document.querySelector('[data-chart=\"reasons\"]');
@@ -2165,8 +2131,6 @@ function updateKpisAndCharts(){
     const firstWithData = OUTCOME_KEYS.find(key => OUTCOME_DATA[key]?.total);
     if (firstWithData) CURRENT_OUTCOME = firstWithData;
   }
-  LAST_INSIGHT_SUMMARY = { sum, sumAll };
-  renderInsights(sum, sumAll);
   renderOutcomeView(CURRENT_OUTCOME);
 
   // Split tasks / transfers by type with distinct colors and proper labels
@@ -2445,8 +2409,6 @@ try {
   if (url.searchParams.get('openScreenpop') === '1' || url.searchParams.get('screenpop') === '1') {
     setTimeout(() => launchScreenpop({ focus: false }), 100);
   }
-  initializeMainTabs();
-  setMainView('dashboard');
   setView('daily');
   initializeOutcomeTabs();
   initializeOutcomeChartToggle();

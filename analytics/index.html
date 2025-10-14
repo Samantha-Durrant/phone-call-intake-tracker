@@ -155,11 +155,7 @@
         <button id="launchScreenpopBtn" class="primary" type="button">Open Screenpop</button>
       </div>
     </header>
-    <div class="main-tabs" id="analyticsTabs" role="tablist" aria-label="Analytics sections">
-      <button type="button" class="main-tab" data-view="insights" role="tab" aria-selected="false">Insights</button>
-      <button type="button" class="main-tab active" data-view="dashboard" role="tab" aria-selected="true">Dashboard</button>
-    </div>
-    <div id="dashboardView" class="wrap hidden" style="grid-template-columns: 1fr; gap:12px;">
+    <div id="dashboardView" class="wrap" style="grid-template-columns: 1fr; gap:12px;">
       <div class="panel" style="padding-bottom:0">
         <div class="toolbar" style="justify-content:space-between">
           <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -322,68 +318,6 @@
           </table>
         </div>
       </div>
-    </div>
-    <div id="insightsView" class="wrap" style="grid-template-columns:1fr; gap:12px;" aria-live="polite">
-      <div class="panel wide">
-        <h2>Insights</h2>
-        <div class="body">
-          <div class="insights-intro muted">Snapshots update with the current filters and view.</div>
-          <div id="insightShell" class="insights-grid">
-            <div class="insight-card">
-              <div class="insight-heading">
-                <span>Scheduled Highlights</span>
-                <span class="insight-total" id="insightScheduledTotal">0</span>
-              </div>
-              <div class="insight-subtext">Most common appointment types scheduled</div>
-              <ul id="insightScheduledList" class="insight-list">
-                <li class="insight-empty">Not enough data yet.</li>
-              </ul>
-            </div>
-            <div class="insight-card">
-              <div class="insight-heading">
-                <span>Cancellation Drivers</span>
-                <span class="insight-total" id="insightCancelTotal">0</span>
-              </div>
-              <div class="insight-subtext">Top appointment & reason combinations</div>
-              <ul id="insightCancelList" class="insight-list">
-                <li class="insight-empty">Not enough data yet.</li>
-              </ul>
-            </div>
-            <div class="insight-card">
-              <div class="insight-heading">
-                <span>Reschedule Trends</span>
-                <span class="insight-total" id="insightReschedTotal">0</span>
-              </div>
-              <div class="insight-subtext">Where and why patients rescheduled</div>
-              <ul id="insightReschedList" class="insight-list">
-                <li class="insight-empty">Not enough data yet.</li>
-              </ul>
-            </div>
-            <div class="insight-card">
-              <div class="insight-heading">
-                <span>No Appointment Reasons</span>
-                <span class="insight-total" id="insightNoApptTotal">0</span>
-              </div>
-              <div class="insight-subtext">Top “no appointment” explanations</div>
-              <ul id="insightNoApptList" class="insight-list">
-                <li class="insight-empty">Not enough data yet.</li>
-              </ul>
-            </div>
-            <div class="insight-card">
-              <div class="insight-heading">
-                <span>Office Snapshot</span>
-                <span class="insight-total" id="insightOfficeTotal">0</span>
-              </div>
-              <div class="insight-subtext">Scheduled vs. cancelled and leading reasons</div>
-              <ul id="insightOfficeList" class="insight-list insight-office-list">
-                <li class="insight-empty">Not enough data yet.</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <script src="./analytics.js" type="module"></script>
   </body>
   </html>
