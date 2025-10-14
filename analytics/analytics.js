@@ -1899,3 +1899,27 @@ try {
   initializeOutcomeChartToggle();
   initializeTableFilters();
 } catch {}
+
+function importPendingSubmissions() {
+  // Scan localStorage for any screenpop_submit_* keys and add them to the ledger
+  try {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('screenpop_submit_'));
+    if (!keys.length) return;
+    const LEDGER_KEY = 'screenpop_ledger_v1';
+    let ledger = JSON.parse(localStorage.getItem(LEDGER_KEY) || '[]');
+    let changed = false;
+    for (const key of keys) {
+      try {
+        const entry = JSON.parse(localStorage.getItem(key));
+        if (entry && !ledger.find(e => e && e.id === entry.id)) {
+          ledger.unshift(entry);
+          changed = true;
+        }
+        localStorage.removeItem(key);
+      } catch {}
+    }
+    if (changed) {
+      localStorage.setItem(LEDGER_KEY, JSON.stringify(ledger));
+    }
+  } catch {}
+}
