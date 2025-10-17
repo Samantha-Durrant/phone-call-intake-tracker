@@ -75,6 +75,33 @@ const CATEGORY_LABELS = {
 };
 const reasonDetailOpenState = new Map();
 
+const outcomeTabsEl = document.getElementById('outcomeTabs');
+const outcomeCategoryTabsEl = document.getElementById('outcomeCategoryTabs');
+const outcomeChartToggleEl = document.getElementById('outcomeChartToggle');
+const outcomeChartSections = Array.from(document.querySelectorAll('.outcome-body [data-chart]'));
+const outcomeFunnelEl = document.getElementById('outcomeFunnel');
+const outcomeReasonDetailsEl = document.getElementById('outcomeReasonDetails');
+const outcomeMessageEl = document.getElementById('outcomeMessage');
+const outcomeFunnelValueEls = {
+  scheduled: document.getElementById('funnelScheduled'),
+  rescheduled: document.getElementById('funnelRescheduled'),
+  cancelled: document.getElementById('funnelCancelled'),
+  no_appointment: document.getElementById('funnelNoAppt')
+};
+const tableFiltersEl = document.getElementById('tableFilters');
+
+const insightShellEl = document.getElementById('insightsShell');
+const insightScheduledTotalEl = document.getElementById('insightScheduledTotal');
+const insightScheduledListEl = document.getElementById('insightScheduledList');
+const insightCancelTotalEl = document.getElementById('insightCancelTotal');
+const insightCancelListEl = document.getElementById('insightCancelList');
+const insightReschedTotalEl = document.getElementById('insightReschedTotal');
+const insightReschedListEl = document.getElementById('insightReschedList');
+const insightNoApptTotalEl = document.getElementById('insightNoApptTotal');
+const insightNoApptListEl = document.getElementById('insightNoApptList');
+const insightOfficeTotalEl = document.getElementById('insightOfficeTotal');
+const insightOfficeListEl = document.getElementById('insightOfficeList');
+
 function unpackTypeValue(label, value){
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const count = Number(value.count) || 0;
@@ -1449,6 +1476,171 @@ function categoryLabelForKey(key){
   return CATEGORY_LABELS[key] || CATEGORY_LABELS.other;
 }
 
+function applyOutcomeTabState(outcomeKey){
+  if (outcomeTabsEl){
+    outcomeTabsEl.querySelectorAll('.outcome-tab').forEach(btn => {
+      const target = btn.dataset.outcome || '';
+      const isActive = target === outcomeKey;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+  }
+  if (outcomeFunnelEl){
+    outcomeFunnelEl.querySelectorAll('.funnel-card').forEach(card => {
+      const target = card.dataset.outcome || '';
+      const isActive = target === outcomeKey;
+      card.classList.toggle('active', isActive);
+      card.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+  }
+}
+
+function applyOutcomeCategoryState(categoryKey){
+  if (!outcomeCategoryTabsEl) return;
+  outcomeCategoryTabsEl.querySelectorAll('.outcome-category-tab').forEach(btn => {
+    const value = btn.dataset.category || 'all';
+    const isActive = value === categoryKey;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+}
+
+function applyOutcomeChartVisibility(){
+  outcomeChartSections.forEach(section => {
+    const key = section?.dataset?.chart || '';
+    const visible = outcomeChartVisibility[key] !== false;
+    section.style.display = visible ? '' : 'none';
+  });
+  if (outcomeChartToggleEl){
+    outcomeChartToggleEl.querySelectorAll('.chart-toggle-btn').forEach(btn => {
+      const key = btn.dataset.chart || '';
+      const active = outcomeChartVisibility[key] !== false;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  }
+}
+
+function updateOutcomeFunnel(dataMap){
+  if (!dataMap || !outcomeFunnelEl) return;
+  OUTCOME_KEYS.forEach(key => {
+    const bucket = dataMap[key] || {};
+    const total = Number(bucket.total) || 0;
+    const valueEl = outcomeFunnelValueEls[key];
+    if (valueEl) valueEl.textContent = String(total);
+    const card = outcomeFunnelEl.querySelector(`.funnel-card[data-outcome="${key}"]`);
+    if (card){
+      card.classList.toggle('is-empty', total === 0);
+      card.setAttribute('aria-label', `${OUTCOME_LABELS[key] || key}: ${total}`);
+    }
+  });
+  applyOutcomeTabState(CURRENT_OUTCOME);
+}
+
+function renderOutcomeView(outcomeKey){
+  if (!OUTCOME_DATA) return;
+  const nextKey = OUTCOME_KEYS.includes(outcomeKey) ? outcomeKey : OUTCOME_KEYS[0];
+  CURRENT_OUTCOME = nextKey;
+  applyOutcomeTabState(nextKey);
+  applyOutcomeCategoryState(CURRENT_OUTCOME_CATEGORY);
+
+  const target = OUTCOME_DATA[nextKey];
+  if (!target){
+    drawStackedMulti('chartOutcomeTypes', {}, { series: [] });
+    drawBarChart('chartOutcomeReasons', {}, {});
+    renderReasonDetails('outcomeReasonDetails', {});
+    if (outcomeMessageEl) outcomeMessageEl.textContent = 'No data yet.';
+    applyOutcomeChartVisibility();
+    return;
+  }
+  const categoryKey = CURRENT_OUTCOME_CATEGORY || 'all';
+  const stack = getStackForCategory(target.stack, categoryKey);
+  drawStackedMulti('chartOutcomeTypes', stack.dataMap || {}, { series: stack.series || [], order: stack.order || [] });
+  renderStackLegend('chartOutcomeTypesLegend', stack.series || [], stack.legendDetails || {});
+
+  const reasonMap = filterReasonMapByCategory(target, categoryKey);
+  const reasonOptions = {
+    palette: target.reasonPalette || undefined,
+    labelMap: target.reasonLabelMap || {},
+    maxValue: (CURRENT_VIEW === 'monthly') ? 100 : undefined,
+    formatValue: (CURRENT_VIEW === 'monthly') ? (value) => `${Math.round(value)}%` : undefined
+  };
+  drawBarChart('chartOutcomeReasons', reasonMap, reasonOptions);
+
+  const detailMap = filterDetailMapByCategory(target.detailMap || {}, categoryKey);
+  renderReasonDetails('outcomeReasonDetails', detailMap, { labelForReason: target.labelFormatter || ((label)=>label) });
+
+  if (outcomeMessageEl){
+    if ((target.total || 0) === 0){
+      outcomeMessageEl.textContent = `No records captured for ${OUTCOME_LABELS[nextKey] || nextKey}.`;
+    } else if (!Object.keys(reasonMap || {}).length){
+      outcomeMessageEl.textContent = 'No specific reasons captured yet for this outcome.';
+    } else {
+      outcomeMessageEl.textContent = '';
+    }
+  }
+
+  applyOutcomeChartVisibility();
+}
+
+function setOutcome(outcomeKey){
+  renderOutcomeView(outcomeKey);
+}
+
+function initializeOutcomeTabs(){
+  if (outcomeTabsEl){
+    outcomeTabsEl.addEventListener('click', (evt) => {
+      const btn = evt.target.closest('.outcome-tab');
+      if (!btn) return;
+      const key = btn.dataset.outcome || 'scheduled';
+      if (key !== CURRENT_OUTCOME) setOutcome(key);
+    });
+  }
+  if (outcomeFunnelEl){
+    outcomeFunnelEl.querySelectorAll('.funnel-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const key = card.dataset.outcome || 'scheduled';
+        if (key !== CURRENT_OUTCOME) setOutcome(key);
+      });
+    });
+  }
+  if (outcomeCategoryTabsEl){
+    outcomeCategoryTabsEl.addEventListener('click', (evt) => {
+      const btn = evt.target.closest('.outcome-category-tab');
+      if (!btn) return;
+      const key = btn.dataset.category || 'all';
+      if (key !== CURRENT_OUTCOME_CATEGORY){
+        CURRENT_OUTCOME_CATEGORY = key;
+        applyOutcomeCategoryState(key);
+        renderOutcomeView(CURRENT_OUTCOME);
+      }
+    });
+    applyOutcomeCategoryState(CURRENT_OUTCOME_CATEGORY);
+  }
+  applyOutcomeTabState(CURRENT_OUTCOME);
+  applyOutcomeChartVisibility();
+}
+
+function initializeOutcomeChartToggle(){
+  if (!outcomeChartToggleEl) {
+    applyOutcomeChartVisibility();
+    return;
+  }
+  outcomeChartToggleEl.addEventListener('click', (evt) => {
+    const btn = evt.target.closest('.chart-toggle-btn');
+    if (!btn) return;
+    const key = btn.dataset.chart || '';
+    if (!key) return;
+    const currentlyVisible = outcomeChartVisibility[key] !== false;
+    outcomeChartVisibility[key] = !currentlyVisible;
+    if (!outcomeChartVisibility.types && !outcomeChartVisibility.reasons){
+      outcomeChartVisibility[key] = true;
+    }
+    applyOutcomeChartVisibility();
+  });
+  applyOutcomeChartVisibility();
+}
+
 function initializeTableFilters(){
   if (!tableFiltersEl) return;
   tableFiltersEl.addEventListener('click', (evt) => {
@@ -1925,6 +2117,266 @@ function importPendingSubmissions() {
 }
 
 function updateKpisAndCharts() {
-  // TODO: Implement KPI and chart updates
-  // This is a stub to prevent ReferenceError
+  try {
+    const allEntries = getActiveEntries();
+    const scopedEntries = filterEntriesBySelectedOffice(allEntries);
+    const sumAll = summarize(allEntries);
+    const sum = (SELECTED_OFFICE === 'all') ? sumAll : summarize(scopedEntries);
+
+    const setText = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    };
+
+    setText('kpiTotal', String(sum.total || 0));
+    setText('kpiCancel', String(sum.cancel || 0));
+    setText('kpiResched', String(sum.resched || 0));
+    setText('kpiNew', String(sum.new || 0));
+    setText('kpiExisting', String(sum.existing || 0));
+    setText('kpiActions', `${sum.tasks || 0} / ${sum.transfers || 0}`);
+
+    renderAppointmentLists(sum);
+    renderInsights(sum, sumAll);
+
+    const hoursOrder = Array.from({ length: 10 }, (_, idx) => String(8 + idx));
+    const hourLabels = {};
+    hoursOrder.forEach((key, idx) => {
+      const hour = 8 + idx;
+      const hour12 = (hour % 12) || 12;
+      const ampm = hour < 12 ? 'AM' : 'PM';
+      hourLabels[key] = `${hour12}:00 ${ampm}`;
+    });
+    const hoursMap = {};
+    hoursOrder.forEach(key => {
+      hoursMap[key] = Number(sum.hours[key] || 0);
+    });
+    let chartHoursData = hoursMap;
+    const hoursOptions = { order: hoursOrder, labelMap: hourLabels, color: '#4f46e5' };
+    if (CURRENT_VIEW === 'monthly') {
+      const { y, m } = parseYearMonth(SELECTED_MONTH || monthKey(Date.now()));
+      const denom = daysInMonth(y, m) || 1;
+      const avgHours = {};
+      hoursOrder.forEach(key => {
+        avgHours[key] = (Number(hoursMap[key]) || 0) / denom;
+      });
+      chartHoursData = avgHours;
+      hoursOptions.formatValue = (value) => (value >= 10 ? Math.round(value) : value.toFixed(1));
+    }
+    drawBarChart('chartHours', chartHoursData, hoursOptions);
+
+    const weekdayPanel = document.getElementById('panelWeekdays');
+    if (weekdayPanel) weekdayPanel.style.display = (CURRENT_VIEW === 'monthly') ? '' : 'none';
+    if (CURRENT_VIEW === 'monthly') {
+      const weekdayCounts = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0 };
+      scopedEntries.forEach(entry => {
+        const day = new Date(entry.time).getDay();
+        if (day >= 1 && day <= 5) {
+          const key = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'][day - 1];
+          weekdayCounts[key] = (weekdayCounts[key] || 0) + 1;
+        }
+      });
+      const { y, m } = parseYearMonth(SELECTED_MONTH || monthKey(Date.now()));
+      const occurrences = weekdayOccurrencesInMonth(y, m);
+      const denomMap = { Mon: occurrences[1] || 1, Tue: occurrences[2] || 1, Wed: occurrences[3] || 1, Thu: occurrences[4] || 1, Fri: occurrences[5] || 1 };
+      const avgWeekday = Object.fromEntries(Object.entries(weekdayCounts).map(([key, value]) => [key, value / denomMap[key]]));
+      const weekdayLabels = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday' };
+      const weekdayPalette = ['#2563eb', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444'];
+      drawBarChart('chartWeekdays', avgWeekday, {
+        order: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+        labelMap: weekdayLabels,
+        palette: weekdayPalette,
+        formatValue: (value) => (value >= 10 ? Math.round(value) : value.toFixed(1))
+      });
+    } else if (weekdayPanel) {
+      drawBarChart('chartWeekdays', {}, { order: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] });
+    }
+
+    const breakdownSource = (SELECTED_OFFICE === 'all') ? sumAll : sum;
+    const officeLabels = (SELECTED_OFFICE === 'all')
+      ? [...new Set([...OFFICE_KEYS, ...Object.keys(breakdownSource.officeBreakdown || {})])]
+      : [SELECTED_OFFICE];
+    const officeData = {};
+    officeLabels.forEach(office => {
+      const bucket = breakdownSource.officeBreakdown?.[office] || {};
+      officeData[office] = {
+        existingScheduled: Number(bucket.existingScheduled || 0),
+        existingNot: Number(bucket.existingNot || 0),
+        newScheduled: Number(bucket.newScheduled || 0),
+        newNot: Number(bucket.newNot || 0)
+      };
+    });
+    drawStackedMulti('chartNewExisting', officeData, { series: SCHEDULING_SERIES, order: officeLabels });
+    renderLegend('chartNewExistingLegend', SCHEDULING_SERIES);
+
+    const confirmations = sum.confirmations || {};
+    const confirmationOptions = { palette: ['#10b981', '#ef4444'], order: ['Confirmed', 'Not Confirmed'] };
+    if (CURRENT_VIEW === 'monthly') {
+      const totalForPct = Math.max(1, scopedEntries.length);
+      const confirmPct = {
+        Confirmed: (Number(confirmations.Confirmed || 0) / totalForPct) * 100,
+        'Not Confirmed': (Number(confirmations['Not Confirmed'] || 0) / totalForPct) * 100
+      };
+      confirmationOptions.maxValue = 100;
+      confirmationOptions.formatValue = (value) => `${Math.round(value)}%`;
+      drawBarChart('chartConfirmations', confirmPct, confirmationOptions);
+    } else {
+      drawBarChart('chartConfirmations', confirmations, confirmationOptions);
+    }
+
+    const medicalPie = aggregateTypeCounts(sum.apptGroups?.Medical || {});
+    drawPieChart('chartApptMedical', medicalPie, { legendId: 'chartApptMedicalLegend' });
+    const laserPie = aggregateTypeCounts(sum.apptGroups?.['Laser Dermatology'] || {});
+    drawPieChart('chartApptLaser', laserPie, { legendId: 'chartApptLaserLegend' });
+    const cosmeticPie = aggregateTypeCounts(sum.apptGroups?.['Cosmetic Dermatology'] || sum.apptGroups?.Cosmetic || {});
+    drawPieChart('chartApptCosmetic', cosmeticPie, { legendId: 'chartApptCosmeticLegend' });
+
+    const officeCounts = { ...OFFICE_KEYS.reduce((acc, key) => { acc[key] = 0; return acc; }, {}), ...(sum.offices || {}) };
+    const officeChartOptions = { palette: ['#0ea5e9', '#3b82f6', '#6366f1', '#94a3b8'], order: OFFICE_KEYS };
+    if (CURRENT_VIEW === 'monthly') {
+      const totalForPct = Math.max(1, scopedEntries.length);
+      const officePct = Object.fromEntries(Object.entries(officeCounts).map(([key, value]) => [key, (Number(value) || 0) / totalForPct * 100]));
+      officeChartOptions.maxValue = 100;
+      officeChartOptions.formatValue = (value) => `${Math.round(value)}%`;
+      drawBarChart('chartOffices', officePct, officeChartOptions);
+    } else {
+      drawBarChart('chartOffices', officeCounts, officeChartOptions);
+    }
+
+    const cancelPalette = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7', '#ec4899'];
+    const reschedPalette = ['#1d4ed8', '#0ea5e9', '#14b8a6', '#10b981', '#84cc16', '#eab308', '#f59e0b', '#f97316', '#ef4444', '#a855f7'];
+    const labelizeReasons = (map) => Object.fromEntries(Object.keys(map || {}).map(key => [key, prettyReasonLabel(key)]));
+    const cancelReasonMap = (CURRENT_VIEW === 'monthly')
+      ? Object.fromEntries(Object.entries(sum.cancelReasons || {}).map(([key, value]) => [key, (Number(value) || 0) / Math.max(1, sum.cancel) * 100]))
+      : { ...(sum.cancelReasons || {}) };
+    const reschedReasonMap = (CURRENT_VIEW === 'monthly')
+      ? Object.fromEntries(Object.entries(sum.reschedReasons || {}).map(([key, value]) => [key, (Number(value) || 0) / Math.max(1, sum.resched) * 100]))
+      : { ...(sum.reschedReasons || {}) };
+    const cancelReasonOptions = {
+      palette: cancelPalette,
+      labelMap: labelizeReasons(sum.cancelReasons),
+      maxValue: (CURRENT_VIEW === 'monthly') ? 100 : undefined,
+      formatValue: (CURRENT_VIEW === 'monthly') ? (value) => `${Math.round(value)}%` : undefined
+    };
+    const reschedReasonOptions = {
+      palette: reschedPalette,
+      labelMap: labelizeReasons(sum.reschedReasons),
+      maxValue: (CURRENT_VIEW === 'monthly') ? 100 : undefined,
+      formatValue: (CURRENT_VIEW === 'monthly') ? (value) => `${Math.round(value)}%` : undefined
+    };
+    drawBarChart('chartCancelReasons', cancelReasonMap, cancelReasonOptions);
+    drawBarChart('chartReschedReasons', reschedReasonMap, reschedReasonOptions);
+    renderReasonDetails('cancelReasonDetails', sum.cancelReasonDetails, { labelForReason: prettyReasonLabel });
+    renderReasonDetails('reschedReasonDetails', sum.reschedReasonDetails, { labelForReason: prettyReasonLabel });
+
+    const tasksByType = {};
+    const transfersByType = {};
+    Object.entries(sum.actionsByType || {}).forEach(([key, stats]) => {
+      if (stats.task) tasksByType[key] = Number(stats.task) || 0;
+      if (stats.transfer) transfersByType[key] = Number(stats.transfer) || 0;
+    });
+    const prettifyAction = (key) => {
+      const map = {
+        ma_call: 'MA Call',
+        provider_question: 'Provider Question',
+        refill_request: 'Refill Request',
+        billing_question: 'Billing Question',
+        confirmation: 'Confirmation',
+        results: 'Results'
+      };
+      return map[key] || String(key || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    };
+    const buildActionLabelMap = (obj) => Object.fromEntries(Object.keys(obj || {}).map(key => [key, prettifyAction(key)]));
+    const tasksPalette = ['#10b981', '#34d399', '#059669', '#16a34a', '#22c55e', '#065f46', '#5eead4', '#0ea5e9', '#3b82f6', '#a855f7'];
+    const transfersPalette = ['#f59e0b', '#f97316', '#ef4444', '#eab308', '#84cc16', '#dc2626', '#fb7185', '#f472b6', '#f43f5e', '#d946ef'];
+    const actionOptions = (map, palette) => ({
+      palette,
+      labelMap: buildActionLabelMap(map),
+      maxValue: (CURRENT_VIEW === 'monthly') ? 100 : undefined,
+      formatValue: (CURRENT_VIEW === 'monthly') ? (value) => `${Math.round(value)}%` : undefined
+    });
+    const toPercent = (map, denom) => Object.fromEntries(Object.entries(map || {}).map(([key, value]) => [key, (Number(value) || 0) / Math.max(1, denom) * 100]));
+    const taskData = (CURRENT_VIEW === 'monthly') ? toPercent(tasksByType, scopedEntries.length) : tasksByType;
+    const transferData = (CURRENT_VIEW === 'monthly') ? toPercent(transfersByType, scopedEntries.length) : transfersByType;
+    drawBarChart('chartTasksByType', taskData, actionOptions(tasksByType, tasksPalette));
+    drawBarChart('chartTransfersByType', transferData, actionOptions(transfersByType, transfersPalette));
+
+    const totalScheduled = totalFromMap(sum.appointmentTypesByOutcome?.scheduled);
+    const scheduledDetailMap = totalScheduled ? { Scheduled: { total: totalScheduled, types: sum.appointmentTypesByOutcome.scheduled } } : {};
+    const scheduledStack = buildReasonTypeStack(scheduledDetailMap, { topN: 6, formatReason: (label) => label });
+    const reschedStack = buildReasonTypeStack(sum.reschedReasonDetails, { topN: 6, formatReason: prettyReasonLabel });
+    const cancelStack = buildReasonTypeStack(sum.cancelReasonDetails, { topN: 6, formatReason: prettyReasonLabel });
+    const noApptStack = buildReasonTypeStack(sum.noApptReasonDetails, { topN: 6, formatReason: (label) => label });
+
+    const reasonLabelMap = (map) => Object.fromEntries(Object.keys(map || {}).map(key => [key, prettyReasonLabel(key)]));
+    const outcomeToPercent = (map, denom) => {
+      if (CURRENT_VIEW !== 'monthly') return { ...(map || {}) };
+      const total = Math.max(1, denom);
+      return Object.fromEntries(Object.entries(map || {}).map(([key, value]) => [key, (Number(value) || 0) / total * 100]));
+    };
+
+    OUTCOME_DATA = {
+      scheduled: {
+        key: 'scheduled',
+        label: OUTCOME_LABELS.scheduled,
+        total: totalScheduled,
+        stack: scheduledStack,
+        reasonMap: outcomeToPercent(sum.appointmentTypesByOutcome?.scheduled, totalScheduled || 1),
+        reasonLabelMap: {},
+        reasonPalette: ['#4f46e5', '#7c3aed', '#0ea5e9', '#10b981', '#f59e0b'],
+        detailMap: scheduledDetailMap,
+        labelFormatter: (label) => label
+      },
+      rescheduled: {
+        key: 'rescheduled',
+        label: OUTCOME_LABELS.rescheduled,
+        total: sum.resched || 0,
+        stack: reschedStack,
+        reasonMap: outcomeToPercent(sum.reschedReasons, sum.resched || 1),
+        reasonLabelMap: reasonLabelMap(sum.reschedReasons),
+        reasonPalette: reschedPalette,
+        detailMap: sum.reschedReasonDetails,
+        labelFormatter: prettyReasonLabel
+      },
+      cancelled: {
+        key: 'cancelled',
+        label: OUTCOME_LABELS.cancelled,
+        total: sum.cancel || 0,
+        stack: cancelStack,
+        reasonMap: outcomeToPercent(sum.cancelReasons, sum.cancel || 1),
+        reasonLabelMap: reasonLabelMap(sum.cancelReasons),
+        reasonPalette: cancelPalette,
+        detailMap: sum.cancelReasonDetails,
+        labelFormatter: prettyReasonLabel
+      },
+      no_appointment: {
+        key: 'no_appointment',
+        label: OUTCOME_LABELS.no_appointment,
+        total: totalFromMap(sum.appointmentTypesByOutcome?.noAppointment),
+        stack: noApptStack,
+        reasonMap: outcomeToPercent(sum.noApptReasons, totalFromMap(sum.appointmentTypesByOutcome?.noAppointment) || 1),
+        reasonLabelMap: {},
+        reasonPalette: ['#f97316', '#f59e0b', '#fbbf24', '#84cc16', '#22c55e'],
+        detailMap: sum.noApptReasonDetails,
+        labelFormatter: (label) => label
+      }
+    };
+
+    const fallbackOutcome = OUTCOME_KEYS.find(key => (OUTCOME_DATA[key]?.total || 0) > 0) || 'scheduled';
+    if (!OUTCOME_DATA[CURRENT_OUTCOME] || (OUTCOME_DATA[CURRENT_OUTCOME].total || 0) === 0) {
+      CURRENT_OUTCOME = fallbackOutcome;
+    }
+    updateOutcomeFunnel(OUTCOME_DATA);
+    renderOutcomeView(CURRENT_OUTCOME);
+  } catch (err) {
+    console.warn('updateKpisAndCharts failed', err);
+  }
 }
+
+window.refreshAnalyticsView = function refreshAnalyticsView(){
+  try {
+    renderTable();
+    updateKpisAndCharts();
+  } catch (err) {
+    console.warn('refreshAnalyticsView failed', err);
+  }
+};
