@@ -925,7 +925,7 @@ function applyMrnFilter(){
 
 function renderCancelReasonLegend(){
   if (!cancelReasonLegendEl) return;
-  const items = CRM_CANCEL_REASON_LABELS.map(label => `<li>${label}</li>`).join('');
+  const items = CANONICAL_REASON_ORDER.map(label => `<li>${label}</li>`).join('');
   cancelReasonLegendEl.innerHTML = `
     <strong>Cancellation Reasons</strong>
     <ul>${items}</ul>
@@ -1059,7 +1059,12 @@ function summarize(entries){
   };
   OFFICE_KEYS.forEach(name => { sum.byOffice[name] = createOfficeBucket(); });
   const inRange = (h) => h>=8 && h<=17;
-  const normReason = (r) => canonicalCancelReasonLabel(r) || '';
+  const normReason = (r) => {
+    const canonical = canonicalCancelReasonLabel(r);
+    if (canonical) return canonical;
+    const raw = String(r || '').trim();
+    return raw ? raw : 'Other';
+  };
   entries.forEach(e => {
     const d = new Date(e.time);
     const h = d.getHours();
@@ -1201,7 +1206,7 @@ function summarize(entries){
     officeMetrics.confirmations[confirmLabel] = (officeMetrics.confirmations[confirmLabel] || 0) + 1;
     if (e.appointment) e.appointment.confirmed = confirmed;
   });
-  CRM_CANCEL_REASON_LABELS.forEach(label => {
+  CANONICAL_REASON_ORDER.forEach(label => {
     if (!Object.prototype.hasOwnProperty.call(sum.cancelReasons, label)) {
       sum.cancelReasons[label] = 0;
     }
@@ -1355,7 +1360,10 @@ function drawBarChart(canvasId, dataMap, { labelMap={}, color='#4f46e5', palette
   const labels = entries.map(([k]) => labelMap[k] || k);
   const values = entries.map(([,v]) => Number(v)||0);
   const max = (typeof maxValue === 'number') ? (maxValue||1) : Math.max(1, ...values);
-  const pad = 24; const gap = 8; const barW = Math.max(8, (width - pad*2 - gap*(values.length-1)) / values.length);
+  const count = values.length;
+  const pad = Math.max(16, Math.min(48, width * 0.04));
+  const gap = Math.max(6, Math.min(24, (width - pad * 2) / Math.max(count * 3, 1)));
+  const barW = Math.max(12, (width - pad*2 - gap*(count-1)) / Math.max(count, 1));
   ctx.font = '12px system-ui';
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
@@ -1394,7 +1402,9 @@ function drawBarChart(canvasId, dataMap, { labelMap={}, color='#4f46e5', palette
     // value above bar, centered
     ctx.textAlign = 'center';
     const label = formatValue ? formatValue(v) : String(v);
-    ctx.fillStyle = '#111827'; ctx.fillText(label, cx, Math.max(chartTop+10, y-4));
+    ctx.fillStyle = '#111827';
+    const valueY = h > 0 ? Math.max(chartTop + 12, y - 6) : Math.max(chartTop + 12, chartBottom - 4);
+    ctx.fillText(label, cx, valueY);
     // label under bar (no rotation)
     ctx.fillStyle = '#374151';
     const lines = wrapped[i];
@@ -1404,6 +1414,16 @@ function drawBarChart(canvasId, dataMap, { labelMap={}, color='#4f46e5', palette
     });
     ctx.textAlign = 'left';
   });
+}
+
+function buildReasonValueMap(source = {}, totalCount = 0, asPercent = false){
+  const denom = Math.max(1, totalCount);
+  const map = {};
+  CANONICAL_REASON_ORDER.forEach(label => {
+    const value = Number(source[label] || 0);
+    map[label] = asPercent ? (value / denom * 100) : value;
+  });
+  return map;
 }
 
 function drawStackedTwo(canvasId, dataMap, { labels=['Tasks','Transfers'], colors=['#10b981','#f59e0b'] }={}){
@@ -2592,26 +2612,22 @@ function updateKpisAndCharts() {
       drawBarChart('chartOffices', officeCounts, officeChartOptions);
     }
 
-    const cancelPalette = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7', '#ec4899', '#6366f1', '#14b8a6', '#10b981', '#2dd4bf', '#0ea5e9', '#7c3aed', '#9333ea', '#d946ef', '#fb7185', '#f472b6', '#fbbf24'];
-    const reschedPalette = ['#1d4ed8', '#0ea5e9', '#14b8a6', '#10b981', '#84cc16', '#eab308', '#f59e0b', '#f97316', '#ef4444', '#a855f7', '#6366f1', '#8b5cf6', '#ec4899', '#f472b6', '#facc15', '#fb7185', '#d946ef', '#22d3ee', '#34d399', '#fcd34d', '#c084fc'];
-    const labelizeReasons = () => Object.fromEntries(CRM_CANCEL_REASON_LABELS.map(label => [label, prettyReasonLabel(label)]));
-    const cancelReasonMap = (CURRENT_VIEW === 'monthly')
-      ? Object.fromEntries(Object.entries(sum.cancelReasons || {}).map(([key, value]) => [key, (Number(value) || 0) / Math.max(1, sum.cancel) * 100]))
-      : { ...(sum.cancelReasons || {}) };
-    const reschedReasonMap = (CURRENT_VIEW === 'monthly')
-      ? Object.fromEntries(Object.entries(sum.reschedReasons || {}).map(([key, value]) => [key, (Number(value) || 0) / Math.max(1, sum.resched) * 100]))
-      : { ...(sum.reschedReasons || {}) };
+    const cancelPalette = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7', '#ec4899', '#6366f1', '#14b8a6', '#10b981', '#2dd4bf', '#0ea5e9', '#7c3aed', '#9333ea', '#d946ef', '#fb7185', '#f472b6', '#fbbf24', '#0f172a'];
+    const reschedPalette = ['#1d4ed8', '#0ea5e9', '#14b8a6', '#10b981', '#84cc16', '#eab308', '#f59e0b', '#f97316', '#ef4444', '#a855f7', '#6366f1', '#8b5cf6', '#ec4899', '#f472b6', '#facc15', '#fb7185', '#d946ef', '#22d3ee', '#34d399', '#fcd34d', '#c084fc', '#111827'];
+    const reasonLabelMap = Object.fromEntries(CANONICAL_REASON_ORDER.map(label => [label, prettyReasonLabel(label)]));
+    const cancelReasonMap = buildReasonValueMap(sum.cancelReasons, sum.cancel || 0, CURRENT_VIEW === 'monthly');
+    const reschedReasonMap = buildReasonValueMap(sum.reschedReasons, sum.resched || 0, CURRENT_VIEW === 'monthly');
     const cancelReasonOptions = {
       palette: cancelPalette,
-      labelMap: labelizeReasons(),
-      order: CRM_CANCEL_REASON_LABELS,
+      labelMap: reasonLabelMap,
+      order: CANONICAL_REASON_ORDER,
       maxValue: (CURRENT_VIEW === 'monthly') ? 100 : undefined,
       formatValue: (CURRENT_VIEW === 'monthly') ? (value) => `${Math.round(value)}%` : undefined
     };
     const reschedReasonOptions = {
       palette: reschedPalette,
-      labelMap: labelizeReasons(),
-      order: CRM_CANCEL_REASON_LABELS,
+      labelMap: reasonLabelMap,
+      order: CANONICAL_REASON_ORDER,
       maxValue: (CURRENT_VIEW === 'monthly') ? 100 : undefined,
       formatValue: (CURRENT_VIEW === 'monthly') ? (value) => `${Math.round(value)}%` : undefined
     };

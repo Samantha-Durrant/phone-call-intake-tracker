@@ -84,6 +84,8 @@
       .reason-legend{ margin-top:10px; font-size:12px; color:#374151; background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
       .reason-legend strong{ display:block; font-size:13px; margin-bottom:6px; color:#111827; }
       .reason-legend ul{ margin:0; padding-left:18px; list-style:disc; display:flex; flex-direction:column; gap:4px; }
+      .reason-panel .body{ padding:12px 16px; }
+      .reason-panel canvas.chart{ height:220px; }
       .change-breakdown{ display:flex; gap:24px; flex-wrap:wrap }
       .change-column{ flex:1 1 240px; min-width:220px; display:flex; flex-direction:column; gap:8px }
       .change-column h3{ margin:0; font-size:15px }
@@ -255,8 +257,8 @@
         <div class="panel allow-overflow"><h2>Laser Dermatology Mix</h2><div class="body chart-with-legend"><canvas id="chartApptLaser" class="chart"></canvas><div id="chartApptLaserLegend" class="chart-legend"></div></div></div>
         <div class="panel allow-overflow"><h2>Cosmetic Dermatology Mix</h2><div class="body chart-with-legend"><canvas id="chartApptCosmetic" class="chart"></canvas><div id="chartApptCosmeticLegend" class="chart-legend"></div></div></div>
         <div class="panel"><h2>Office Mix</h2><div class="body"><canvas id="chartOffices" class="chart"></canvas></div></div>
-        <div class="panel"><h2>Reschedule Reasons</h2><div class="body"><canvas id="chartReschedReasons" class="chart"></canvas><div id="reschedReasonDetails" class="reason-details"></div></div></div>
-        <div class="panel"><h2>Cancel Reasons</h2><div class="body"><canvas id="chartCancelReasons" class="chart"></canvas><div id="cancelReasonDetails" class="reason-details"></div><div id="cancelReasonLegend" class="reason-legend"></div></div></div>
+        <div class="panel wide reason-panel"><h2>Reschedule Reasons</h2><div class="body"><canvas id="chartReschedReasons" class="chart"></canvas><div id="reschedReasonDetails" class="reason-details"></div></div></div>
+        <div class="panel wide reason-panel"><h2>Cancel Reasons</h2><div class="body"><canvas id="chartCancelReasons" class="chart"></canvas><div id="cancelReasonDetails" class="reason-details"></div><div id="cancelReasonLegend" class="reason-legend"></div></div></div>
         <div class="panel"><h2>Tasks by Type</h2><div class="body"><canvas id="chartTasksByType" class="chart"></canvas></div></div>
         <div class="panel"><h2>Transfers by Type</h2><div class="body"><canvas id="chartTransfersByType" class="chart"></canvas></div></div>
       </div>
