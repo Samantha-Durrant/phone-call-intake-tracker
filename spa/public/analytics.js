@@ -81,6 +81,7 @@ const outcomeChartToggleEl = document.getElementById('outcomeChartToggle');
 const outcomeChartSections = Array.from(document.querySelectorAll('.outcome-body [data-chart]'));
 const outcomeFunnelEl = document.getElementById('outcomeFunnel');
 const outcomeReasonDetailsEl = document.getElementById('outcomeReasonDetails');
+const cancelReasonLegendEl = document.getElementById('cancelReasonLegend');
 const outcomeMessageEl = document.getElementById('outcomeMessage');
 const outcomeFunnelValueEls = {
   scheduled: document.getElementById('funnelScheduled'),
@@ -260,21 +261,16 @@ function mapCancellationReason(value){
   return raw.replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function prettyReasonLabel(reason){
+function canonicalCancelReasonLabel(reason){
+  const canonical = mapCancellationReason(reason);
+  if (canonical) return canonical;
   const raw = String(reason || '').trim();
   if (!raw) return '';
-  const key = raw.toLowerCase().replace(/[\/]+/g,' ').replace(/\s+/g,' ').trim();
-  const map = {
-    'illness family emergency':'Illness/Family Emergency',
-    'work school conflict':'Work/School Conflict',
-    'no longer needed':'No longer needed',
-    'insurance':'Insurance',
-    'referral':'Referral',
-    'pooo r s':'POOO r/s'
-  };
-  if (map[key]) return map[key];
-  const canonical = mapCancellationReason(raw);
-  return canonical || raw;
+  return raw.replace(/\s+/g, ' ').trim();
+}
+
+function prettyReasonLabel(reason){
+  return canonicalCancelReasonLabel(reason) || '';
 }
 
 function normalizeTypeAndOffice(appt){
@@ -926,6 +922,15 @@ function applyMrnFilter(){
   });
 }
 
+function renderCancelReasonLegend(){
+  if (!cancelReasonLegendEl) return;
+  const items = CRM_CANCEL_REASON_LABELS.map(label => `<li>${label}</li>`).join('');
+  cancelReasonLegendEl.innerHTML = `
+    <strong>Cancellation Reasons</strong>
+    <ul>${items}</ul>
+  `;
+}
+
 function exportCsv(){
   const entries = getScopedEntries();
   const cols = [
@@ -1053,11 +1058,7 @@ function summarize(entries){
   };
   OFFICE_KEYS.forEach(name => { sum.byOffice[name] = createOfficeBucket(); });
   const inRange = (h) => h>=8 && h<=17;
-  const normReason = (r) => {
-    const mapped = mapCancellationReason(r);
-    if (mapped) return mapped;
-    return String(r||'').trim().replace(/[\/]+/g,' ').replace(/\s+/g,' ').trim();
-  };
+  const normReason = (r) => canonicalCancelReasonLabel(r) || '';
   entries.forEach(e => {
     const d = new Date(e.time);
     const h = d.getHours();
@@ -1154,7 +1155,7 @@ function summarize(entries){
     }
     if (ch === 'cancellation') {
       sum.cancel++;
-      const reasonKey = normReason(e.appointment?.reason) || 'unspecified';
+      const reasonKey = normReason(e.appointment?.reason) || 'Unknown';
       sum.cancelReasons[reasonKey] = (sum.cancelReasons[reasonKey] || 0) + 1;
       const detail = sum.cancelReasonDetails[reasonKey] || (sum.cancelReasonDetails[reasonKey] = { total: 0, types: {} });
       detail.total += 1;
@@ -1171,7 +1172,7 @@ function summarize(entries){
       officeCancelDetail.types[apptLabel] = (officeCancelDetail.types[apptLabel] || 0) + 1;
     } else if (ch === 'reschedule') {
       sum.resched++;
-      const reasonKey = normReason(e.appointment?.reason) || 'unspecified';
+      const reasonKey = normReason(e.appointment?.reason) || 'Unknown';
       sum.reschedReasons[reasonKey] = (sum.reschedReasons[reasonKey] || 0) + 1;
       const detail = sum.reschedReasonDetails[reasonKey] || (sum.reschedReasonDetails[reasonKey] = { total: 0, types: {} });
       detail.total += 1;
@@ -2423,6 +2424,7 @@ try {
   initializeOutcomeTabs();
   initializeOutcomeChartToggle();
   initializeTableFilters();
+  renderCancelReasonLegend();
 } catch {}
 
 function importPendingSubmissions() {

@@ -208,15 +208,7 @@
   const statusMsg = qs('#statusMsg');
   const ptTypeGroup = qs('.pt-type');
 
-  const REASON_OPTIONS = [
-    'No longer needed',
-    'Illness/Family Emergency',
-    'Work/School Conflict',
-    'Insurance',
-    'Referral',
-    'POOO r/s',
-    'Other'
-  ];
+  const REASON_OPTIONS = [...CRM_CANCEL_REASON_LABELS, 'Other'];
   const NO_APPT_REASON_OPTIONS = [
     'Question Only',
     'Location',
