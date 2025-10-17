@@ -212,6 +212,7 @@ const CRM_CANCEL_REASON_LABELS = [
   'Office Rescheduled',
   'Work or School Conflict'
 ];
+const CANONICAL_REASON_ORDER = [...CRM_CANCEL_REASON_LABELS, 'Other'];
 
 const CRM_CANCEL_REASON_LOOKUP = CRM_CANCEL_REASON_LABELS.reduce((acc, label) => {
   acc[normalizeReasonKey(label)] = label;
@@ -1199,6 +1200,20 @@ function summarize(entries){
     sum.confirmations[confirmLabel] = (sum.confirmations[confirmLabel] || 0) + 1;
     officeMetrics.confirmations[confirmLabel] = (officeMetrics.confirmations[confirmLabel] || 0) + 1;
     if (e.appointment) e.appointment.confirmed = confirmed;
+  });
+  CRM_CANCEL_REASON_LABELS.forEach(label => {
+    if (!Object.prototype.hasOwnProperty.call(sum.cancelReasons, label)) {
+      sum.cancelReasons[label] = 0;
+    }
+    if (!sum.cancelReasonDetails[label]) {
+      sum.cancelReasonDetails[label] = { total: 0, types: {} };
+    }
+    if (!Object.prototype.hasOwnProperty.call(sum.reschedReasons, label)) {
+      sum.reschedReasons[label] = 0;
+    }
+    if (!sum.reschedReasonDetails[label]) {
+      sum.reschedReasonDetails[label] = { total: 0, types: {} };
+    }
   });
   return sum;
 }
@@ -2577,9 +2592,9 @@ function updateKpisAndCharts() {
       drawBarChart('chartOffices', officeCounts, officeChartOptions);
     }
 
-    const cancelPalette = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7', '#ec4899'];
-    const reschedPalette = ['#1d4ed8', '#0ea5e9', '#14b8a6', '#10b981', '#84cc16', '#eab308', '#f59e0b', '#f97316', '#ef4444', '#a855f7'];
-    const labelizeReasons = (map) => Object.fromEntries(Object.keys(map || {}).map(key => [key, prettyReasonLabel(key)]));
+    const cancelPalette = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7', '#ec4899', '#6366f1', '#14b8a6', '#10b981', '#2dd4bf', '#0ea5e9', '#7c3aed', '#9333ea', '#d946ef', '#fb7185', '#f472b6', '#fbbf24'];
+    const reschedPalette = ['#1d4ed8', '#0ea5e9', '#14b8a6', '#10b981', '#84cc16', '#eab308', '#f59e0b', '#f97316', '#ef4444', '#a855f7', '#6366f1', '#8b5cf6', '#ec4899', '#f472b6', '#facc15', '#fb7185', '#d946ef', '#22d3ee', '#34d399', '#fcd34d', '#c084fc'];
+    const labelizeReasons = () => Object.fromEntries(CRM_CANCEL_REASON_LABELS.map(label => [label, prettyReasonLabel(label)]));
     const cancelReasonMap = (CURRENT_VIEW === 'monthly')
       ? Object.fromEntries(Object.entries(sum.cancelReasons || {}).map(([key, value]) => [key, (Number(value) || 0) / Math.max(1, sum.cancel) * 100]))
       : { ...(sum.cancelReasons || {}) };
@@ -2588,13 +2603,15 @@ function updateKpisAndCharts() {
       : { ...(sum.reschedReasons || {}) };
     const cancelReasonOptions = {
       palette: cancelPalette,
-      labelMap: labelizeReasons(sum.cancelReasons),
+      labelMap: labelizeReasons(),
+      order: CRM_CANCEL_REASON_LABELS,
       maxValue: (CURRENT_VIEW === 'monthly') ? 100 : undefined,
       formatValue: (CURRENT_VIEW === 'monthly') ? (value) => `${Math.round(value)}%` : undefined
     };
     const reschedReasonOptions = {
       palette: reschedPalette,
-      labelMap: labelizeReasons(sum.reschedReasons),
+      labelMap: labelizeReasons(),
+      order: CRM_CANCEL_REASON_LABELS,
       maxValue: (CURRENT_VIEW === 'monthly') ? 100 : undefined,
       formatValue: (CURRENT_VIEW === 'monthly') ? (value) => `${Math.round(value)}%` : undefined
     };
