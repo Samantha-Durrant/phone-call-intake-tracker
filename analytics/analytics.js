@@ -26,6 +26,100 @@ const OUTCOME_LABELS = {
   cancelled: 'Cancelled',
   no_appointment: 'No Appointment'
 };
+
+function normalizeReasonKey(value){
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g,'_')
+    .replace(/^_+|_+$/g,'');
+}
+
+const CANCELLATION_REASON_LABELS = [
+  'Patient Scheduling Error',
+  'Patient Transportation Issue',
+  'Provider Requested Change',
+  'Traffic',
+  'Unknown',
+  'Weather',
+  'Office Scheduling Error',
+  'Patient Arrived Late',
+  'Patient Cancelled',
+  'Patient Deceased',
+  'Patient Forgot',
+  'Patient is Sick',
+  'Patient Left',
+  'Childcare Issue',
+  'Conflicting Appointment',
+  'COVID-19',
+  'Family Emergency',
+  'No Longer Needs Appointment',
+  'No Referral/Authorization',
+  'Office Rescheduled',
+  'Work or School Conflict'
+];
+const CANONICAL_REASON_ORDER = [...CANCELLATION_REASON_LABELS, 'Other'];
+
+const CANCEL_REASON_LOOKUP = CANCELLATION_REASON_LABELS.reduce((acc,label)=>{
+  acc[normalizeReasonKey(label)] = label;
+  return acc;
+}, {});
+
+const CANCEL_REASON_SYNONYMS = {
+  no_longer_needed: 'No Longer Needs Appointment',
+  no_longer_need: 'No Longer Needs Appointment',
+  illness_family_emergency: 'Family Emergency',
+  family_emergency: 'Family Emergency',
+  illness: 'Patient is Sick',
+  patient_sick: 'Patient is Sick',
+  sick: 'Patient is Sick',
+  work_school_conflict: 'Work or School Conflict',
+  work_or_school_conflict: 'Work or School Conflict',
+  work_school: 'Work or School Conflict',
+  insurance: 'No Referral/Authorization',
+  referral: 'No Referral/Authorization',
+  authorization: 'No Referral/Authorization',
+  no_referral: 'No Referral/Authorization',
+  no_authorization: 'No Referral/Authorization',
+  no_referral_authorization: 'No Referral/Authorization',
+  pooo_r_s: 'No Referral/Authorization',
+  pooo_rs: 'No Referral/Authorization',
+  pooo: 'No Referral/Authorization',
+  patient_cancelled: 'Patient Cancelled',
+  patient_canceled: 'Patient Cancelled',
+  patient_cancel: 'Patient Cancelled',
+  provider_change: 'Provider Requested Change',
+  provider_requested: 'Provider Requested Change',
+  provider_requested_change: 'Provider Requested Change',
+  transportation: 'Patient Transportation Issue',
+  patient_transportation: 'Patient Transportation Issue',
+  scheduling_error: 'Patient Scheduling Error',
+  patient_error: 'Patient Scheduling Error',
+  office_error: 'Office Scheduling Error',
+  covid: 'COVID-19',
+  covid19: 'COVID-19',
+  covid_19: 'COVID-19',
+  other: 'Other'
+};
+
+function mapCancellationReason(value){
+  const key = normalizeReasonKey(value);
+  if (!key) return '';
+  if (CANCEL_REASON_LOOKUP[key]) return CANCEL_REASON_LOOKUP[key];
+  if (CANCEL_REASON_SYNONYMS[key]) return CANCEL_REASON_SYNONYMS[key];
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^other\b/i.test(raw)) return 'Other';
+  return raw.replace(/\s+/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function canonicalCancelReasonLabel(reason){
+  const canonical = mapCancellationReason(reason);
+  if (canonical) return canonical;
+  const raw = String(reason || '').trim();
+  if (!raw) return '';
+  if (/^other\b/i.test(raw)) return 'Other';
+  return raw.replace(/\s+/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+}
 const PRIORITY_APPT_RULES = [
   { key: 'new_patient', label: 'New Patient', match: (s) => s === 'new patient' },
   { key: 'follow_up', label: 'Follow Up', match: (s) => s === 'follow up' },
@@ -155,18 +249,7 @@ const APPOINTMENT_LIST_STATE = new Map();
 const outcomeChartVisibility = { types: true, reasons: true };
 
 function prettyReasonLabel(reason){
-  const raw = String(reason || '').trim();
-  if (!raw) return '';
-  const key = raw.toLowerCase().replace(/[\/]+/g,' ').replace(/\s+/g,' ').trim();
-  const map = {
-    'illness family emergency':'Illness/Family Emergency',
-    'work school conflict':'Work/School Conflict',
-    'no longer needed':'No longer needed',
-    'insurance':'Insurance',
-    'referral':'Referral',
-    'pooo r s':'POOO r/s'
-  };
-  return map[key] || raw;
+  return canonicalCancelReasonLabel(reason) || '';
 }
 
 function normalizeTypeAndOffice(appt){
@@ -583,10 +666,14 @@ function renderTable(){
     tr.appendChild(td(e.appointment?.change || ''));
     const { apptType, office } = normalizeTypeAndOffice(e.appointment);
     const apptLabel = apptType || 'Unspecified';
-    const reasonText = prettyReasonLabel(e.appointment?.reason);
+    const reasonSource = e.appointment?.reasonMapped || e.appointment?.reason || e.outcome?.reasonMapped || e.outcome?.reasonRaw || '';
+    const reasonText = prettyReasonLabel(reasonSource);
     const noApptList = Array.isArray(e.appointment?.noAppointmentReasons) ? e.appointment.noAppointmentReasons.map(prettyReasonLabel).filter(Boolean) : [];
     const reasonParts = [];
     if (reasonText) reasonParts.push(reasonText);
+    if (/^other\b/i.test(String(reasonSource || '')) && e.appointment?.otherText) {
+      reasonParts.push(`Other details: ${e.appointment.otherText}`);
+    }
     if (noApptList.length) reasonParts.push(`No Appt: ${noApptList.join(', ')}`);
     tr.appendChild(td(apptType || 'Unspecified'));
     tr.appendChild(td(office || 'Unspecified'));
@@ -625,6 +712,8 @@ function exportCsv(){
       .map(([k,v])=>{ const parts=[]; if (v.task) parts.push('task'); if (v.transfer) parts.push('transfer'); return parts.length ? `${k}:${parts.join('+')}` : null; })
       .filter(Boolean).join('; ') : '';
     const norm = normalizeTypeAndOffice(e.appointment);
+    const reasonSource = e.appointment?.reasonMapped || e.appointment?.reason || e.outcome?.reasonMapped || e.outcome?.reasonRaw || '';
+    const reasonText = prettyReasonLabel(reasonSource);
     const noApptCsv = Array.isArray(e.appointment?.noAppointmentReasons) ? e.appointment.noAppointmentReasons.map(prettyReasonLabel).join('|') : '';
     const row = [
       fmtDate(e.time),
@@ -638,7 +727,7 @@ function exportCsv(){
       e.appointment?.change||'',
       norm.apptType || '',
       norm.office || 'Unspecified',
-      prettyReasonLabel(e.appointment?.reason)||'',
+      reasonText || '',
       noApptCsv,
       e.appointment?.questionOnly ? 'Yes' : 'No',
       e.appointment?.otherText||'',
@@ -694,7 +783,7 @@ function summarize(entries){
   };
   OFFICE_KEYS.forEach(name => { sum.byOffice[name] = createOfficeBucket(); });
   const inRange = (h) => h>=8 && h<=17;
-  const normReason = (r) => String(r||'').trim().replace(/[\/]+/g,' ').replace(/\s+/g,' ').trim();
+  const normReason = (r) => canonicalCancelReasonLabel(r) || 'Other';
   entries.forEach(e => {
     const d = new Date(e.time);
     const h = d.getHours();
@@ -791,11 +880,16 @@ function summarize(entries){
     }
     if (ch === 'cancellation') {
       sum.cancel++;
-      const reasonKey = normReason(e.appointment?.reason) || 'unspecified';
+      const reasonKey = normReason(e.appointment?.reason) || 'Unknown';
       sum.cancelReasons[reasonKey] = (sum.cancelReasons[reasonKey] || 0) + 1;
       const detail = sum.cancelReasonDetails[reasonKey] || (sum.cancelReasonDetails[reasonKey] = { total: 0, types: {} });
       detail.total += 1;
       detail.types[apptLabel] = (detail.types[apptLabel] || 0) + 1;
+      if (reasonKey === 'Other' && e.appointment?.otherText) {
+        detail.notes = detail.notes || [];
+        const note = String(e.appointment.otherText || '').trim();
+        if (note && !detail.notes.includes(note)) detail.notes.push(note);
+      }
       const cancelBucket = sum.appointmentTypesByOutcome.cancellation;
       cancelBucket[apptLabel] = (cancelBucket[apptLabel] || 0) + 1;
       officeMetrics.cancelReasons[reasonKey] = (officeMetrics.cancelReasons[reasonKey] || 0) + 1;
@@ -808,11 +902,16 @@ function summarize(entries){
       officeCancelDetail.types[apptLabel] = (officeCancelDetail.types[apptLabel] || 0) + 1;
     } else if (ch === 'reschedule') {
       sum.resched++;
-      const reasonKey = normReason(e.appointment?.reason) || 'unspecified';
+      const reasonKey = normReason(e.appointment?.reason) || 'Unknown';
       sum.reschedReasons[reasonKey] = (sum.reschedReasons[reasonKey] || 0) + 1;
       const detail = sum.reschedReasonDetails[reasonKey] || (sum.reschedReasonDetails[reasonKey] = { total: 0, types: {} });
       detail.total += 1;
       detail.types[apptLabel] = (detail.types[apptLabel] || 0) + 1;
+      if (reasonKey === 'Other' && e.appointment?.otherText) {
+        detail.notes = detail.notes || [];
+        const note = String(e.appointment.otherText || '').trim();
+        if (note && !detail.notes.includes(note)) detail.notes.push(note);
+      }
       const reschedBucket = sum.appointmentTypesByOutcome.reschedule;
       reschedBucket[apptLabel] = (reschedBucket[apptLabel] || 0) + 1;
       officeMetrics.reschedReasons[reasonKey] = (officeMetrics.reschedReasons[reasonKey] || 0) + 1;
@@ -835,6 +934,20 @@ function summarize(entries){
     sum.confirmations[confirmLabel] = (sum.confirmations[confirmLabel] || 0) + 1;
     officeMetrics.confirmations[confirmLabel] = (officeMetrics.confirmations[confirmLabel] || 0) + 1;
     if (e.appointment) e.appointment.confirmed = confirmed;
+  });
+  CANONICAL_REASON_ORDER.forEach(label => {
+    if (!Object.prototype.hasOwnProperty.call(sum.cancelReasons, label)) {
+      sum.cancelReasons[label] = 0;
+    }
+    if (!sum.cancelReasonDetails[label]) {
+      sum.cancelReasonDetails[label] = { total: 0, types: {} };
+    }
+    if (!Object.prototype.hasOwnProperty.call(sum.reschedReasons, label)) {
+      sum.reschedReasons[label] = 0;
+    }
+    if (!sum.reschedReasonDetails[label]) {
+      sum.reschedReasonDetails[label] = { total: 0, types: {} };
+    }
   });
   return sum;
 }
@@ -976,7 +1089,10 @@ function drawBarChart(canvasId, dataMap, { labelMap={}, color='#4f46e5', palette
   const labels = entries.map(([k]) => labelMap[k] || k);
   const values = entries.map(([,v]) => Number(v)||0);
   const max = (typeof maxValue === 'number') ? (maxValue||1) : Math.max(1, ...values);
-  const pad = 24; const gap = 8; const barW = Math.max(8, (width - pad*2 - gap*(values.length-1)) / values.length);
+  const count = entries.length;
+  const pad = Math.max(16, Math.min(48, width * 0.05));
+  const gap = Math.max(6, Math.min(24, (width - pad * 2) / Math.max(count * 3, 1)));
+  const barW = Math.max(12, (width - pad * 2 - gap * Math.max(count - 1, 0)) / Math.max(count, 1));
   ctx.font = '12px system-ui';
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
@@ -1015,7 +1131,9 @@ function drawBarChart(canvasId, dataMap, { labelMap={}, color='#4f46e5', palette
     // value above bar, centered
     ctx.textAlign = 'center';
     const label = formatValue ? formatValue(v) : String(v);
-    ctx.fillStyle = '#111827'; ctx.fillText(label, cx, Math.max(chartTop+10, y-4));
+    ctx.fillStyle = '#111827';
+    const valueY = h > 0 ? Math.max(chartTop + 12, y - 6) : Math.max(chartTop + 12, chartBottom - 4);
+    ctx.fillText(label, cx, valueY);
     // label under bar (no rotation)
     ctx.fillStyle = '#374151';
     const lines = wrapped[i];
@@ -1025,6 +1143,23 @@ function drawBarChart(canvasId, dataMap, { labelMap={}, color='#4f46e5', palette
     });
     ctx.textAlign = 'left';
   });
+}
+
+function buildReasonValueMap(source = {}, totalCount = 0, asPercent = false){
+  const denom = Math.max(1, totalCount);
+  const data = {};
+  const order = [];
+  const addLabel = (label) => {
+    if (order.includes(label)) return;
+    const value = Number(source[label] || 0);
+    data[label] = asPercent ? (value / denom * 100) : value;
+    order.push(label);
+  };
+  CANONICAL_REASON_ORDER.forEach(addLabel);
+  Object.keys(source || {}).forEach(label => {
+    if (!CANONICAL_REASON_ORDER.includes(label)) addLabel(label);
+  });
+  return { data, order };
 }
 
 function drawStackedTwo(canvasId, dataMap, { labels=['Tasks','Transfers'], colors=['#10b981','#f59e0b'] }={}){
@@ -1263,6 +1398,20 @@ function renderReasonDetails(containerId, detailMap, { labelForReason = (key) =>
       list.appendChild(li);
     });
     body.appendChild(list);
+    if (Array.isArray(detail.notes) && detail.notes.length){
+      const notesTitle = document.createElement('div');
+      notesTitle.className = 'reason-detail-notes-title';
+      notesTitle.textContent = 'Other details';
+      const notesList = document.createElement('ul');
+      notesList.className = 'reason-detail-notes';
+      detail.notes.forEach(note => {
+        const li = document.createElement('li');
+        li.textContent = note;
+        notesList.appendChild(li);
+      });
+      body.appendChild(notesTitle);
+      body.appendChild(notesList);
+    }
     item.appendChild(body);
     item.addEventListener('toggle', () => {
       if (item.open) nextState.add(reasonKey);
@@ -1272,6 +1421,16 @@ function renderReasonDetails(containerId, detailMap, { labelForReason = (key) =>
     container.appendChild(item);
   });
   reasonDetailOpenState.set(stateKey, new Set(Array.from(nextState).filter(key => detailMap && Object.prototype.hasOwnProperty.call(detailMap, key))));
+}
+
+function renderCancelReasonLegend(){
+  const el = document.getElementById('cancelReasonLegend');
+  if (!el) return;
+  const items = CANONICAL_REASON_ORDER.map(label => `<li>${prettyReasonLabel(label)}</li>`).join('');
+  el.innerHTML = `
+    <strong>Cancellation Reasons</strong>
+    <ul>${items}</ul>
+  `;
 }
 
 
@@ -1898,6 +2057,7 @@ try {
   initializeOutcomeTabs();
   initializeOutcomeChartToggle();
   initializeTableFilters();
+  renderCancelReasonLegend();
 } catch {}
 
 function importPendingSubmissions() {
@@ -1925,6 +2085,260 @@ function importPendingSubmissions() {
 }
 
 function updateKpisAndCharts() {
-  // TODO: Implement KPI and chart updates
-  // This is a stub to prevent ReferenceError
+  try {
+    const allEntries = getActiveEntries();
+    const scopedEntries = filterEntriesBySelectedOffice(allEntries);
+    const sumAll = summarize(allEntries);
+    const sum = (SELECTED_OFFICE === 'all') ? sumAll : summarize(scopedEntries);
+
+    const setText = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    };
+
+    setText('kpiTotal', String(sum.total || 0));
+    setText('kpiCancel', String(sum.cancel || 0));
+    setText('kpiResched', String(sum.resched || 0));
+    setText('kpiNew', String(sum.new || 0));
+    setText('kpiExisting', String(sum.existing || 0));
+    setText('kpiActions', `${sum.tasks || 0} / ${sum.transfers || 0}`);
+
+    renderAppointmentLists(sum);
+    renderInsights(sum, sumAll);
+
+    const hoursOrder = Array.from({ length: 10 }, (_, idx) => String(8 + idx));
+    const hourLabels = {};
+    hoursOrder.forEach((key, idx) => {
+      const hour = 8 + idx;
+      const hour12 = (hour % 12) || 12;
+      const ampm = hour < 12 ? 'AM' : 'PM';
+      hourLabels[key] = `${hour12}:00 ${ampm}`;
+    });
+    const hoursMap = {};
+    hoursOrder.forEach(key => {
+      hoursMap[key] = Number(sum.hours[key] || 0);
+    });
+    let chartHoursData = hoursMap;
+    const hoursOptions = { order: hoursOrder, labelMap: hourLabels, color: '#4f46e5' };
+    if (CURRENT_VIEW === 'monthly') {
+      const { y, m } = parseYearMonth(SELECTED_MONTH || monthKey(Date.now()));
+      const denom = daysInMonth(y, m) || 1;
+      const avgHours = {};
+      hoursOrder.forEach(key => {
+        avgHours[key] = (Number(hoursMap[key]) || 0) / denom;
+      });
+      chartHoursData = avgHours;
+      hoursOptions.formatValue = (value) => (value >= 10 ? Math.round(value) : value.toFixed(1));
+    }
+    drawBarChart('chartHours', chartHoursData, hoursOptions);
+
+    const weekdayPanel = document.getElementById('panelWeekdays');
+    if (weekdayPanel) weekdayPanel.style.display = (CURRENT_VIEW === 'monthly') ? '' : 'none';
+    if (CURRENT_VIEW === 'monthly') {
+      const weekdayCounts = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0 };
+      scopedEntries.forEach(entry => {
+        const day = new Date(entry.time).getDay();
+        if (day >= 1 && day <= 5) {
+          const key = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'][day - 1];
+          weekdayCounts[key] = (weekdayCounts[key] || 0) + 1;
+        }
+      });
+      const { y, m } = parseYearMonth(SELECTED_MONTH || monthKey(Date.now()));
+      const occurrences = weekdayOccurrencesInMonth(y, m);
+      const denomMap = { Mon: occurrences[1] || 1, Tue: occurrences[2] || 1, Wed: occurrences[3] || 1, Thu: occurrences[4] || 1, Fri: occurrences[5] || 1 };
+      const avgWeekday = Object.fromEntries(Object.entries(weekdayCounts).map(([key, value]) => [key, value / denomMap[key]]));
+      const weekdayLabels = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday' };
+      const weekdayPalette = ['#2563eb', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444'];
+      drawBarChart('chartWeekdays', avgWeekday, {
+        order: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+        labelMap: weekdayLabels,
+        palette: weekdayPalette,
+        formatValue: (value) => (value >= 10 ? Math.round(value) : value.toFixed(1))
+      });
+    } else if (weekdayPanel) {
+      drawBarChart('chartWeekdays', {}, { order: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] });
+    }
+
+    const breakdownSource = (SELECTED_OFFICE === 'all') ? sumAll : sum;
+    const officeLabels = (SELECTED_OFFICE === 'all')
+      ? [...new Set([...OFFICE_KEYS, ...Object.keys(breakdownSource.officeBreakdown || {})])]
+      : [SELECTED_OFFICE];
+    const officeData = {};
+    officeLabels.forEach(office => {
+      const bucket = breakdownSource.officeBreakdown?.[office] || {};
+      officeData[office] = {
+        existingScheduled: Number(bucket.existingScheduled || 0),
+        existingNot: Number(bucket.existingNot || 0),
+        newScheduled: Number(bucket.newScheduled || 0),
+        newNot: Number(bucket.newNot || 0)
+      };
+    });
+    drawStackedMulti('chartNewExisting', officeData, { series: SCHEDULING_SERIES, order: officeLabels });
+    renderLegend('chartNewExistingLegend', SCHEDULING_SERIES);
+
+    const confirmations = sum.confirmations || {};
+    const confirmationOptions = { palette: ['#10b981', '#ef4444'], order: ['Confirmed', 'Not Confirmed'] };
+    if (CURRENT_VIEW === 'monthly') {
+      const totalForPct = Math.max(1, scopedEntries.length);
+      const confirmPct = {
+        Confirmed: (Number(confirmations.Confirmed || 0) / totalForPct) * 100,
+        'Not Confirmed': (Number(confirmations['Not Confirmed'] || 0) / totalForPct) * 100
+      };
+      confirmationOptions.maxValue = 100;
+      confirmationOptions.formatValue = (value) => `${Math.round(value)}%`;
+      drawBarChart('chartConfirmations', confirmPct, confirmationOptions);
+    } else {
+      drawBarChart('chartConfirmations', confirmations, confirmationOptions);
+    }
+
+    const medicalPie = aggregateTypeCounts(sum.apptGroups?.Medical || {});
+    drawPieChart('chartApptMedical', medicalPie, { legendId: 'chartApptMedicalLegend' });
+    const laserPie = aggregateTypeCounts(sum.apptGroups?.['Laser Dermatology'] || {});
+    drawPieChart('chartApptLaser', laserPie, { legendId: 'chartApptLaserLegend' });
+    const cosmeticPie = aggregateTypeCounts(sum.apptGroups?.['Cosmetic Dermatology'] || sum.apptGroups?.Cosmetic || {});
+    drawPieChart('chartApptCosmetic', cosmeticPie, { legendId: 'chartApptCosmeticLegend' });
+
+    const officeCounts = { ...OFFICE_KEYS.reduce((acc, key) => { acc[key] = 0; return acc; }, {}), ...(sum.offices || {}) };
+    const officeChartOptions = { palette: ['#0ea5e9', '#3b82f6', '#6366f1', '#94a3b8'], order: OFFICE_KEYS };
+    if (CURRENT_VIEW === 'monthly') {
+      const totalForPct = Math.max(1, scopedEntries.length);
+      const officePct = Object.fromEntries(Object.entries(officeCounts).map(([key, value]) => [key, (Number(value) || 0) / totalForPct * 100]));
+      officeChartOptions.maxValue = 100;
+      officeChartOptions.formatValue = (value) => `${Math.round(value)}%`;
+      drawBarChart('chartOffices', officePct, officeChartOptions);
+    } else {
+      drawBarChart('chartOffices', officeCounts, officeChartOptions);
+    }
+
+    const cancelPalette = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7', '#ec4899', '#6366f1', '#14b8a6', '#10b981', '#2dd4bf', '#0ea5e9', '#7c3aed', '#9333ea', '#d946ef', '#fb7185', '#f472b6', '#fbbf24', '#0f172a'];
+    const reschedPalette = ['#1d4ed8', '#0ea5e9', '#14b8a6', '#10b981', '#84cc16', '#eab308', '#f59e0b', '#f97316', '#ef4444', '#a855f7', '#6366f1', '#8b5cf6', '#ec4899', '#f472b6', '#facc15', '#fb7185', '#d946ef', '#22d3ee', '#34d399', '#fcd34d', '#c084fc', '#111827'];
+    const canonicalReasonLabelMap = Object.fromEntries(CANONICAL_REASON_ORDER.map(label => [label, prettyReasonLabel(label)]));
+    const cancelReasonData = buildReasonValueMap(sum.cancelReasons, sum.cancel || 0, CURRENT_VIEW === 'monthly');
+    const reschedReasonData = buildReasonValueMap(sum.reschedReasons, sum.resched || 0, CURRENT_VIEW === 'monthly');
+    const ensureReasonLabel = (label) => {
+      if (!canonicalReasonLabelMap[label]) canonicalReasonLabelMap[label] = prettyReasonLabel(label);
+    };
+    cancelReasonData.order.forEach(ensureReasonLabel);
+    reschedReasonData.order.forEach(ensureReasonLabel);
+    const cancelReasonOptions = {
+      palette: cancelPalette,
+      labelMap: canonicalReasonLabelMap,
+      order: cancelReasonData.order,
+      maxValue: (CURRENT_VIEW === 'monthly') ? 100 : undefined,
+      formatValue: (CURRENT_VIEW === 'monthly') ? (value) => `${Math.round(value)}%` : undefined
+    };
+    const reschedReasonOptions = {
+      palette: reschedPalette,
+      labelMap: canonicalReasonLabelMap,
+      order: reschedReasonData.order,
+      maxValue: (CURRENT_VIEW === 'monthly') ? 100 : undefined,
+      formatValue: (CURRENT_VIEW === 'monthly') ? (value) => `${Math.round(value)}%` : undefined
+    };
+    drawBarChart('chartCancelReasons', cancelReasonData.data, cancelReasonOptions);
+    drawBarChart('chartReschedReasons', reschedReasonData.data, reschedReasonOptions);
+    renderReasonDetails('cancelReasonDetails', sum.cancelReasonDetails, { labelForReason: prettyReasonLabel });
+    renderReasonDetails('reschedReasonDetails', sum.reschedReasonDetails, { labelForReason: prettyReasonLabel });
+
+    const tasksByType = {};
+    const transfersByType = {};
+    Object.entries(sum.actionsByType || {}).forEach(([key, stats]) => {
+      if (stats.task) tasksByType[key] = Number(stats.task) || 0;
+      if (stats.transfer) transfersByType[key] = Number(stats.transfer) || 0;
+    });
+    const prettifyAction = (key) => {
+      const map = {
+        ma_call: 'MA Call',
+        provider_question: 'Provider Question',
+        refill_request: 'Refill Request',
+        billing_question: 'Billing Question',
+        confirmation: 'Confirmation',
+        results: 'Results'
+      };
+      return map[key] || String(key || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    };
+    const buildActionLabelMap = (obj) => Object.fromEntries(Object.keys(obj || {}).map(key => [key, prettifyAction(key)]));
+    const tasksPalette = ['#10b981', '#34d399', '#059669', '#16a34a', '#22c55e', '#065f46', '#5eead4', '#0ea5e9', '#3b82f6', '#a855f7'];
+    const transfersPalette = ['#f59e0b', '#f97316', '#ef4444', '#eab308', '#84cc16', '#dc2626', '#fb7185', '#f472b6', '#f43f5e', '#d946ef'];
+    const actionOptions = (map, palette) => ({
+      palette,
+      labelMap: buildActionLabelMap(map),
+      maxValue: (CURRENT_VIEW === 'monthly') ? 100 : undefined,
+      formatValue: (CURRENT_VIEW === 'monthly') ? (value) => `${Math.round(value)}%` : undefined
+    });
+    const toPercent = (map, denom) => Object.fromEntries(Object.entries(map || {}).map(([key, value]) => [key, (Number(value) || 0) / Math.max(1, denom) * 100]));
+    const taskData = (CURRENT_VIEW === 'monthly') ? toPercent(tasksByType, scopedEntries.length) : tasksByType;
+    const transferData = (CURRENT_VIEW === 'monthly') ? toPercent(transfersByType, scopedEntries.length) : transfersByType;
+    drawBarChart('chartTasksByType', taskData, actionOptions(tasksByType, tasksPalette));
+    drawBarChart('chartTransfersByType', transferData, actionOptions(transfersByType, transfersPalette));
+
+    const totalScheduled = totalFromMap(sum.appointmentTypesByOutcome?.scheduled);
+    const scheduledDetailMap = totalScheduled ? { Scheduled: { total: totalScheduled, types: sum.appointmentTypesByOutcome.scheduled } } : {};
+    const scheduledStack = buildReasonTypeStack(scheduledDetailMap, { topN: 6, formatReason: (label) => label });
+    const reschedStack = buildReasonTypeStack(sum.reschedReasonDetails, { topN: 6, formatReason: prettyReasonLabel });
+    const cancelStack = buildReasonTypeStack(sum.cancelReasonDetails, { topN: 6, formatReason: prettyReasonLabel });
+    const noApptStack = buildReasonTypeStack(sum.noApptReasonDetails, { topN: 6, formatReason: (label) => label });
+
+    const outcomeReasonLabelMap = (map) => Object.fromEntries(Object.keys(map || {}).map(key => [key, prettyReasonLabel(key)]));
+    const outcomeToPercent = (map, denom) => {
+      if (CURRENT_VIEW !== 'monthly') return { ...(map || {}) };
+      const total = Math.max(1, denom);
+      return Object.fromEntries(Object.entries(map || {}).map(([key, value]) => [key, (Number(value) || 0) / total * 100]));
+    };
+
+    OUTCOME_DATA = {
+      scheduled: {
+        key: 'scheduled',
+        label: OUTCOME_LABELS.scheduled,
+        total: totalScheduled,
+        stack: scheduledStack,
+        reasonMap: outcomeToPercent(sum.appointmentTypesByOutcome?.scheduled, totalScheduled || 1),
+        reasonLabelMap: {},
+        reasonPalette: ['#4f46e5', '#7c3aed', '#0ea5e9', '#10b981', '#f59e0b'],
+        detailMap: scheduledDetailMap,
+        labelFormatter: (label) => label
+      },
+      rescheduled: {
+        key: 'rescheduled',
+        label: OUTCOME_LABELS.rescheduled,
+        total: sum.resched || 0,
+        stack: reschedStack,
+        reasonMap: outcomeToPercent(sum.reschedReasons, sum.resched || 1),
+        reasonLabelMap: outcomeReasonLabelMap(sum.reschedReasons),
+        reasonPalette: reschedPalette,
+        detailMap: sum.reschedReasonDetails,
+        labelFormatter: prettyReasonLabel
+      },
+      cancelled: {
+        key: 'cancelled',
+        label: OUTCOME_LABELS.cancelled,
+        total: sum.cancel || 0,
+        stack: cancelStack,
+        reasonMap: outcomeToPercent(sum.cancelReasons, sum.cancel || 1),
+        reasonLabelMap: outcomeReasonLabelMap(sum.cancelReasons),
+        reasonPalette: cancelPalette,
+        detailMap: sum.cancelReasonDetails,
+        labelFormatter: prettyReasonLabel
+      },
+      no_appointment: {
+        key: 'no_appointment',
+        label: OUTCOME_LABELS.no_appointment,
+        total: totalFromMap(sum.appointmentTypesByOutcome?.noAppointment),
+        stack: noApptStack,
+        reasonMap: outcomeToPercent(sum.noApptReasons, totalFromMap(sum.appointmentTypesByOutcome?.noAppointment) || 1),
+        reasonLabelMap: {},
+        reasonPalette: ['#f97316', '#f59e0b', '#fbbf24', '#84cc16', '#22c55e'],
+        detailMap: sum.noApptReasonDetails,
+        labelFormatter: (label) => label
+      }
+    };
+
+    const fallbackOutcome = OUTCOME_KEYS.find(key => (OUTCOME_DATA[key]?.total || 0) > 0) || 'scheduled';
+    if (!OUTCOME_DATA[CURRENT_OUTCOME] || (OUTCOME_DATA[CURRENT_OUTCOME].total || 0) === 0) {
+      CURRENT_OUTCOME = fallbackOutcome;
+    }
+    updateOutcomeFunnel(OUTCOME_DATA);
+    renderOutcomeView(CURRENT_OUTCOME);
+  } catch (err) {
+    console.warn('updateKpisAndCharts failed', err);
+  }
 }

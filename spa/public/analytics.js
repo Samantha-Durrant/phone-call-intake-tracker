@@ -26,6 +26,100 @@ const OUTCOME_LABELS = {
   cancelled: 'Cancelled',
   no_appointment: 'No Appointment'
 };
+
+function normalizeReasonKey(value){
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g,'_')
+    .replace(/^_+|_+$/g,'');
+}
+
+const CANCELLATION_REASON_LABELS = [
+  'Patient Scheduling Error',
+  'Patient Transportation Issue',
+  'Provider Requested Change',
+  'Traffic',
+  'Unknown',
+  'Weather',
+  'Office Scheduling Error',
+  'Patient Arrived Late',
+  'Patient Cancelled',
+  'Patient Deceased',
+  'Patient Forgot',
+  'Patient is Sick',
+  'Patient Left',
+  'Childcare Issue',
+  'Conflicting Appointment',
+  'COVID-19',
+  'Family Emergency',
+  'No Longer Needs Appointment',
+  'No Referral/Authorization',
+  'Office Rescheduled',
+  'Work or School Conflict'
+];
+const CANONICAL_REASON_ORDER = [...CANCELLATION_REASON_LABELS, 'Other'];
+
+const CANCEL_REASON_LOOKUP = CANCELLATION_REASON_LABELS.reduce((acc,label)=>{
+  acc[normalizeReasonKey(label)] = label;
+  return acc;
+}, {});
+
+const CANCEL_REASON_SYNONYMS = {
+  no_longer_needed: 'No Longer Needs Appointment',
+  no_longer_need: 'No Longer Needs Appointment',
+  illness_family_emergency: 'Family Emergency',
+  family_emergency: 'Family Emergency',
+  illness: 'Patient is Sick',
+  patient_sick: 'Patient is Sick',
+  sick: 'Patient is Sick',
+  work_school_conflict: 'Work or School Conflict',
+  work_or_school_conflict: 'Work or School Conflict',
+  work_school: 'Work or School Conflict',
+  insurance: 'No Referral/Authorization',
+  referral: 'No Referral/Authorization',
+  authorization: 'No Referral/Authorization',
+  no_referral: 'No Referral/Authorization',
+  no_authorization: 'No Referral/Authorization',
+  no_referral_authorization: 'No Referral/Authorization',
+  pooo_r_s: 'No Referral/Authorization',
+  pooo_rs: 'No Referral/Authorization',
+  pooo: 'No Referral/Authorization',
+  patient_cancelled: 'Patient Cancelled',
+  patient_canceled: 'Patient Cancelled',
+  patient_cancel: 'Patient Cancelled',
+  provider_change: 'Provider Requested Change',
+  provider_requested: 'Provider Requested Change',
+  provider_requested_change: 'Provider Requested Change',
+  transportation: 'Patient Transportation Issue',
+  patient_transportation: 'Patient Transportation Issue',
+  scheduling_error: 'Patient Scheduling Error',
+  patient_error: 'Patient Scheduling Error',
+  office_error: 'Office Scheduling Error',
+  covid: 'COVID-19',
+  covid19: 'COVID-19',
+  covid_19: 'COVID-19',
+  other: 'Other'
+};
+
+function mapCancellationReason(value){
+  const key = normalizeReasonKey(value);
+  if (!key) return '';
+  if (CANCEL_REASON_LOOKUP[key]) return CANCEL_REASON_LOOKUP[key];
+  if (CANCEL_REASON_SYNONYMS[key]) return CANCEL_REASON_SYNONYMS[key];
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^other\b/i.test(raw)) return 'Other';
+  return raw.replace(/\s+/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function canonicalCancelReasonLabel(reason){
+  const canonical = mapCancellationReason(reason);
+  if (canonical) return canonical;
+  const raw = String(reason || '').trim();
+  if (!raw) return '';
+  if (/^other\b/i.test(raw)) return 'Other';
+  return raw.replace(/\s+/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+}
 const PRIORITY_APPT_RULES = [
   { key: 'new_patient', label: 'New Patient', match: (s) => s === 'new patient' },
   { key: 'follow_up', label: 'Follow Up', match: (s) => s === 'follow up' },
@@ -74,34 +168,6 @@ const CATEGORY_LABELS = {
   other: 'Other'
 };
 const reasonDetailOpenState = new Map();
-
-const outcomeTabsEl = document.getElementById('outcomeTabs');
-const outcomeCategoryTabsEl = document.getElementById('outcomeCategoryTabs');
-const outcomeChartToggleEl = document.getElementById('outcomeChartToggle');
-const outcomeChartSections = Array.from(document.querySelectorAll('.outcome-body [data-chart]'));
-const outcomeFunnelEl = document.getElementById('outcomeFunnel');
-const outcomeReasonDetailsEl = document.getElementById('outcomeReasonDetails');
-const cancelReasonLegendEl = document.getElementById('cancelReasonLegend');
-const outcomeMessageEl = document.getElementById('outcomeMessage');
-const outcomeFunnelValueEls = {
-  scheduled: document.getElementById('funnelScheduled'),
-  rescheduled: document.getElementById('funnelRescheduled'),
-  cancelled: document.getElementById('funnelCancelled'),
-  no_appointment: document.getElementById('funnelNoAppt')
-};
-const tableFiltersEl = document.getElementById('tableFilters');
-
-const insightShellEl = document.getElementById('insightsShell');
-const insightScheduledTotalEl = document.getElementById('insightScheduledTotal');
-const insightScheduledListEl = document.getElementById('insightScheduledList');
-const insightCancelTotalEl = document.getElementById('insightCancelTotal');
-const insightCancelListEl = document.getElementById('insightCancelList');
-const insightReschedTotalEl = document.getElementById('insightReschedTotal');
-const insightReschedListEl = document.getElementById('insightReschedList');
-const insightNoApptTotalEl = document.getElementById('insightNoApptTotal');
-const insightNoApptListEl = document.getElementById('insightNoApptList');
-const insightOfficeTotalEl = document.getElementById('insightOfficeTotal');
-const insightOfficeListEl = document.getElementById('insightOfficeList');
 
 function unpackTypeValue(label, value){
   if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -182,102 +248,8 @@ let LAST_SUMMARY = null;
 const APPOINTMENT_LIST_STATE = new Map();
 const outcomeChartVisibility = { types: true, reasons: true };
 
-function normalizeReasonKey(value){
-  return String(value || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-}
-
-const CRM_CANCEL_REASON_LABELS = [
-  'Patient Scheduling Error',
-  'Patient Transportation Issue',
-  'Provider Requested Change',
-  'Traffic',
-  'Unknown',
-  'Weather',
-  'Office Scheduling Error',
-  'Patient Arrived Late',
-  'Patient Cancelled',
-  'Patient Deceased',
-  'Patient Forgot',
-  'Patient is Sick',
-  'Patient Left',
-  'Childcare Issue',
-  'Conflicting Appointment',
-  'COVID-19',
-  'Family Emergency',
-  'No Longer Needs Appointment',
-  'No Referral/Authorization',
-  'Office Rescheduled',
-  'Work or School Conflict'
-];
-const CANONICAL_REASON_ORDER = [...CRM_CANCEL_REASON_LABELS, 'Other'];
-
-const CRM_CANCEL_REASON_LOOKUP = CRM_CANCEL_REASON_LABELS.reduce((acc, label) => {
-  acc[normalizeReasonKey(label)] = label;
-  return acc;
-}, {});
-
-const CRM_CANCEL_REASON_SYNONYMS = {
-  no_longer_needed: 'No Longer Needs Appointment',
-  no_longer_need: 'No Longer Needs Appointment',
-  illness_family_emergency: 'Family Emergency',
-  family_emergency: 'Family Emergency',
-  illness: 'Patient is Sick',
-  patient_sick: 'Patient is Sick',
-  sick: 'Patient is Sick',
-  work_school_conflict: 'Work or School Conflict',
-  work_or_school_conflict: 'Work or School Conflict',
-  work_school: 'Work or School Conflict',
-  insurance: 'No Referral/Authorization',
-  referral: 'No Referral/Authorization',
-  authorization: 'No Referral/Authorization',
-  no_referral: 'No Referral/Authorization',
-  no_authorization: 'No Referral/Authorization',
-  no_referral_authorization: 'No Referral/Authorization',
-  patient_cancelled: 'Patient Cancelled',
-  patient_canceled: 'Patient Cancelled',
-  patient_cancel: 'Patient Cancelled',
-  provider_change: 'Provider Requested Change',
-  provider_requested: 'Provider Requested Change',
-  provider_requested_change: 'Provider Requested Change',
-  transportation: 'Patient Transportation Issue',
-  patient_transportation: 'Patient Transportation Issue',
-  scheduling_error: 'Patient Scheduling Error',
-  patient_error: 'Patient Scheduling Error',
-  office_error: 'Office Scheduling Error',
-  covid: 'COVID-19',
-  covid19: 'COVID-19',
-  covid_19: 'COVID-19'
-};
-
-function mapCancellationReason(value){
-  const key = normalizeReasonKey(value);
-  if (!key) return '';
-  if (CRM_CANCEL_REASON_LOOKUP[key]) return CRM_CANCEL_REASON_LOOKUP[key];
-  if (CRM_CANCEL_REASON_SYNONYMS[key]) return CRM_CANCEL_REASON_SYNONYMS[key];
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  return raw.replace(/\b\w/g, c => c.toUpperCase());
-}
-
-function canonicalCancelReasonLabel(reason){
-  const canonical = mapCancellationReason(reason);
-  if (canonical) return canonical;
-  const raw = String(reason || '').trim();
-  if (!raw) return '';
-  if (/^other\b/i.test(raw)) return 'Other';
-  return raw.replace(/\s+/g, ' ').trim();
-}
-
 function prettyReasonLabel(reason){
-  const raw = String(reason || '').trim();
-  if (!raw) return '';
-  if (/^other\b/i.test(raw)) {
-    return raw.replace(/\s+/g, ' ').replace(/^other\b/i, 'Other').trim();
-  }
-  return canonicalCancelReasonLabel(raw) || raw;
+  return canonicalCancelReasonLabel(reason) || '';
 }
 
 function normalizeTypeAndOffice(appt){
@@ -597,191 +569,11 @@ function monthKey(ts){ const d=new Date(ts); const m=String(d.getMonth()+1).padS
 function parseYearMonth(ym){ try { const [y,m]=String(ym||'').split('-').map(n=>parseInt(n,10)); return { y: isFinite(y)?y:new Date().getFullYear(), m: isFinite(m)?m: (new Date().getMonth()+1) }; } catch { const d=new Date(); return { y:d.getFullYear(), m:d.getMonth()+1}; } }
 function daysInMonth(y,m){ return new Date(y, m, 0).getDate(); }
 function weekdayOccurrencesInMonth(y,m){ const map={0:0,1:0,2:0,3:0,4:0,5:0,6:0}; const total=daysInMonth(y,m); for(let d=1; d<=total; d++){ const wd=new Date(y, m-1, d).getDay(); map[wd]++; } return map; }
-function generateReschedulePairId(){
-  return `rp_${Date.now().toString(36)}${Math.random().toString(36).slice(2,8)}`;
-}
-
-function normalizeOutcomeEvent(outcome = {}, entry = {}){
-  const appointment = entry.appointment || {};
-  const typeRaw = String(outcome.type || outcome.change || outcome.outcome || '').toLowerCase();
-  let type;
-  switch (typeRaw) {
-    case 'cancel':
-    case 'cancellation':
-      type = 'cancellation';
-      break;
-    case 'reschedule':
-      type = 'reschedule';
-      break;
-    case 'question_only':
-    case 'question':
-      type = 'question_only';
-      break;
-    case 'no_change':
-    case 'no_appointment':
-    case 'no appointment':
-    case 'no_show':
-      type = 'no_appointment';
-      break;
-    default:
-      type = null;
-  }
-  const reasons = Array.isArray(outcome.reasons)
-    ? outcome.reasons.map(r => String(r || '').trim()).filter(Boolean)
-    : [];
-  const reasonRaw = String(outcome.reason ?? outcome.reasonRaw ?? outcome.reason_raw ?? (reasons[0] || appointment.reason || '')).trim();
-  if (!reasons.length && reasonRaw) reasons.push(reasonRaw);
-  const noApptReasons = Array.isArray(outcome.noAppointmentReasons || outcome.no_appointment_reasons)
-    ? (outcome.noAppointmentReasons || outcome.no_appointment_reasons).map(r => String(r || '').trim()).filter(Boolean)
-    : [];
-  if (!type) {
-    if (outcome.questionOnly || outcome.question_only || appointment.questionOnly) {
-      type = 'question_only';
-    } else if (noApptReasons.length || (Array.isArray(appointment.noAppointmentReasons) && appointment.noAppointmentReasons.length)) {
-      type = 'no_appointment';
-    } else if ((appointment.change || '').toLowerCase() === 'cancellation') {
-      type = 'cancellation';
-    } else if ((appointment.change || '').toLowerCase() === 'reschedule') {
-      type = 'reschedule';
-    } else {
-      type = 'other';
-    }
-  }
-  const questionOnly = type === 'question_only' || !!(outcome.questionOnly || outcome.question_only || appointment.questionOnly);
-  if (questionOnly && !noApptReasons.includes('Question Only')) noApptReasons.unshift('Question Only');
-  const reasonMapped = (type === 'cancellation' || type === 'reschedule')
-    ? mapCancellationReason(reasonRaw || reasons[0] || appointment.reason || '')
-    : (questionOnly ? 'Question Only' : (reasonRaw || ''));
-  const metadata = outcome.metadata && typeof outcome.metadata === 'object'
-    ? { ...outcome.metadata }
-    : (outcome.meta && typeof outcome.meta === 'object'
-      ? { ...outcome.meta }
-      : (appointment.metadata && typeof appointment.metadata === 'object' ? { ...appointment.metadata } : {}));
-  return {
-    type,
-    scheduled: type === 'reschedule'
-      ? true
-      : (typeof outcome.scheduled === 'boolean'
-        ? outcome.scheduled
-        : (typeof appointment.scheduled === 'boolean' ? appointment.scheduled : false)),
-    reasons,
-    reasonRaw,
-    reasonMapped,
-    otherText: outcome.otherText || outcome.other_text || appointment.otherText || '',
-    noAppointmentReasons: noApptReasons,
-    questionOnly,
-    appointmentId: outcome.appointmentId || outcome.appointment_id || appointment.appointmentId || '',
-    previousAppointmentId: outcome.previousAppointmentId || outcome.previous_appointment_id || outcome.originalAppointmentId || outcome.oldAppointmentId || appointment.previousAppointmentId || '',
-    newAppointmentId: outcome.newAppointmentId || outcome.new_appointment_id || appointment.newAppointmentId || '',
-    reschedulePairId: outcome.reschedulePairId || outcome.reschedule_pair_id || appointment.reschedulePairId || '',
-    reasonCode: outcome.reasonCode || outcome.reason_code || outcome.crmReasonCode || appointment.reasonCode || '',
-    metadata
-  };
-}
-
-function legacyOutcomeFromEntry(entry){
-  const appt = entry?.appointment || {};
-  return normalizeOutcomeEvent({
-    type: appt.change,
-    scheduled: appt.scheduled,
-    reasons: Array.isArray(appt.reasons) ? appt.reasons : (appt.reason ? [appt.reason] : []),
-    reason: appt.reason,
-    noAppointmentReasons: appt.noAppointmentReasons,
-    questionOnly: appt.questionOnly,
-    otherText: appt.otherText,
-    appointmentId: appt.appointmentId,
-    previousAppointmentId: appt.previousAppointmentId,
-    newAppointmentId: appt.newAppointmentId,
-    reschedulePairId: appt.reschedulePairId,
-    reasonCode: appt.reasonCode,
-    metadata: appt.metadata
-  }, entry);
-}
-
-function buildOutcomeEntry(entry, outcome, index){
-  const normalized = normalizeOutcomeEvent(outcome, entry);
-  const appointment = { ...(entry.appointment || {}) };
-  const patient = entry.patient ? { ...entry.patient } : {};
-  const change = (() => {
-    switch (normalized.type) {
-      case 'cancellation': return 'cancellation';
-      case 'reschedule': return 'reschedule';
-      case 'question_only':
-      case 'no_appointment':
-        return 'none';
-      default:
-        return String(appointment.change || 'none').toLowerCase();
-    }
-  })();
-  appointment.change = change;
-  appointment.scheduled = normalized.type === 'reschedule'
-    ? true
-    : (typeof normalized.scheduled === 'boolean' ? normalized.scheduled : !!appointment.scheduled);
-  appointment.reason = normalized.reasonRaw || appointment.reason || '';
-  appointment.reasons = normalized.reasons.length ? normalized.reasons : (Array.isArray(appointment.reasons) ? appointment.reasons : (appointment.reason ? [appointment.reason] : []));
-  appointment.reasonMapped = normalized.reasonMapped || mapCancellationReason(appointment.reason || normalized.reasonRaw);
-  appointment.reasonCode = normalized.reasonCode || appointment.reasonCode || '';
-  const noAppt = normalized.noAppointmentReasons.length
-    ? normalized.noAppointmentReasons
-    : (Array.isArray(appointment.noAppointmentReasons) ? appointment.noAppointmentReasons : []);
-  appointment.noAppointmentReasons = Array.from(new Set(noAppt)).filter(Boolean);
-  appointment.questionOnly = normalized.questionOnly || appointment.questionOnly || appointment.noAppointmentReasons?.includes?.('Question Only') || false;
-  if (appointment.questionOnly && !appointment.noAppointmentReasons.includes('Question Only')) {
-    appointment.noAppointmentReasons.unshift('Question Only');
-  }
-  appointment.otherText = normalized.otherText || appointment.otherText || '';
-  appointment.appointmentId = normalized.appointmentId || appointment.appointmentId || '';
-  appointment.previousAppointmentId = normalized.previousAppointmentId || appointment.previousAppointmentId || '';
-  appointment.newAppointmentId = normalized.newAppointmentId || appointment.newAppointmentId || '';
-  appointment.reschedulePairId = normalized.reschedulePairId || appointment.reschedulePairId || '';
-  appointment.metadata = { ...(appointment.metadata || {}), ...(normalized.metadata || {}) };
-  appointment.outcomeType = normalized.type;
-  appointment.outcomeScheduled = normalized.scheduled;
-  const norm = normalizeTypeAndOffice(appointment);
-  if (norm.apptType) appointment.type = norm.apptType;
-  if (norm.office) appointment.office = norm.office;
-  const eventId = entry.id ? `${entry.id}::${index}` : `evt_${(entry.time || Date.now()).toString(36)}_${Math.random().toString(36).slice(2,6)}`;
-  return {
-    ...entry,
-    id: eventId,
-    baseId: entry.id || null,
-    eventIndex: index,
-    outcome: normalized,
-    appointment,
-    patient
-  };
-}
-
-function expandEntryToOutcomes(entry){
-  const outcomes = Array.isArray(entry?.appointment?.outcomes) && entry.appointment.outcomes.length
-    ? entry.appointment.outcomes
-    : [legacyOutcomeFromEntry(entry)];
-  const expanded = outcomes.map((outcome, index) => buildOutcomeEntry(entry, outcome, index));
-  const cancel = expanded.find(item => item.outcome?.type === 'cancellation');
-  const resched = expanded.find(item => item.outcome?.type === 'reschedule');
-  if (cancel && resched) {
-    const pairId = cancel.appointment.reschedulePairId || resched.appointment.reschedulePairId || generateReschedulePairId();
-    cancel.outcome.reschedulePairId = pairId;
-    resched.outcome.reschedulePairId = pairId;
-    cancel.appointment.reschedulePairId = pairId;
-    resched.appointment.reschedulePairId = pairId;
-  }
-  return expanded;
-}
-
-function expandLedgerEntries(entries){
-  return (entries || []).flatMap(expandEntryToOutcomes);
-}
-
-function getActiveLedgerEntries(){
+function getActiveEntries(){
   const all = loadLedger();
   if (CURRENT_VIEW === 'daily') return all.filter(e => isSameDay(e.time, Date.now()));
   const mk = SELECTED_MONTH || monthKey(Date.now());
   return all.filter(e => monthKey(e.time) === mk);
-}
-
-function getActiveEntries(){
-  return expandLedgerEntries(getActiveLedgerEntries());
 }
 
 function matchesSelectedOffice(entry){
@@ -814,12 +606,11 @@ function renderTable(){
   const entries = getScopedEntries();
   const totalEntries = entries.length;
   tbody.innerHTML = '';
-  const TOTAL_COLUMNS = 16;
   if (!totalEntries){
     const tr = document.createElement('tr');
     tr.className = 'empty';
     const td = document.createElement('td');
-    td.colSpan = TOTAL_COLUMNS;
+    td.colSpan = 12;
     td.textContent = 'No submissions yet';
     tr.appendChild(td);
     tbody.appendChild(tr);
@@ -847,7 +638,7 @@ function renderTable(){
     const tr = document.createElement('tr');
     tr.className = 'empty';
     const td = document.createElement('td');
-    td.colSpan = TOTAL_COLUMNS;
+    td.colSpan = 12;
     td.textContent = 'No submissions match this filter';
     tr.appendChild(td);
     tbody.appendChild(tr);
@@ -871,25 +662,8 @@ function renderTable(){
     tr.appendChild(td(fmtDate(e.time)));
     tr.appendChild(td(e.patient?.mrn || ''));
     tr.appendChild(td(e.patient?.type || ''));
-    const scheduledLabel = e.appointment?.scheduled ? 'Yes' : 'No';
-    tr.appendChild(td(scheduledLabel));
-    const outcomeType = String(e.outcome?.type || e.appointment?.outcomeType || e.appointment?.change || 'none').toLowerCase();
-    let outcomeLabel = '';
-    switch (outcomeType) {
-      case 'cancellation': outcomeLabel = 'Cancellation'; break;
-      case 'reschedule':
-      case 'rescheduled': outcomeLabel = 'Reschedule'; break;
-      case 'question_only': outcomeLabel = 'Question Only'; break;
-      case 'no_appointment': outcomeLabel = 'No Appointment'; break;
-      case 'none':
-      case 'other':
-      default:
-        outcomeLabel = (e.appointment?.change && e.appointment.change !== 'none')
-          ? e.appointment.change.replace(/\b\w/g, c => c.toUpperCase())
-          : 'None';
-        break;
-    }
-    tr.appendChild(td(outcomeLabel));
+    tr.appendChild(td(e.appointment?.scheduled ? 'Yes' : 'No'));
+    tr.appendChild(td(e.appointment?.change || ''));
     const { apptType, office } = normalizeTypeAndOffice(e.appointment);
     const apptLabel = apptType || 'Unspecified';
     const reasonSource = e.appointment?.reasonMapped || e.appointment?.reason || e.outcome?.reasonMapped || e.outcome?.reasonRaw || '';
@@ -897,17 +671,13 @@ function renderTable(){
     const noApptList = Array.isArray(e.appointment?.noAppointmentReasons) ? e.appointment.noAppointmentReasons.map(prettyReasonLabel).filter(Boolean) : [];
     const reasonParts = [];
     if (reasonText) reasonParts.push(reasonText);
-    if (/^other\b/i.test(reasonSource) && e.appointment?.otherText) {
+    if (/^other\b/i.test(String(reasonSource || '')) && e.appointment?.otherText) {
       reasonParts.push(`Other details: ${e.appointment.otherText}`);
     }
     if (noApptList.length) reasonParts.push(`No Appt: ${noApptList.join(', ')}`);
     tr.appendChild(td(apptType || 'Unspecified'));
     tr.appendChild(td(office || 'Unspecified'));
     tr.appendChild(td(reasonParts.join(' · ')));
-    tr.appendChild(td(e.appointment?.reasonCode || e.outcome?.reasonCode || ''));
-    tr.appendChild(td(e.appointment?.previousAppointmentId || ''));
-    tr.appendChild(td(e.appointment?.newAppointmentId || ''));
-    tr.appendChild(td(e.appointment?.reschedulePairId || ''));
     const confirmed = e.appointment?.confirmed ? 'Yes' : 'No';
     tr.appendChild(td(confirmed));
     tr.appendChild(td(e.appointment?.otherText || ''));
@@ -932,43 +702,9 @@ function applyMrnFilter(){
   });
 }
 
-function renderCancelReasonLegend(){
-  if (!cancelReasonLegendEl) return;
-  const items = CANONICAL_REASON_ORDER.map(label => `<li>${label}</li>`).join('');
-  cancelReasonLegendEl.innerHTML = `
-    <strong>Cancellation Reasons</strong>
-    <ul>${items}</ul>
-  `;
-}
-
 function exportCsv(){
   const entries = getScopedEntries();
-  const cols = [
-    'time',
-    'agent',
-    'callId',
-    'ani',
-    'patient.mrn',
-    'patient.name',
-    'patient.type',
-    'appointment.scheduled',
-    'appointment.outcome',
-    'appointment.change',
-    'appointment.type',
-    'appointment.office',
-    'appointment.reason',
-    'appointment.reasonMapped',
-    'appointment.reasonCode',
-    'appointment.noAppointmentReasons',
-    'appointment.questionOnly',
-    'appointment.otherText',
-    'appointment.confirmed',
-    'appointment.appointmentId',
-    'appointment.previousAppointmentId',
-    'appointment.newAppointmentId',
-    'appointment.reschedulePairId',
-    'actions'
-  ];
+  const cols = ['time','callId','patient.mrn','patient.name','patient.type','appointment.scheduled','appointment.change','appointment.type','appointment.office','appointment.reason','appointment.noAppointmentReasons','appointment.questionOnly','appointment.otherText','appointment.confirmed','actions'];
   const header = cols.join(',');
   const lines = [header];
   for (const e of entries){
@@ -976,23 +712,9 @@ function exportCsv(){
       .map(([k,v])=>{ const parts=[]; if (v.task) parts.push('task'); if (v.transfer) parts.push('transfer'); return parts.length ? `${k}:${parts.join('+')}` : null; })
       .filter(Boolean).join('; ') : '';
     const norm = normalizeTypeAndOffice(e.appointment);
+    const reasonSource = e.appointment?.reasonMapped || e.appointment?.reason || e.outcome?.reasonMapped || e.outcome?.reasonRaw || '';
+    const reasonText = prettyReasonLabel(reasonSource);
     const noApptCsv = Array.isArray(e.appointment?.noAppointmentReasons) ? e.appointment.noAppointmentReasons.map(prettyReasonLabel).join('|') : '';
-    const outcomeType = String(e.outcome?.type || e.appointment?.outcomeType || e.appointment?.change || 'none').toLowerCase();
-    let outcomeLabel = '';
-    switch (outcomeType) {
-      case 'cancellation': outcomeLabel = 'Cancellation'; break;
-      case 'reschedule':
-      case 'rescheduled': outcomeLabel = 'Reschedule'; break;
-      case 'question_only': outcomeLabel = 'Question Only'; break;
-      case 'no_appointment': outcomeLabel = 'No Appointment'; break;
-      case 'none':
-      case 'other':
-      default:
-        outcomeLabel = (e.appointment?.change && e.appointment.change !== 'none')
-          ? e.appointment.change.replace(/\b\w/g, c => c.toUpperCase())
-          : 'None';
-        break;
-    }
     const row = [
       fmtDate(e.time),
       e.agent||'',
@@ -1002,21 +724,14 @@ function exportCsv(){
       e.patient?.name||'',
       e.patient?.type||'',
       (e.appointment?.scheduled ? 'Yes' : 'No'),
-      outcomeLabel,
       e.appointment?.change||'',
       norm.apptType || '',
       norm.office || 'Unspecified',
-      e.appointment?.reason || '',
-      prettyReasonLabel(e.appointment?.reasonMapped || e.appointment?.reason || ''),
-      e.appointment?.reasonCode || '',
+      reasonText || '',
       noApptCsv,
       e.appointment?.questionOnly ? 'Yes' : 'No',
       e.appointment?.otherText||'',
       e.appointment?.confirmed ? 'Yes' : 'No',
-      e.appointment?.appointmentId || '',
-      e.appointment?.previousAppointmentId || '',
-      e.appointment?.newAppointmentId || '',
-      e.appointment?.reschedulePairId || '',
       actions
     ]
     .map(v => String(v).replaceAll('"','""'))
@@ -1068,12 +783,7 @@ function summarize(entries){
   };
   OFFICE_KEYS.forEach(name => { sum.byOffice[name] = createOfficeBucket(); });
   const inRange = (h) => h>=8 && h<=17;
-  const normReason = (r) => {
-    const canonical = canonicalCancelReasonLabel(r);
-    if (canonical) return canonical;
-    const raw = String(r || '').trim();
-    return raw ? raw : 'Other';
-  };
+  const normReason = (r) => canonicalCancelReasonLabel(r) || 'Other';
   entries.forEach(e => {
     const d = new Date(e.time);
     const h = d.getHours();
@@ -1171,16 +881,14 @@ function summarize(entries){
     if (ch === 'cancellation') {
       sum.cancel++;
       const reasonKey = normReason(e.appointment?.reason) || 'Unknown';
-      const reasonDisplay = (reasonKey === 'Other' && e.appointment?.otherText)
-        ? `Other · ${e.appointment.otherText}`
-        : prettyReasonLabel(e.appointment?.reason || reasonKey);
       sum.cancelReasons[reasonKey] = (sum.cancelReasons[reasonKey] || 0) + 1;
       const detail = sum.cancelReasonDetails[reasonKey] || (sum.cancelReasonDetails[reasonKey] = { total: 0, types: {} });
       detail.total += 1;
       detail.types[apptLabel] = (detail.types[apptLabel] || 0) + 1;
       if (reasonKey === 'Other' && e.appointment?.otherText) {
         detail.notes = detail.notes || [];
-        if (!detail.notes.includes(reasonDisplay)) detail.notes.push(reasonDisplay);
+        const note = String(e.appointment.otherText || '').trim();
+        if (note && !detail.notes.includes(note)) detail.notes.push(note);
       }
       const cancelBucket = sum.appointmentTypesByOutcome.cancellation;
       cancelBucket[apptLabel] = (cancelBucket[apptLabel] || 0) + 1;
@@ -1195,16 +903,14 @@ function summarize(entries){
     } else if (ch === 'reschedule') {
       sum.resched++;
       const reasonKey = normReason(e.appointment?.reason) || 'Unknown';
-      const reasonDisplay = (reasonKey === 'Other' && e.appointment?.otherText)
-        ? `Other · ${e.appointment.otherText}`
-        : prettyReasonLabel(e.appointment?.reason || reasonKey);
       sum.reschedReasons[reasonKey] = (sum.reschedReasons[reasonKey] || 0) + 1;
       const detail = sum.reschedReasonDetails[reasonKey] || (sum.reschedReasonDetails[reasonKey] = { total: 0, types: {} });
       detail.total += 1;
       detail.types[apptLabel] = (detail.types[apptLabel] || 0) + 1;
       if (reasonKey === 'Other' && e.appointment?.otherText) {
         detail.notes = detail.notes || [];
-        if (!detail.notes.includes(reasonDisplay)) detail.notes.push(reasonDisplay);
+        const note = String(e.appointment.otherText || '').trim();
+        if (note && !detail.notes.includes(note)) detail.notes.push(note);
       }
       const reschedBucket = sum.appointmentTypesByOutcome.reschedule;
       reschedBucket[apptLabel] = (reschedBucket[apptLabel] || 0) + 1;
@@ -1383,10 +1089,10 @@ function drawBarChart(canvasId, dataMap, { labelMap={}, color='#4f46e5', palette
   const labels = entries.map(([k]) => labelMap[k] || k);
   const values = entries.map(([,v]) => Number(v)||0);
   const max = (typeof maxValue === 'number') ? (maxValue||1) : Math.max(1, ...values);
-  const count = values.length;
-  const pad = Math.max(16, Math.min(48, width * 0.04));
+  const count = entries.length;
+  const pad = Math.max(16, Math.min(48, width * 0.05));
   const gap = Math.max(6, Math.min(24, (width - pad * 2) / Math.max(count * 3, 1)));
-  const barW = Math.max(12, (width - pad*2 - gap*(count-1)) / Math.max(count, 1));
+  const barW = Math.max(12, (width - pad * 2 - gap * Math.max(count - 1, 0)) / Math.max(count, 1));
   ctx.font = '12px system-ui';
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
@@ -1441,19 +1147,19 @@ function drawBarChart(canvasId, dataMap, { labelMap={}, color='#4f46e5', palette
 
 function buildReasonValueMap(source = {}, totalCount = 0, asPercent = false){
   const denom = Math.max(1, totalCount);
-  const map = {};
+  const data = {};
   const order = [];
-  const applyValue = (label) => {
+  const addLabel = (label) => {
     if (order.includes(label)) return;
     const value = Number(source[label] || 0);
-    map[label] = asPercent ? (value / denom * 100) : value;
+    data[label] = asPercent ? (value / denom * 100) : value;
     order.push(label);
   };
-  CANONICAL_REASON_ORDER.forEach(applyValue);
+  CANONICAL_REASON_ORDER.forEach(addLabel);
   Object.keys(source || {}).forEach(label => {
-    if (!CANONICAL_REASON_ORDER.includes(label)) applyValue(label);
+    if (!CANONICAL_REASON_ORDER.includes(label)) addLabel(label);
   });
-  return { data: map, order };
+  return { data, order };
 }
 
 function drawStackedTwo(canvasId, dataMap, { labels=['Tasks','Transfers'], colors=['#10b981','#f59e0b'] }={}){
@@ -1693,18 +1399,18 @@ function renderReasonDetails(containerId, detailMap, { labelForReason = (key) =>
     });
     body.appendChild(list);
     if (Array.isArray(detail.notes) && detail.notes.length){
-      const notesHeading = document.createElement('div');
-      notesHeading.className = 'reason-detail-notes-title';
-      notesHeading.textContent = 'Examples';
-      const noteList = document.createElement('ul');
-      noteList.className = 'reason-detail-notes';
+      const notesTitle = document.createElement('div');
+      notesTitle.className = 'reason-detail-notes-title';
+      notesTitle.textContent = 'Other details';
+      const notesList = document.createElement('ul');
+      notesList.className = 'reason-detail-notes';
       detail.notes.forEach(note => {
         const li = document.createElement('li');
         li.textContent = note;
-        noteList.appendChild(li);
+        notesList.appendChild(li);
       });
-      body.appendChild(notesHeading);
-      body.appendChild(noteList);
+      body.appendChild(notesTitle);
+      body.appendChild(notesList);
     }
     item.appendChild(body);
     item.addEventListener('toggle', () => {
@@ -1890,171 +1596,6 @@ function filterReasonMapByCategory(target, categoryKey){
 
 function categoryLabelForKey(key){
   return CATEGORY_LABELS[key] || CATEGORY_LABELS.other;
-}
-
-function applyOutcomeTabState(outcomeKey){
-  if (outcomeTabsEl){
-    outcomeTabsEl.querySelectorAll('.outcome-tab').forEach(btn => {
-      const target = btn.dataset.outcome || '';
-      const isActive = target === outcomeKey;
-      btn.classList.toggle('active', isActive);
-      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
-    });
-  }
-  if (outcomeFunnelEl){
-    outcomeFunnelEl.querySelectorAll('.funnel-card').forEach(card => {
-      const target = card.dataset.outcome || '';
-      const isActive = target === outcomeKey;
-      card.classList.toggle('active', isActive);
-      card.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-    });
-  }
-}
-
-function applyOutcomeCategoryState(categoryKey){
-  if (!outcomeCategoryTabsEl) return;
-  outcomeCategoryTabsEl.querySelectorAll('.outcome-category-tab').forEach(btn => {
-    const value = btn.dataset.category || 'all';
-    const isActive = value === categoryKey;
-    btn.classList.toggle('active', isActive);
-    btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
-  });
-}
-
-function applyOutcomeChartVisibility(){
-  outcomeChartSections.forEach(section => {
-    const key = section?.dataset?.chart || '';
-    const visible = outcomeChartVisibility[key] !== false;
-    section.style.display = visible ? '' : 'none';
-  });
-  if (outcomeChartToggleEl){
-    outcomeChartToggleEl.querySelectorAll('.chart-toggle-btn').forEach(btn => {
-      const key = btn.dataset.chart || '';
-      const active = outcomeChartVisibility[key] !== false;
-      btn.classList.toggle('active', active);
-      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-    });
-  }
-}
-
-function updateOutcomeFunnel(dataMap){
-  if (!dataMap || !outcomeFunnelEl) return;
-  OUTCOME_KEYS.forEach(key => {
-    const bucket = dataMap[key] || {};
-    const total = Number(bucket.total) || 0;
-    const valueEl = outcomeFunnelValueEls[key];
-    if (valueEl) valueEl.textContent = String(total);
-    const card = outcomeFunnelEl.querySelector(`.funnel-card[data-outcome="${key}"]`);
-    if (card){
-      card.classList.toggle('is-empty', total === 0);
-      card.setAttribute('aria-label', `${OUTCOME_LABELS[key] || key}: ${total}`);
-    }
-  });
-  applyOutcomeTabState(CURRENT_OUTCOME);
-}
-
-function renderOutcomeView(outcomeKey){
-  if (!OUTCOME_DATA) return;
-  const nextKey = OUTCOME_KEYS.includes(outcomeKey) ? outcomeKey : OUTCOME_KEYS[0];
-  CURRENT_OUTCOME = nextKey;
-  applyOutcomeTabState(nextKey);
-  applyOutcomeCategoryState(CURRENT_OUTCOME_CATEGORY);
-
-  const target = OUTCOME_DATA[nextKey];
-  if (!target){
-    drawStackedMulti('chartOutcomeTypes', {}, { series: [] });
-    drawBarChart('chartOutcomeReasons', {}, {});
-    renderReasonDetails('outcomeReasonDetails', {});
-    if (outcomeMessageEl) outcomeMessageEl.textContent = 'No data yet.';
-    applyOutcomeChartVisibility();
-    return;
-  }
-  const categoryKey = CURRENT_OUTCOME_CATEGORY || 'all';
-  const stack = getStackForCategory(target.stack, categoryKey);
-  drawStackedMulti('chartOutcomeTypes', stack.dataMap || {}, { series: stack.series || [], order: stack.order || [] });
-  renderStackLegend('chartOutcomeTypesLegend', stack.series || [], stack.legendDetails || {});
-
-  const reasonMap = filterReasonMapByCategory(target, categoryKey);
-  const reasonOptions = {
-    palette: target.reasonPalette || undefined,
-    labelMap: target.reasonLabelMap || {},
-    maxValue: (CURRENT_VIEW === 'monthly') ? 100 : undefined,
-    formatValue: (CURRENT_VIEW === 'monthly') ? (value) => `${Math.round(value)}%` : undefined
-  };
-  drawBarChart('chartOutcomeReasons', reasonMap, reasonOptions);
-
-  const detailMap = filterDetailMapByCategory(target.detailMap || {}, categoryKey);
-  renderReasonDetails('outcomeReasonDetails', detailMap, { labelForReason: target.labelFormatter || ((label)=>label) });
-
-  if (outcomeMessageEl){
-    if ((target.total || 0) === 0){
-      outcomeMessageEl.textContent = `No records captured for ${OUTCOME_LABELS[nextKey] || nextKey}.`;
-    } else if (!Object.keys(reasonMap || {}).length){
-      outcomeMessageEl.textContent = 'No specific reasons captured yet for this outcome.';
-    } else {
-      outcomeMessageEl.textContent = '';
-    }
-  }
-
-  applyOutcomeChartVisibility();
-}
-
-function setOutcome(outcomeKey){
-  renderOutcomeView(outcomeKey);
-}
-
-function initializeOutcomeTabs(){
-  if (outcomeTabsEl){
-    outcomeTabsEl.addEventListener('click', (evt) => {
-      const btn = evt.target.closest('.outcome-tab');
-      if (!btn) return;
-      const key = btn.dataset.outcome || 'scheduled';
-      if (key !== CURRENT_OUTCOME) setOutcome(key);
-    });
-  }
-  if (outcomeFunnelEl){
-    outcomeFunnelEl.querySelectorAll('.funnel-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const key = card.dataset.outcome || 'scheduled';
-        if (key !== CURRENT_OUTCOME) setOutcome(key);
-      });
-    });
-  }
-  if (outcomeCategoryTabsEl){
-    outcomeCategoryTabsEl.addEventListener('click', (evt) => {
-      const btn = evt.target.closest('.outcome-category-tab');
-      if (!btn) return;
-      const key = btn.dataset.category || 'all';
-      if (key !== CURRENT_OUTCOME_CATEGORY){
-        CURRENT_OUTCOME_CATEGORY = key;
-        applyOutcomeCategoryState(key);
-        renderOutcomeView(CURRENT_OUTCOME);
-      }
-    });
-    applyOutcomeCategoryState(CURRENT_OUTCOME_CATEGORY);
-  }
-  applyOutcomeTabState(CURRENT_OUTCOME);
-  applyOutcomeChartVisibility();
-}
-
-function initializeOutcomeChartToggle(){
-  if (!outcomeChartToggleEl) {
-    applyOutcomeChartVisibility();
-    return;
-  }
-  outcomeChartToggleEl.addEventListener('click', (evt) => {
-    const btn = evt.target.closest('.chart-toggle-btn');
-    if (!btn) return;
-    const key = btn.dataset.chart || '';
-    if (!key) return;
-    const currentlyVisible = outcomeChartVisibility[key] !== false;
-    outcomeChartVisibility[key] = !currentlyVisible;
-    if (!outcomeChartVisibility.types && !outcomeChartVisibility.reasons){
-      outcomeChartVisibility[key] = true;
-    }
-    applyOutcomeChartVisibility();
-  });
-  applyOutcomeChartVisibility();
 }
 
 function initializeTableFilters(){
@@ -2499,11 +2040,13 @@ try {
   if (url.searchParams.get('test') === '1') {
     const btn = document.getElementById('rolloverNow'); if (btn) { btn.style.display=''; btn.textContent='Recompute Now'; btn.addEventListener('click', () => { try { SELECTED_MONTH = monthKey(Date.now()); if (monthPicker) monthPicker.value = SELECTED_MONTH; renderTable(); updateKpisAndCharts(); } catch {} }); }
   }
+  if (url.searchParams.get('openScreenpop') === '1' || url.searchParams.get('screenpop') === '1') {
+    setTimeout(() => launchScreenpop({ focus: false }), 100);
+  }
   setView('daily');
   initializeOutcomeTabs();
   initializeOutcomeChartToggle();
   initializeTableFilters();
-  renderCancelReasonLegend();
 } catch {}
 
 function importPendingSubmissions() {
@@ -2661,13 +2204,11 @@ function updateKpisAndCharts() {
     const canonicalReasonLabelMap = Object.fromEntries(CANONICAL_REASON_ORDER.map(label => [label, prettyReasonLabel(label)]));
     const cancelReasonData = buildReasonValueMap(sum.cancelReasons, sum.cancel || 0, CURRENT_VIEW === 'monthly');
     const reschedReasonData = buildReasonValueMap(sum.reschedReasons, sum.resched || 0, CURRENT_VIEW === 'monthly');
-    const ensureLabel = (label) => {
-      if (!canonicalReasonLabelMap[label]) {
-        canonicalReasonLabelMap[label] = prettyReasonLabel(label);
-      }
+    const ensureReasonLabel = (label) => {
+      if (!canonicalReasonLabelMap[label]) canonicalReasonLabelMap[label] = prettyReasonLabel(label);
     };
-    cancelReasonData.order.forEach(ensureLabel);
-    reschedReasonData.order.forEach(ensureLabel);
+    cancelReasonData.order.forEach(ensureReasonLabel);
+    reschedReasonData.order.forEach(ensureReasonLabel);
     const cancelReasonOptions = {
       palette: cancelPalette,
       labelMap: canonicalReasonLabelMap,
@@ -2790,12 +2331,3 @@ function updateKpisAndCharts() {
     console.warn('updateKpisAndCharts failed', err);
   }
 }
-
-window.refreshAnalyticsView = function refreshAnalyticsView(){
-  try {
-    renderTable();
-    updateKpisAndCharts();
-  } catch (err) {
-    console.warn('refreshAnalyticsView failed', err);
-  }
-};
