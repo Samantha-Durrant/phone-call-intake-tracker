@@ -665,7 +665,7 @@ function normalizeOutcomeEvent(outcome = {}, entry = {}){
     reasonRaw,
     reasonMapped,
     otherText: outcome.otherText || outcome.other_text || appointment.otherText || '',
-    noAppointmentReasons,
+    noAppointmentReasons: noApptReasons,
     questionOnly,
     appointmentId: outcome.appointmentId || outcome.appointment_id || appointment.appointmentId || '',
     previousAppointmentId: outcome.previousAppointmentId || outcome.previous_appointment_id || outcome.originalAppointmentId || outcome.oldAppointmentId || appointment.previousAppointmentId || '',
