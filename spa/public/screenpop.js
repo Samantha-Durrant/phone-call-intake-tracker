@@ -208,7 +208,6 @@
   const statusMsg = qs('#statusMsg');
   const ptTypeGroup = qs('.pt-type');
 
-  const REASON_OPTIONS = [...CRM_CANCEL_REASON_LABELS, 'Other'];
   const NO_APPT_REASON_OPTIONS = [
     'Question Only',
     'Location',
@@ -294,6 +293,7 @@
     return raw.replace(/\b\w/g, c => c.toUpperCase());
   }
   const OFFICE_OPTIONS = ['Ann Arbor','Plymouth','Wixom'];
+  const REASON_OPTIONS = [...CRM_CANCEL_REASON_LABELS, 'Other'];
   function normalizeOfficeValue(value){
     const key = String(value || '').trim().toLowerCase();
     if (!key) return '';
