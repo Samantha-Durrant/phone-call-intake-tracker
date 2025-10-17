@@ -2614,19 +2614,19 @@ function updateKpisAndCharts() {
 
     const cancelPalette = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7', '#ec4899', '#6366f1', '#14b8a6', '#10b981', '#2dd4bf', '#0ea5e9', '#7c3aed', '#9333ea', '#d946ef', '#fb7185', '#f472b6', '#fbbf24', '#0f172a'];
     const reschedPalette = ['#1d4ed8', '#0ea5e9', '#14b8a6', '#10b981', '#84cc16', '#eab308', '#f59e0b', '#f97316', '#ef4444', '#a855f7', '#6366f1', '#8b5cf6', '#ec4899', '#f472b6', '#facc15', '#fb7185', '#d946ef', '#22d3ee', '#34d399', '#fcd34d', '#c084fc', '#111827'];
-    const reasonLabelMap = Object.fromEntries(CANONICAL_REASON_ORDER.map(label => [label, prettyReasonLabel(label)]));
+    const canonicalReasonLabelMap = Object.fromEntries(CANONICAL_REASON_ORDER.map(label => [label, prettyReasonLabel(label)]));
     const cancelReasonMap = buildReasonValueMap(sum.cancelReasons, sum.cancel || 0, CURRENT_VIEW === 'monthly');
     const reschedReasonMap = buildReasonValueMap(sum.reschedReasons, sum.resched || 0, CURRENT_VIEW === 'monthly');
     const cancelReasonOptions = {
       palette: cancelPalette,
-      labelMap: reasonLabelMap,
+      labelMap: canonicalReasonLabelMap,
       order: CANONICAL_REASON_ORDER,
       maxValue: (CURRENT_VIEW === 'monthly') ? 100 : undefined,
       formatValue: (CURRENT_VIEW === 'monthly') ? (value) => `${Math.round(value)}%` : undefined
     };
     const reschedReasonOptions = {
       palette: reschedPalette,
-      labelMap: reasonLabelMap,
+      labelMap: canonicalReasonLabelMap,
       order: CANONICAL_REASON_ORDER,
       maxValue: (CURRENT_VIEW === 'monthly') ? 100 : undefined,
       formatValue: (CURRENT_VIEW === 'monthly') ? (value) => `${Math.round(value)}%` : undefined
@@ -2675,7 +2675,7 @@ function updateKpisAndCharts() {
     const cancelStack = buildReasonTypeStack(sum.cancelReasonDetails, { topN: 6, formatReason: prettyReasonLabel });
     const noApptStack = buildReasonTypeStack(sum.noApptReasonDetails, { topN: 6, formatReason: (label) => label });
 
-    const reasonLabelMap = (map) => Object.fromEntries(Object.keys(map || {}).map(key => [key, prettyReasonLabel(key)]));
+    const outcomeReasonLabelMap = (map) => Object.fromEntries(Object.keys(map || {}).map(key => [key, prettyReasonLabel(key)]));
     const outcomeToPercent = (map, denom) => {
       if (CURRENT_VIEW !== 'monthly') return { ...(map || {}) };
       const total = Math.max(1, denom);
@@ -2700,7 +2700,7 @@ function updateKpisAndCharts() {
         total: sum.resched || 0,
         stack: reschedStack,
         reasonMap: outcomeToPercent(sum.reschedReasons, sum.resched || 1),
-        reasonLabelMap: reasonLabelMap(sum.reschedReasons),
+        reasonLabelMap: outcomeReasonLabelMap(sum.reschedReasons),
         reasonPalette: reschedPalette,
         detailMap: sum.reschedReasonDetails,
         labelFormatter: prettyReasonLabel
@@ -2711,7 +2711,7 @@ function updateKpisAndCharts() {
         total: sum.cancel || 0,
         stack: cancelStack,
         reasonMap: outcomeToPercent(sum.cancelReasons, sum.cancel || 1),
-        reasonLabelMap: reasonLabelMap(sum.cancelReasons),
+        reasonLabelMap: outcomeReasonLabelMap(sum.cancelReasons),
         reasonPalette: cancelPalette,
         detailMap: sum.cancelReasonDetails,
         labelFormatter: prettyReasonLabel
