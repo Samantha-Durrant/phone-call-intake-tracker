@@ -267,11 +267,17 @@ function canonicalCancelReasonLabel(reason){
   if (canonical) return canonical;
   const raw = String(reason || '').trim();
   if (!raw) return '';
+  if (/^other\b/i.test(raw)) return 'Other';
   return raw.replace(/\s+/g, ' ').trim();
 }
 
 function prettyReasonLabel(reason){
-  return canonicalCancelReasonLabel(reason) || '';
+  const raw = String(reason || '').trim();
+  if (!raw) return '';
+  if (/^other\b/i.test(raw)) {
+    return raw.replace(/\s+/g, ' ').replace(/^other\b/i, 'Other').trim();
+  }
+  return canonicalCancelReasonLabel(raw) || raw;
 }
 
 function normalizeTypeAndOffice(appt){
@@ -891,6 +897,9 @@ function renderTable(){
     const noApptList = Array.isArray(e.appointment?.noAppointmentReasons) ? e.appointment.noAppointmentReasons.map(prettyReasonLabel).filter(Boolean) : [];
     const reasonParts = [];
     if (reasonText) reasonParts.push(reasonText);
+    if (/^other\b/i.test(reasonSource) && e.appointment?.otherText) {
+      reasonParts.push(`Other details: ${e.appointment.otherText}`);
+    }
     if (noApptList.length) reasonParts.push(`No Appt: ${noApptList.join(', ')}`);
     tr.appendChild(td(apptType || 'Unspecified'));
     tr.appendChild(td(office || 'Unspecified'));
@@ -1162,10 +1171,17 @@ function summarize(entries){
     if (ch === 'cancellation') {
       sum.cancel++;
       const reasonKey = normReason(e.appointment?.reason) || 'Unknown';
+      const reasonDisplay = (reasonKey === 'Other' && e.appointment?.otherText)
+        ? `Other · ${e.appointment.otherText}`
+        : prettyReasonLabel(e.appointment?.reason || reasonKey);
       sum.cancelReasons[reasonKey] = (sum.cancelReasons[reasonKey] || 0) + 1;
       const detail = sum.cancelReasonDetails[reasonKey] || (sum.cancelReasonDetails[reasonKey] = { total: 0, types: {} });
       detail.total += 1;
       detail.types[apptLabel] = (detail.types[apptLabel] || 0) + 1;
+      if (reasonKey === 'Other' && e.appointment?.otherText) {
+        detail.notes = detail.notes || [];
+        if (!detail.notes.includes(reasonDisplay)) detail.notes.push(reasonDisplay);
+      }
       const cancelBucket = sum.appointmentTypesByOutcome.cancellation;
       cancelBucket[apptLabel] = (cancelBucket[apptLabel] || 0) + 1;
       officeMetrics.cancelReasons[reasonKey] = (officeMetrics.cancelReasons[reasonKey] || 0) + 1;
@@ -1179,10 +1195,17 @@ function summarize(entries){
     } else if (ch === 'reschedule') {
       sum.resched++;
       const reasonKey = normReason(e.appointment?.reason) || 'Unknown';
+      const reasonDisplay = (reasonKey === 'Other' && e.appointment?.otherText)
+        ? `Other · ${e.appointment.otherText}`
+        : prettyReasonLabel(e.appointment?.reason || reasonKey);
       sum.reschedReasons[reasonKey] = (sum.reschedReasons[reasonKey] || 0) + 1;
       const detail = sum.reschedReasonDetails[reasonKey] || (sum.reschedReasonDetails[reasonKey] = { total: 0, types: {} });
       detail.total += 1;
       detail.types[apptLabel] = (detail.types[apptLabel] || 0) + 1;
+      if (reasonKey === 'Other' && e.appointment?.otherText) {
+        detail.notes = detail.notes || [];
+        if (!detail.notes.includes(reasonDisplay)) detail.notes.push(reasonDisplay);
+      }
       const reschedBucket = sum.appointmentTypesByOutcome.reschedule;
       reschedBucket[apptLabel] = (reschedBucket[apptLabel] || 0) + 1;
       officeMetrics.reschedReasons[reasonKey] = (officeMetrics.reschedReasons[reasonKey] || 0) + 1;
@@ -1419,11 +1442,18 @@ function drawBarChart(canvasId, dataMap, { labelMap={}, color='#4f46e5', palette
 function buildReasonValueMap(source = {}, totalCount = 0, asPercent = false){
   const denom = Math.max(1, totalCount);
   const map = {};
-  CANONICAL_REASON_ORDER.forEach(label => {
+  const order = [];
+  const applyValue = (label) => {
+    if (order.includes(label)) return;
     const value = Number(source[label] || 0);
     map[label] = asPercent ? (value / denom * 100) : value;
+    order.push(label);
+  };
+  CANONICAL_REASON_ORDER.forEach(applyValue);
+  Object.keys(source || {}).forEach(label => {
+    if (!CANONICAL_REASON_ORDER.includes(label)) applyValue(label);
   });
-  return map;
+  return { data: map, order };
 }
 
 function drawStackedTwo(canvasId, dataMap, { labels=['Tasks','Transfers'], colors=['#10b981','#f59e0b'] }={}){
@@ -1662,6 +1692,20 @@ function renderReasonDetails(containerId, detailMap, { labelForReason = (key) =>
       list.appendChild(li);
     });
     body.appendChild(list);
+    if (Array.isArray(detail.notes) && detail.notes.length){
+      const notesHeading = document.createElement('div');
+      notesHeading.className = 'reason-detail-notes-title';
+      notesHeading.textContent = 'Examples';
+      const noteList = document.createElement('ul');
+      noteList.className = 'reason-detail-notes';
+      detail.notes.forEach(note => {
+        const li = document.createElement('li');
+        li.textContent = note;
+        noteList.appendChild(li);
+      });
+      body.appendChild(notesHeading);
+      body.appendChild(noteList);
+    }
     item.appendChild(body);
     item.addEventListener('toggle', () => {
       if (item.open) nextState.add(reasonKey);
@@ -2615,24 +2659,31 @@ function updateKpisAndCharts() {
     const cancelPalette = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7', '#ec4899', '#6366f1', '#14b8a6', '#10b981', '#2dd4bf', '#0ea5e9', '#7c3aed', '#9333ea', '#d946ef', '#fb7185', '#f472b6', '#fbbf24', '#0f172a'];
     const reschedPalette = ['#1d4ed8', '#0ea5e9', '#14b8a6', '#10b981', '#84cc16', '#eab308', '#f59e0b', '#f97316', '#ef4444', '#a855f7', '#6366f1', '#8b5cf6', '#ec4899', '#f472b6', '#facc15', '#fb7185', '#d946ef', '#22d3ee', '#34d399', '#fcd34d', '#c084fc', '#111827'];
     const canonicalReasonLabelMap = Object.fromEntries(CANONICAL_REASON_ORDER.map(label => [label, prettyReasonLabel(label)]));
-    const cancelReasonMap = buildReasonValueMap(sum.cancelReasons, sum.cancel || 0, CURRENT_VIEW === 'monthly');
-    const reschedReasonMap = buildReasonValueMap(sum.reschedReasons, sum.resched || 0, CURRENT_VIEW === 'monthly');
+    const cancelReasonData = buildReasonValueMap(sum.cancelReasons, sum.cancel || 0, CURRENT_VIEW === 'monthly');
+    const reschedReasonData = buildReasonValueMap(sum.reschedReasons, sum.resched || 0, CURRENT_VIEW === 'monthly');
+    const ensureLabel = (label) => {
+      if (!canonicalReasonLabelMap[label]) {
+        canonicalReasonLabelMap[label] = prettyReasonLabel(label);
+      }
+    };
+    cancelReasonData.order.forEach(ensureLabel);
+    reschedReasonData.order.forEach(ensureLabel);
     const cancelReasonOptions = {
       palette: cancelPalette,
       labelMap: canonicalReasonLabelMap,
-      order: CANONICAL_REASON_ORDER,
+      order: cancelReasonData.order,
       maxValue: (CURRENT_VIEW === 'monthly') ? 100 : undefined,
       formatValue: (CURRENT_VIEW === 'monthly') ? (value) => `${Math.round(value)}%` : undefined
     };
     const reschedReasonOptions = {
       palette: reschedPalette,
       labelMap: canonicalReasonLabelMap,
-      order: CANONICAL_REASON_ORDER,
+      order: reschedReasonData.order,
       maxValue: (CURRENT_VIEW === 'monthly') ? 100 : undefined,
       formatValue: (CURRENT_VIEW === 'monthly') ? (value) => `${Math.round(value)}%` : undefined
     };
-    drawBarChart('chartCancelReasons', cancelReasonMap, cancelReasonOptions);
-    drawBarChart('chartReschedReasons', reschedReasonMap, reschedReasonOptions);
+    drawBarChart('chartCancelReasons', cancelReasonData.data, cancelReasonOptions);
+    drawBarChart('chartReschedReasons', reschedReasonData.data, reschedReasonOptions);
     renderReasonDetails('cancelReasonDetails', sum.cancelReasonDetails, { labelForReason: prettyReasonLabel });
     renderReasonDetails('reschedReasonDetails', sum.reschedReasonDetails, { labelForReason: prettyReasonLabel });
 
