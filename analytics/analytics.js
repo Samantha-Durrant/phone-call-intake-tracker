@@ -2083,9 +2083,6 @@ try {
   if (url.searchParams.get('test') === '1') {
     const btn = document.getElementById('rolloverNow'); if (btn) { btn.style.display=''; btn.textContent='Recompute Now'; btn.addEventListener('click', () => { try { SELECTED_MONTH = monthKey(Date.now()); if (monthPicker) monthPicker.value = SELECTED_MONTH; renderTable(); updateKpisAndCharts(); } catch {} }); }
   }
-  if (url.searchParams.get('openScreenpop') === '1' || url.searchParams.get('screenpop') === '1') {
-    setTimeout(() => launchScreenpop({ focus: false }), 100);
-  }
   setView('daily');
   initializeOutcomeTabs();
   initializeOutcomeChartToggle();
