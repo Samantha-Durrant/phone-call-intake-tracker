@@ -181,6 +181,85 @@ let LAST_SUMMARY = null;
 const APPOINTMENT_LIST_STATE = new Map();
 const outcomeChartVisibility = { types: true, reasons: true };
 
+function normalizeReasonKey(value){
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+const CRM_CANCEL_REASON_LABELS = [
+  'Patient Scheduling Error',
+  'Patient Transportation Issue',
+  'Provider Requested Change',
+  'Traffic',
+  'Unknown',
+  'Weather',
+  'Office Scheduling Error',
+  'Patient Arrived Late',
+  'Patient Cancelled',
+  'Patient Deceased',
+  'Patient Forgot',
+  'Patient is Sick',
+  'Patient Left',
+  'Childcare Issue',
+  'Conflicting Appointment',
+  'COVID-19',
+  'Family Emergency',
+  'No Longer Needs Appointment',
+  'No Referral/Authorization',
+  'Office Rescheduled',
+  'Work or School Conflict'
+];
+
+const CRM_CANCEL_REASON_LOOKUP = CRM_CANCEL_REASON_LABELS.reduce((acc, label) => {
+  acc[normalizeReasonKey(label)] = label;
+  return acc;
+}, {});
+
+const CRM_CANCEL_REASON_SYNONYMS = {
+  no_longer_needed: 'No Longer Needs Appointment',
+  no_longer_need: 'No Longer Needs Appointment',
+  illness_family_emergency: 'Family Emergency',
+  family_emergency: 'Family Emergency',
+  illness: 'Patient is Sick',
+  patient_sick: 'Patient is Sick',
+  sick: 'Patient is Sick',
+  work_school_conflict: 'Work or School Conflict',
+  work_or_school_conflict: 'Work or School Conflict',
+  work_school: 'Work or School Conflict',
+  insurance: 'No Referral/Authorization',
+  referral: 'No Referral/Authorization',
+  authorization: 'No Referral/Authorization',
+  no_referral: 'No Referral/Authorization',
+  no_authorization: 'No Referral/Authorization',
+  no_referral_authorization: 'No Referral/Authorization',
+  patient_cancelled: 'Patient Cancelled',
+  patient_canceled: 'Patient Cancelled',
+  patient_cancel: 'Patient Cancelled',
+  provider_change: 'Provider Requested Change',
+  provider_requested: 'Provider Requested Change',
+  provider_requested_change: 'Provider Requested Change',
+  transportation: 'Patient Transportation Issue',
+  patient_transportation: 'Patient Transportation Issue',
+  scheduling_error: 'Patient Scheduling Error',
+  patient_error: 'Patient Scheduling Error',
+  office_error: 'Office Scheduling Error',
+  covid: 'COVID-19',
+  covid19: 'COVID-19',
+  covid_19: 'COVID-19'
+};
+
+function mapCancellationReason(value){
+  const key = normalizeReasonKey(value);
+  if (!key) return '';
+  if (CRM_CANCEL_REASON_LOOKUP[key]) return CRM_CANCEL_REASON_LOOKUP[key];
+  if (CRM_CANCEL_REASON_SYNONYMS[key]) return CRM_CANCEL_REASON_SYNONYMS[key];
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return raw.replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function prettyReasonLabel(reason){
   const raw = String(reason || '').trim();
   if (!raw) return '';
@@ -193,7 +272,9 @@ function prettyReasonLabel(reason){
     'referral':'Referral',
     'pooo r s':'POOO r/s'
   };
-  return map[key] || raw;
+  if (map[key]) return map[key];
+  const canonical = mapCancellationReason(raw);
+  return canonical || raw;
 }
 
 function normalizeTypeAndOffice(appt){
@@ -513,11 +594,191 @@ function monthKey(ts){ const d=new Date(ts); const m=String(d.getMonth()+1).padS
 function parseYearMonth(ym){ try { const [y,m]=String(ym||'').split('-').map(n=>parseInt(n,10)); return { y: isFinite(y)?y:new Date().getFullYear(), m: isFinite(m)?m: (new Date().getMonth()+1) }; } catch { const d=new Date(); return { y:d.getFullYear(), m:d.getMonth()+1}; } }
 function daysInMonth(y,m){ return new Date(y, m, 0).getDate(); }
 function weekdayOccurrencesInMonth(y,m){ const map={0:0,1:0,2:0,3:0,4:0,5:0,6:0}; const total=daysInMonth(y,m); for(let d=1; d<=total; d++){ const wd=new Date(y, m-1, d).getDay(); map[wd]++; } return map; }
-function getActiveEntries(){
+function generateReschedulePairId(){
+  return `rp_${Date.now().toString(36)}${Math.random().toString(36).slice(2,8)}`;
+}
+
+function normalizeOutcomeEvent(outcome = {}, entry = {}){
+  const appointment = entry.appointment || {};
+  const typeRaw = String(outcome.type || outcome.change || outcome.outcome || '').toLowerCase();
+  let type;
+  switch (typeRaw) {
+    case 'cancel':
+    case 'cancellation':
+      type = 'cancellation';
+      break;
+    case 'reschedule':
+      type = 'reschedule';
+      break;
+    case 'question_only':
+    case 'question':
+      type = 'question_only';
+      break;
+    case 'no_change':
+    case 'no_appointment':
+    case 'no appointment':
+    case 'no_show':
+      type = 'no_appointment';
+      break;
+    default:
+      type = null;
+  }
+  const reasons = Array.isArray(outcome.reasons)
+    ? outcome.reasons.map(r => String(r || '').trim()).filter(Boolean)
+    : [];
+  const reasonRaw = String(outcome.reason ?? outcome.reasonRaw ?? outcome.reason_raw ?? (reasons[0] || appointment.reason || '')).trim();
+  if (!reasons.length && reasonRaw) reasons.push(reasonRaw);
+  const noApptReasons = Array.isArray(outcome.noAppointmentReasons || outcome.no_appointment_reasons)
+    ? (outcome.noAppointmentReasons || outcome.no_appointment_reasons).map(r => String(r || '').trim()).filter(Boolean)
+    : [];
+  if (!type) {
+    if (outcome.questionOnly || outcome.question_only || appointment.questionOnly) {
+      type = 'question_only';
+    } else if (noApptReasons.length || (Array.isArray(appointment.noAppointmentReasons) && appointment.noAppointmentReasons.length)) {
+      type = 'no_appointment';
+    } else if ((appointment.change || '').toLowerCase() === 'cancellation') {
+      type = 'cancellation';
+    } else if ((appointment.change || '').toLowerCase() === 'reschedule') {
+      type = 'reschedule';
+    } else {
+      type = 'other';
+    }
+  }
+  const questionOnly = type === 'question_only' || !!(outcome.questionOnly || outcome.question_only || appointment.questionOnly);
+  if (questionOnly && !noApptReasons.includes('Question Only')) noApptReasons.unshift('Question Only');
+  const reasonMapped = (type === 'cancellation' || type === 'reschedule')
+    ? mapCancellationReason(reasonRaw || reasons[0] || appointment.reason || '')
+    : (questionOnly ? 'Question Only' : (reasonRaw || ''));
+  const metadata = outcome.metadata && typeof outcome.metadata === 'object'
+    ? { ...outcome.metadata }
+    : (outcome.meta && typeof outcome.meta === 'object'
+      ? { ...outcome.meta }
+      : (appointment.metadata && typeof appointment.metadata === 'object' ? { ...appointment.metadata } : {}));
+  return {
+    type,
+    scheduled: type === 'reschedule'
+      ? true
+      : (typeof outcome.scheduled === 'boolean'
+        ? outcome.scheduled
+        : (typeof appointment.scheduled === 'boolean' ? appointment.scheduled : false)),
+    reasons,
+    reasonRaw,
+    reasonMapped,
+    otherText: outcome.otherText || outcome.other_text || appointment.otherText || '',
+    noAppointmentReasons,
+    questionOnly,
+    appointmentId: outcome.appointmentId || outcome.appointment_id || appointment.appointmentId || '',
+    previousAppointmentId: outcome.previousAppointmentId || outcome.previous_appointment_id || outcome.originalAppointmentId || outcome.oldAppointmentId || appointment.previousAppointmentId || '',
+    newAppointmentId: outcome.newAppointmentId || outcome.new_appointment_id || appointment.newAppointmentId || '',
+    reschedulePairId: outcome.reschedulePairId || outcome.reschedule_pair_id || appointment.reschedulePairId || '',
+    reasonCode: outcome.reasonCode || outcome.reason_code || outcome.crmReasonCode || appointment.reasonCode || '',
+    metadata
+  };
+}
+
+function legacyOutcomeFromEntry(entry){
+  const appt = entry?.appointment || {};
+  return normalizeOutcomeEvent({
+    type: appt.change,
+    scheduled: appt.scheduled,
+    reasons: Array.isArray(appt.reasons) ? appt.reasons : (appt.reason ? [appt.reason] : []),
+    reason: appt.reason,
+    noAppointmentReasons: appt.noAppointmentReasons,
+    questionOnly: appt.questionOnly,
+    otherText: appt.otherText,
+    appointmentId: appt.appointmentId,
+    previousAppointmentId: appt.previousAppointmentId,
+    newAppointmentId: appt.newAppointmentId,
+    reschedulePairId: appt.reschedulePairId,
+    reasonCode: appt.reasonCode,
+    metadata: appt.metadata
+  }, entry);
+}
+
+function buildOutcomeEntry(entry, outcome, index){
+  const normalized = normalizeOutcomeEvent(outcome, entry);
+  const appointment = { ...(entry.appointment || {}) };
+  const patient = entry.patient ? { ...entry.patient } : {};
+  const change = (() => {
+    switch (normalized.type) {
+      case 'cancellation': return 'cancellation';
+      case 'reschedule': return 'reschedule';
+      case 'question_only':
+      case 'no_appointment':
+        return 'none';
+      default:
+        return String(appointment.change || 'none').toLowerCase();
+    }
+  })();
+  appointment.change = change;
+  appointment.scheduled = normalized.type === 'reschedule'
+    ? true
+    : (typeof normalized.scheduled === 'boolean' ? normalized.scheduled : !!appointment.scheduled);
+  appointment.reason = normalized.reasonRaw || appointment.reason || '';
+  appointment.reasons = normalized.reasons.length ? normalized.reasons : (Array.isArray(appointment.reasons) ? appointment.reasons : (appointment.reason ? [appointment.reason] : []));
+  appointment.reasonMapped = normalized.reasonMapped || mapCancellationReason(appointment.reason || normalized.reasonRaw);
+  appointment.reasonCode = normalized.reasonCode || appointment.reasonCode || '';
+  const noAppt = normalized.noAppointmentReasons.length
+    ? normalized.noAppointmentReasons
+    : (Array.isArray(appointment.noAppointmentReasons) ? appointment.noAppointmentReasons : []);
+  appointment.noAppointmentReasons = Array.from(new Set(noAppt)).filter(Boolean);
+  appointment.questionOnly = normalized.questionOnly || appointment.questionOnly || appointment.noAppointmentReasons?.includes?.('Question Only') || false;
+  if (appointment.questionOnly && !appointment.noAppointmentReasons.includes('Question Only')) {
+    appointment.noAppointmentReasons.unshift('Question Only');
+  }
+  appointment.otherText = normalized.otherText || appointment.otherText || '';
+  appointment.appointmentId = normalized.appointmentId || appointment.appointmentId || '';
+  appointment.previousAppointmentId = normalized.previousAppointmentId || appointment.previousAppointmentId || '';
+  appointment.newAppointmentId = normalized.newAppointmentId || appointment.newAppointmentId || '';
+  appointment.reschedulePairId = normalized.reschedulePairId || appointment.reschedulePairId || '';
+  appointment.metadata = { ...(appointment.metadata || {}), ...(normalized.metadata || {}) };
+  appointment.outcomeType = normalized.type;
+  appointment.outcomeScheduled = normalized.scheduled;
+  const norm = normalizeTypeAndOffice(appointment);
+  if (norm.apptType) appointment.type = norm.apptType;
+  if (norm.office) appointment.office = norm.office;
+  const eventId = entry.id ? `${entry.id}::${index}` : `evt_${(entry.time || Date.now()).toString(36)}_${Math.random().toString(36).slice(2,6)}`;
+  return {
+    ...entry,
+    id: eventId,
+    baseId: entry.id || null,
+    eventIndex: index,
+    outcome: normalized,
+    appointment,
+    patient
+  };
+}
+
+function expandEntryToOutcomes(entry){
+  const outcomes = Array.isArray(entry?.appointment?.outcomes) && entry.appointment.outcomes.length
+    ? entry.appointment.outcomes
+    : [legacyOutcomeFromEntry(entry)];
+  const expanded = outcomes.map((outcome, index) => buildOutcomeEntry(entry, outcome, index));
+  const cancel = expanded.find(item => item.outcome?.type === 'cancellation');
+  const resched = expanded.find(item => item.outcome?.type === 'reschedule');
+  if (cancel && resched) {
+    const pairId = cancel.appointment.reschedulePairId || resched.appointment.reschedulePairId || generateReschedulePairId();
+    cancel.outcome.reschedulePairId = pairId;
+    resched.outcome.reschedulePairId = pairId;
+    cancel.appointment.reschedulePairId = pairId;
+    resched.appointment.reschedulePairId = pairId;
+  }
+  return expanded;
+}
+
+function expandLedgerEntries(entries){
+  return (entries || []).flatMap(expandEntryToOutcomes);
+}
+
+function getActiveLedgerEntries(){
   const all = loadLedger();
   if (CURRENT_VIEW === 'daily') return all.filter(e => isSameDay(e.time, Date.now()));
   const mk = SELECTED_MONTH || monthKey(Date.now());
   return all.filter(e => monthKey(e.time) === mk);
+}
+
+function getActiveEntries(){
+  return expandLedgerEntries(getActiveLedgerEntries());
 }
 
 function matchesSelectedOffice(entry){
@@ -550,11 +811,12 @@ function renderTable(){
   const entries = getScopedEntries();
   const totalEntries = entries.length;
   tbody.innerHTML = '';
+  const TOTAL_COLUMNS = 16;
   if (!totalEntries){
     const tr = document.createElement('tr');
     tr.className = 'empty';
     const td = document.createElement('td');
-    td.colSpan = 12;
+    td.colSpan = TOTAL_COLUMNS;
     td.textContent = 'No submissions yet';
     tr.appendChild(td);
     tbody.appendChild(tr);
@@ -582,7 +844,7 @@ function renderTable(){
     const tr = document.createElement('tr');
     tr.className = 'empty';
     const td = document.createElement('td');
-    td.colSpan = 12;
+    td.colSpan = TOTAL_COLUMNS;
     td.textContent = 'No submissions match this filter';
     tr.appendChild(td);
     tbody.appendChild(tr);
@@ -606,11 +868,29 @@ function renderTable(){
     tr.appendChild(td(fmtDate(e.time)));
     tr.appendChild(td(e.patient?.mrn || ''));
     tr.appendChild(td(e.patient?.type || ''));
-    tr.appendChild(td(e.appointment?.scheduled ? 'Yes' : 'No'));
-    tr.appendChild(td(e.appointment?.change || ''));
+    const scheduledLabel = e.appointment?.scheduled ? 'Yes' : 'No';
+    tr.appendChild(td(scheduledLabel));
+    const outcomeType = String(e.outcome?.type || e.appointment?.outcomeType || e.appointment?.change || 'none').toLowerCase();
+    let outcomeLabel = '';
+    switch (outcomeType) {
+      case 'cancellation': outcomeLabel = 'Cancellation'; break;
+      case 'reschedule':
+      case 'rescheduled': outcomeLabel = 'Reschedule'; break;
+      case 'question_only': outcomeLabel = 'Question Only'; break;
+      case 'no_appointment': outcomeLabel = 'No Appointment'; break;
+      case 'none':
+      case 'other':
+      default:
+        outcomeLabel = (e.appointment?.change && e.appointment.change !== 'none')
+          ? e.appointment.change.replace(/\b\w/g, c => c.toUpperCase())
+          : 'None';
+        break;
+    }
+    tr.appendChild(td(outcomeLabel));
     const { apptType, office } = normalizeTypeAndOffice(e.appointment);
     const apptLabel = apptType || 'Unspecified';
-    const reasonText = prettyReasonLabel(e.appointment?.reason);
+    const reasonSource = e.appointment?.reasonMapped || e.appointment?.reason || e.outcome?.reasonMapped || e.outcome?.reasonRaw || '';
+    const reasonText = prettyReasonLabel(reasonSource);
     const noApptList = Array.isArray(e.appointment?.noAppointmentReasons) ? e.appointment.noAppointmentReasons.map(prettyReasonLabel).filter(Boolean) : [];
     const reasonParts = [];
     if (reasonText) reasonParts.push(reasonText);
@@ -618,6 +898,10 @@ function renderTable(){
     tr.appendChild(td(apptType || 'Unspecified'));
     tr.appendChild(td(office || 'Unspecified'));
     tr.appendChild(td(reasonParts.join(' · ')));
+    tr.appendChild(td(e.appointment?.reasonCode || e.outcome?.reasonCode || ''));
+    tr.appendChild(td(e.appointment?.previousAppointmentId || ''));
+    tr.appendChild(td(e.appointment?.newAppointmentId || ''));
+    tr.appendChild(td(e.appointment?.reschedulePairId || ''));
     const confirmed = e.appointment?.confirmed ? 'Yes' : 'No';
     tr.appendChild(td(confirmed));
     tr.appendChild(td(e.appointment?.otherText || ''));
@@ -644,7 +928,32 @@ function applyMrnFilter(){
 
 function exportCsv(){
   const entries = getScopedEntries();
-  const cols = ['time','callId','patient.mrn','patient.name','patient.type','appointment.scheduled','appointment.change','appointment.type','appointment.office','appointment.reason','appointment.noAppointmentReasons','appointment.questionOnly','appointment.otherText','appointment.confirmed','actions'];
+  const cols = [
+    'time',
+    'agent',
+    'callId',
+    'ani',
+    'patient.mrn',
+    'patient.name',
+    'patient.type',
+    'appointment.scheduled',
+    'appointment.outcome',
+    'appointment.change',
+    'appointment.type',
+    'appointment.office',
+    'appointment.reason',
+    'appointment.reasonMapped',
+    'appointment.reasonCode',
+    'appointment.noAppointmentReasons',
+    'appointment.questionOnly',
+    'appointment.otherText',
+    'appointment.confirmed',
+    'appointment.appointmentId',
+    'appointment.previousAppointmentId',
+    'appointment.newAppointmentId',
+    'appointment.reschedulePairId',
+    'actions'
+  ];
   const header = cols.join(',');
   const lines = [header];
   for (const e of entries){
@@ -653,6 +962,22 @@ function exportCsv(){
       .filter(Boolean).join('; ') : '';
     const norm = normalizeTypeAndOffice(e.appointment);
     const noApptCsv = Array.isArray(e.appointment?.noAppointmentReasons) ? e.appointment.noAppointmentReasons.map(prettyReasonLabel).join('|') : '';
+    const outcomeType = String(e.outcome?.type || e.appointment?.outcomeType || e.appointment?.change || 'none').toLowerCase();
+    let outcomeLabel = '';
+    switch (outcomeType) {
+      case 'cancellation': outcomeLabel = 'Cancellation'; break;
+      case 'reschedule':
+      case 'rescheduled': outcomeLabel = 'Reschedule'; break;
+      case 'question_only': outcomeLabel = 'Question Only'; break;
+      case 'no_appointment': outcomeLabel = 'No Appointment'; break;
+      case 'none':
+      case 'other':
+      default:
+        outcomeLabel = (e.appointment?.change && e.appointment.change !== 'none')
+          ? e.appointment.change.replace(/\b\w/g, c => c.toUpperCase())
+          : 'None';
+        break;
+    }
     const row = [
       fmtDate(e.time),
       e.agent||'',
@@ -662,14 +987,21 @@ function exportCsv(){
       e.patient?.name||'',
       e.patient?.type||'',
       (e.appointment?.scheduled ? 'Yes' : 'No'),
+      outcomeLabel,
       e.appointment?.change||'',
       norm.apptType || '',
       norm.office || 'Unspecified',
-      prettyReasonLabel(e.appointment?.reason)||'',
+      e.appointment?.reason || '',
+      prettyReasonLabel(e.appointment?.reasonMapped || e.appointment?.reason || ''),
+      e.appointment?.reasonCode || '',
       noApptCsv,
       e.appointment?.questionOnly ? 'Yes' : 'No',
       e.appointment?.otherText||'',
       e.appointment?.confirmed ? 'Yes' : 'No',
+      e.appointment?.appointmentId || '',
+      e.appointment?.previousAppointmentId || '',
+      e.appointment?.newAppointmentId || '',
+      e.appointment?.reschedulePairId || '',
       actions
     ]
     .map(v => String(v).replaceAll('"','""'))
@@ -721,7 +1053,11 @@ function summarize(entries){
   };
   OFFICE_KEYS.forEach(name => { sum.byOffice[name] = createOfficeBucket(); });
   const inRange = (h) => h>=8 && h<=17;
-  const normReason = (r) => String(r||'').trim().replace(/[\/]+/g,' ').replace(/\s+/g,' ').trim();
+  const normReason = (r) => {
+    const mapped = mapCancellationReason(r);
+    if (mapped) return mapped;
+    return String(r||'').trim().replace(/[\/]+/g,' ').replace(/\s+/g,' ').trim();
+  };
   entries.forEach(e => {
     const d = new Date(e.time);
     const h = d.getHours();
